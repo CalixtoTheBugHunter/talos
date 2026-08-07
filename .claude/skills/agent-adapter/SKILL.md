@@ -99,7 +99,7 @@ What each capability must guarantee — every row's requirement is the rule link
 | **How to launch it** | The spawn happens here and [nowhere else in Talos](https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary#only-the-adapter-layer-spawns-a-process). An explicit working directory and environment, and [no credential in either](#rule-6--the-adapter-holds-no-credential). Nothing in core decides how a particular agent is invoked |
 | **How to pass a prompt** | Talos [assembles the prompt](https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary#what-is-persistent-context-and-what-is-not) and the adapter transports it. The adapter does not edit, summarize, re-order, or append to it — a prompt the adapter rewrote makes [token overhead](https://github.com/CalixtoTheBugHunter/talos/wiki/Vision-and-Principles#budgets-that-make-the-above-testable) unattributable and puts agent-specific prompt shaping outside the guideline set |
 | **How to stream its output** | Incrementally, as it arrives, event-driven — [nothing polls](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#nothing-polls), and the console distinguishes [waiting, streaming, and running a tool](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#streaming-is-three-states-not-one), so the stream must carry enough to tell them apart. An adapter that buffers to completion has removed streaming from a console specified to show output "as it happens" ([Session Console](https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is)) |
-| **How to detect a tool call or a permission request** | Two distinct event types — [Rule 2](#rule-2--a-tool-call-and-a-permission-request-are-two-event-types) |
+| **How to detect a tool call or a permission request** | Two distinct event types — [Rule 2](#rule-2--a-tool-call-and-a-permission-request-are-two-event-types). Detection is round-trip: the SPEC has the adapter "[surface the request and carry back the decision the gate produced](https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary#a-tool-call-and-a-permission-request-are-two-events)", so the path that returns that decision belongs to this capability and is **not** a seventh. What it may not do is decide |
 | **How to report token usage** | Structured data, parsed inside the adapter — [Rule 3](#rule-3--tokens-cross-as-structured-data-parsed-inside-the-adapter) |
 | **How to stop it** | The process and every descendant, dead — [Rule 4](#rule-4--stop-guarantees-death-including-children) |
 
@@ -107,6 +107,11 @@ What each capability must guarantee — every row's requirement is the rule link
 *every* adapter must then satisfy, and the contributor writing the third adapter pays for it. If a
 seventh looks necessary, that is a SPEC question — the six are specified — so it goes to a human, not
 into the protocol.
+
+Count capabilities, not methods. The six are obligations, and one of them can take more than one
+function to discharge — the return path above is the case that comes up first. The test is whether a
+member discharges one of the six or adds a seventh obligation, and reading it the other way turns
+this rule into an argument about method count on a protocol nobody has written yet.
 
 Two constraints on the protocol's shape, both from the contract rather than from taste:
 
@@ -422,7 +427,8 @@ that does not depend on it continues.
 
 - [ ] [§ Agent adapters](https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary#agent-adapters)
       was read in this session, from the wiki, before the first edit — and so was the stub adapter.
-- [ ] Exactly the six SPEC capabilities, each guaranteeing what the table above requires. No seventh.
+- [ ] Exactly the six SPEC capabilities, each guaranteeing what the table above requires. No seventh
+      *obligation* — the gate's return path discharges the fourth rather than adding one.
 - [ ] The protocol names no specific agent or provider, and the adapter's name matches `agents.yaml`.
 - [ ] Tool call and permission request are **distinct types**, each with its own test plus one for a
       fixture containing both.
