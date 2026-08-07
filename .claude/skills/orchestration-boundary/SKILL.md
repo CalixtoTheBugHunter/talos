@@ -275,29 +275,37 @@ Talos runs [unsandboxed](https://github.com/CalixtoTheBugHunter/talos/wiki/Techn
 precisely so it can spawn agent CLIs, so "can it spawn a process" is not the question — "which
 module may" is.
 
-**`TalosAdapters`, and nothing else.**
+From [§ Only the adapter layer spawns a process](https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary#only-the-adapter-layer-spawns-a-process):
 
-⚠️ **Provenance, because it changes how much weight this carries.** The wiki does *not* name a
-module. That name is fixed by two board items, which the
-[development-time authority order](../spec-driven-change/SKILL.md) ranks below the wiki and above
-the code:
+> **Only the agent adapter layer may spawn a subprocess. No other part of Talos may.** Spawning is an
+> adapter capability ("how to launch it", above), and confining it to one place is what keeps
+> [MVP DoD](https://github.com/CalixtoTheBugHunter/talos/wiki/MVP-Definition-of-Done) item 11 checkable by the compiler rather than remembered by a
+> reviewer.
 
-- [#36 — Define module boundaries that structurally enforce the orchestration boundary](https://github.com/CalixtoTheBugHunter/talos/issues/36):
-  "The dependency graph is documented in `ARCHITECTURE.md` with an explicit statement of which
-  module may spawn a subprocess (only `TalosAdapters`)"
-- [#24 — Add the spec-guard CI check](https://github.com/CalixtoTheBugHunter/talos/issues/24):
-  "It greps for PTY allocation and shell-spawn patterns outside the adapter module" and "It asserts
-  only the adapter module spawns subprocesses."
+> - A spawn anywhere outside the adapter layer is a **defect**, whatever it is for.
 
-So a spawn outside `TalosAdapters` is a **stop** on board-item authority, and it will fail
-spec-guard once #24 lands. Until #36 lands there is no module graph to check against — the rule
-still applies, and until then it is checked by reading rather than by the compiler. That the rule
-lives only in issue bodies is a SPEC gap; it is raised below, and it does not license ignoring it.
+Concretely, that layer is the **`TalosAdapters`** module. The SPEC states the rule as a *layer* so a
+Swift-level rename cannot make it wrong; the module name is fixed by
+[#36](https://github.com/CalixtoTheBugHunter/talos/issues/36) — "an explicit statement of which
+module may spawn a subprocess (only `TalosAdapters`)" — and
+[Decision 18](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions)
+records both halves. So check the layer first; if a spawn is outside it, the module name is not the
+argument.
 
-Related, and separately specified: `stop()` must actually kill the process — "The user can **stop
-any running session immediately**, and stop means the process is killed"
-([Safeguards § Rules](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#rules)).
-A spawn site that cannot guarantee death is a boundary problem and a Safeguards problem at once.
+A spawn outside it will also fail spec-guard once
+[#24](https://github.com/CalixtoTheBugHunter/talos/issues/24) lands — "It asserts only the adapter
+module spawns subprocesses." Until #36 lands there is no module graph to check against, so until
+then the rule is checked by reading rather than by the compiler. That is a reason to check it, not a
+grace period.
+
+The SPEC pairs the rule with its consequence — whatever spawns must be able to kill:
+
+> - Whatever spawns must be able to kill: the user can
+>   [stop any running session immediately, and stop means the process is killed](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#rules).
+
+A spawn site that cannot guarantee death is a boundary problem and a
+[Safeguards](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#rules)
+problem at once.
 
 ---
 
@@ -368,8 +376,8 @@ boundary:
 
 | Gap | Why it is a gap |
 | --- | --- |
-| **The subprocess module is not in the wiki** | `TalosAdapters` is binding via [#36](https://github.com/CalixtoTheBugHunter/talos/issues/36) / [#24](https://github.com/CalixtoTheBugHunter/talos/issues/24) only. A rule this load-bearing living solely in issue bodies is a candidate for [the SPEC page](https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary#agent-adapters) and the Decision Log — a maintainer's call, not this skill's |
 | **Session log format drift** | An [open question](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#open-questions): "Cost tracking parses Claude Code's own logs. What happens when a CLI update changes that format — fail loudly, or degrade to token-less sessions?" Expect proxying to be re-proposed as the fix. It is already refused by [§ No proxying](https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#no-proxying); the *degradation* behavior is what is undecided |
+| **Keychain reference syntax** | `agents.yaml` holds "references to secrets, never secrets" ([Project Library](https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#where-it-lives)) and no page specifies the reference format. It is a public config contract users write against, so it wants a decision rather than whichever shape the first implementation picks |
 
 A change that needs either answer stops at the question. Everything in the change that does not
 depend on it continues.
