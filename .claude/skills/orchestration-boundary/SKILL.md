@@ -149,7 +149,7 @@ above wastes the reviewer's trust:
 | Allowed | The SPEC line that allows it |
 | --- | --- |
 | Writing MCP server / CLI declarations *for the agent* | "MCP servers are configured *for the agent*; Talos writes that configuration and reads its results" ([boundary](https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary#consequences-that-must-hold-at-all-times)) |
-| Parsing the agent's own session logs for tokens and cost | [Essential Tools § How cost is measured](https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#monitor-screen) — parse logs, map to shipped price tables, no network call |
+| Parsing the agent's own session logs for tokens and cost | [Essential Tools § How cost is measured](https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#how-cost-is-measured) — parse logs, map to shipped price tables, no network call. The parse belongs [inside the adapter](https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary#the-adapter-reports-tokens-as-structured-data), which reports structured data |
 | Spawning the agent CLI as a child process | "Talos hands prompt + context to the CONNECTED AGENT CLI (a process it spawns)" ([flow, step 3](https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary#how-a-message-actually-flows-into-talos-workflow)) — and only from the one module below |
 | **Non-model** credentials in the Keychain | [Project Library § Where it lives](https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#where-it-lives) — "API keys and tokens live only in the **macOS Keychain**", and `agents.yaml` holds "references to secrets, never secrets". Model keys stay excluded by the third consequence |
 | In-app auto-update over the network | [Technology & Distribution § Decisions](https://github.com/CalixtoTheBugHunter/talos/wiki/Technology-and-Distribution#decisions) — "Sparkle-style in-app auto-update, user-controlled". A sanctioned network client, outside core, for a non-model purpose. Not a precedent for any other network call |
@@ -237,7 +237,8 @@ Where a capability is genuinely missing, the answer is an
 never a client. "**Adding an agent means writing one adapter, never touching Talos core.**" And per
 [Contributing](https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing#the-easiest-high-value-contribution-an-agent-adapter):
 "If writing an adapter requires changing Talos core, that is a bug in Talos core — please open an
-issue rather than working around it." For adapter work itself, use the `agent-adapter` skill.
+issue rather than working around it." For adapter work itself, use
+[`agent-adapter`](../agent-adapter/SKILL.md), which owns the six capabilities and that report.
 
 ---
 
@@ -301,11 +302,15 @@ grace period.
 The SPEC pairs the rule with its consequence — whatever spawns must be able to kill:
 
 > - Whatever spawns must be able to kill: the user can
->   [stop any running session immediately, and stop means the process is killed](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#rules).
+>   [stop any running session immediately, and stop means the process is killed](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#rules) —
+>   [the whole process tree](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#stop-kills-the-tree), not the process Talos holds a
+>   handle to.
 
 A spawn site that cannot guarantee death is a boundary problem and a
 [Safeguards](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#rules)
-problem at once.
+problem at once. The tree is the binding scope —
+"[a surviving child is a failed stop, not a partial one](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#stop-kills-the-tree)" —
+and for adapter work [`agent-adapter`](../agent-adapter/SKILL.md) owns it.
 
 ---
 
