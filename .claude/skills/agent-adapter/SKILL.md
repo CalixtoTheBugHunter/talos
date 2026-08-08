@@ -123,7 +123,8 @@ Two constraints on the protocol's shape, both from the contract rather than from
   and everything under `.talos/` is plain text a user writes by hand
   ([where it lives](https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#where-it-lives)).
   So an adapter name is a **public config contract** — renaming one breaks a user's committed file,
-  the same reasoning the SPEC applies to the [action-type taxonomy](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#open-questions).
+  the same reasoning the SPEC applies to the [action-type taxonomy](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#adding-renaming-and-removing-a-type),
+  where "**A shipped name is never reused for a different meaning, and never renamed in place.**"
 
 ---
 
