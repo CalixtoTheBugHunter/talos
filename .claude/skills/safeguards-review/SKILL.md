@@ -271,6 +271,30 @@ Checklist for any approval UI change:
 gives: `↩` "clears prompts nobody read and confirms defaults nobody chose, faster than reading is
 possible." Convenience on this screen is the failure mode, not a benefit traded against safety.
 
+### A prompt that is not an approval still blocks a session
+
+Not every blocking prompt is a gate prompt. The
+[board write conflict prompt](https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#when-a-human-and-talos-move-the-same-item)
+is the decided case: the gate asks whether Talos may act, while that prompt asks which of two states
+is correct. Per [decision 42](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#foundational-decisions),
+it is **not a Safeguards approval and never substitutes for one** — and it still inherits
+[decision 26](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#foundational-decisions)'s
+discipline, because it stops a session the same way.
+
+Two failures to look for, and both read as reasonable in a diff:
+
+- **An allowlist suppressing it.** `board.item.move` is
+  [write tier](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#write-tier)
+  and may be legitimately allowlisted, so the gate is *meant* to be silent on that write. Code that
+  treats the allowlist as permission to skip the conflict check has used a tier decision to answer a
+  data-loss question.
+- **A conflict check standing in for the gate, or the reverse.** They are separate prompts with
+  separate triggers. A write that shows one and skips the other is a defect either way.
+
+Where a non-approval prompt blocks a session, check it against Rule 4's fail-closed table and the
+no-timer rule as well: unpresentable means the write is abandoned rather than a state assumed, and
+the choice is never made from the notification.
+
 ---
 
 ## Rule 4 — The gate fails closed
@@ -522,7 +546,6 @@ surface:
 | Gap | Why it is a gap |
 | --- | --- |
 | **Where a specific action sits, when the taxonomy does not name it** | Decision [37](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#foundational-decisions) settled the *set*, and the [tier table](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#tiers) still gives examples per tier rather than a total mapping. An action in neither is the unrecognized case: it is safely gated at the top tier, and *which* tier it belongs in — plus the name it gets — is a human decision and a Decision Log append |
-| **Board write conflicts** | An [open question](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#open-questions) — "Talos and a human can move the same item. Last-write-wins, detect-and-ask, or Talos re-reads before every write?" `detect-and-ask` would add a prompt that is not a Safeguards approval, so it needs deciding before that prompt is designed |
 
 A change that needs one of these answers moves to **Blocked** — which is
 [a real destination, not a failure to try harder](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#the-dev-cycle) —
