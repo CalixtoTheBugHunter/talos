@@ -222,3 +222,13 @@ describes:
 - **Not close #900.** A passed review is not a close;
   [`create-issue`](../../create-issue/SKILL.md) closes the item against its own criteria, per
   [Decision 40](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#process-decisions).
+- **Not defer any of it.** Findings 1 and 2 are orchestration-boundary and release-gate violations, and
+  per [§ Approving a partial change](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#approving-a-partial-change)
+  those are "met in the PR or the PR does not merge" — so a partial approval with follow-up items is
+  **not** available here. Finding 3 is the same: cost labeling is specified behavior, not a nicety.
+- **Not claim to be the approval.** Per
+  [Decision 43](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#process-decisions) the
+  verdict is a self-check, and the review says so.
+- **Not move the item anywhere but back.** Findings send synthetic #900 to `In progress`, per
+  [Decision 44](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#process-decisions) —
+  not to `Blocked`, since none of the seven findings is a SPEC gap.

@@ -1,6 +1,6 @@
 ---
 name: review-pr
-description: Reviewing a pull request against the SPEC. Use this whenever a PR is to be reviewed, approved, rejected, or assessed as mergeable — "review this PR", "review #N", "is this mergeable", "look over this diff", "can this merge", "what do you think of this change", "approve this", "LGTM?", "check my PR before I ask for review". Also use it before merging anything, and when a PR is moved out of the In review status. Enforces the adversarial posture: the reviewer tries to REFUTE the change rather than confirm it, and an approval is a claim that someone tried to break it and could not. Verifies every acceptance criterion on the linked issue against the DIFF and never against the PR description, because a checked box with no code behind it is the defect; verifies the tests assert the SPEC's stated behavior and would FAIL if that behavior regressed; re-reads every constraint page the change touches in the order Contributing lists them; enforces step 4 of the spec-driven loop, so a PR whose code and wiki disagree is not mergeable unless the wiki was fixed in the same PR; checks the PR body carries the issue reference, each wiki page linked with its binding line quoted verbatim, and the DoD criterion or an explicit justification; requires the git and CI conventions by link; reports every finding rather than silently fixing it; and sends a SPEC gap found in review to a human and the Decision Log rather than settling it with the reviewer's judgement.
+description: Reviewing a pull request against the SPEC. Use this whenever a PR is to be reviewed, approved, rejected, or assessed as mergeable — "review this PR", "review #N", "is this mergeable", "look over this diff", "can this merge", "what do you think of this change", "approve this", "LGTM?", "check my PR before I ask for review". Also use it before merging anything, and when a PR is moved out of the In review status. Enforces the adversarial posture: the reviewer tries to REFUTE the change rather than confirm it, and an approval is a claim that someone tried to break it and could not. Verifies every acceptance criterion on the linked issue against the DIFF and never against the PR description, because a checked box with no code behind it is the defect; verifies the tests assert the SPEC's stated behavior and would FAIL if that behavior regressed; re-reads every constraint page the change touches in the order Contributing lists them; enforces step 4 of the spec-driven loop, so a PR whose code and wiki disagree is not mergeable unless the wiki was fixed in the same PR; checks the PR body carries the issue reference, each wiki page linked with its binding line quoted verbatim, and the DoD criterion or an explicit justification; requires the git and CI conventions by link; reports every finding rather than silently fixing it; and sends a SPEC gap found in review to a human and the Decision Log rather than settling it with the reviewer's judgement. States that an agent's review is a self-check and never the 1 approval the protection rules require; moves an item with findings against it back to In progress, the one backwards edge in the dev cycle; and permits approving a partly satisfying PR only when every unmet criterion is named and carries a filed follow-up item, never for a hard constraint, a release gate, or a Safeguards behavior.
 ---
 
 # Review PR
@@ -129,10 +129,34 @@ Three shapes of it to look for by name:
 - **Silently dropped.** The criterion appears in neither the diff nor the description. A criterion the
   PR body never mentions is the one most likely to be missing, because nothing drew attention to it.
 
-A criterion the author believes no longer applies is not the reviewer's to strike. Striking is a scope
-decision, and per
-[§ Closing an item](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#closing-an-item-is-the-authoring-gate-run-backwards)
-it is recorded on the item with a reason — so it is reported here and raised, not waved through.
+**An unmet criterion may be deferred, and deferring has a price the reviewer pays up front.** Per
+[§ Approving a partial change](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#approving-a-partial-change):
+
+> **A PR that meets most of its criteria may be approved, provided the reviewer names every unmet
+> criterion and links a follow-up board item for each.** The link is the condition and not a courtesy: an
+> unmet criterion with no item behind it is simply unmet
+
+So a partial approval is legal only with **every** unmet criterion named and **each** carrying a
+follow-up item — authored by [`create-issue`](../create-issue/SKILL.md) like any item, before the
+approval, not promised after it. Three limits, and the third is the one to check hardest:
+
+- **The item does not reach `Done`.** A merged PR with a deferred criterion leaves its item open, per
+  the same section and [Decision 40](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#process-decisions).
+- **Deferring is not striking.** A reviewer defers; only the item's author strikes, with a reason
+  recorded on the item. Report a criterion you believe obsolete — do not remove it.
+- **Some criteria are never deferrable.** Quoted from the same section:
+
+  > A criterion carrying a
+  > [hard constraint](Contributing#before-you-write-code-read-the-constraints), a release gate
+  > ([#9 and #10](MVP-Definition-of-Done#notes-on-the-harder-criteria)), or a
+  > [Safeguards](Safeguards-and-Autonomy) behavior is met in the PR or the PR does not merge.
+
+  Check the criterion's *subject*, not its size. A one-line change to an allowlist or a VoiceOver label
+  is small and still not deferrable.
+
+The SPEC states the cost of this path plainly, and a reviewer using it should be able to say why it is
+worth paying here: it "is the mechanism by which 'we'll do it in the next PR' becomes never, and it puts
+a scope decision in the reviewer's hands."
 
 ---
 
@@ -257,7 +281,7 @@ The `In review` row of
 [the dev cycle](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#the-dev-cycle)
 states what is true while an item sits there:
 
-> | **In review** | PR open, referencing the item, the wiki page, and the DoD criterion | Reviewer | Adversarial review passed — see below |
+> | **In review** | PR open, referencing the item, the wiki page, and the DoD criterion | Reviewer | Adversarial review passed — see below. Findings against it send the item [back to In progress](#a-failed-review-returns-the-item-to-in-progress) |
 
 So three things are checked in the body, and each has a failure mode that a reader in a hurry accepts:
 
@@ -335,11 +359,18 @@ Report each finding with the evidence a reader can open — file and line in the
 fails, the SPEC line it violates, and what would have to change. A finding stated as an opinion is
 not reviewable; a finding anchored to a SPEC line is.
 
-The same applies to the board: per
-[Decision 28](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#process-decisions)
-`Status` is a gated state machine, so a PR that fails review does not sit in `In review` as though
-nothing happened. See the [gaps table](#spec-gaps-this-skill-knows-about) for what the SPEC does and
-does not say about which state it moves to.
+The same applies to the board. Per
+[§ A failed review returns the item to `In progress`](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#a-failed-review-returns-the-item-to-in-progress),
+findings move the item **back to `In progress`** — the one backwards edge in the machine:
+
+> **A review that produces findings moves the item back to `In progress` — the one backwards edge in
+> this machine, and the only one.**
+
+A gap found in review is different and still goes to `Blocked`; see Rule 8. Do not invent any other
+backwards transition — per
+[Decision 44](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#process-decisions),
+"A named exception is enforceable; an unnamed one becomes a habit of moving items backwards whenever
+it is convenient."
 
 ---
 
@@ -372,11 +403,24 @@ A reviewer's guess is worse than an author's, because it arrives with the author
 
 ## Who reviews, and what this skill is not
 
-**A review by the author is not the approval `main` requires.**
-[§ Protection rules on `main`](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#protection-rules-on-main)
-requires "**1 approval**", and the posture requires an adversary — so running this skill on your own
-PR is a self-check that surfaces findings earlier and cheaper, never the approval. Report it as what
-it is.
+**An agent's review is a self-check, not the approval `main` requires.** This is settled, not open —
+[§ Who reviews](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#who-reviews):
+
+> **An agent's review is a self-check, not the [1 approval](#protection-rules-on-main) the protection
+> rules require.** An agent contributing to Talos runs under the maintainer's own credentials, so its
+> approval is the author's approval under another name — and the claim an approving review makes, that
+> *someone tried to break the change and could not*, is not one the party that wrote the change can make
+> about itself.
+
+So this skill produces a verdict and a findings list, and **says in the review that it is not the
+required approval**. The findings are still worth producing first, because they are cheapest to fix
+before a human reads the diff. What is forbidden is reporting the gate as passed.
+
+The maintainer may [merge without a second reviewer](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#protection-rules-on-main)
+— per [Decision 46](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#process-decisions)
+the owner is not bound by the protection rules. That is their call to make knowingly; it is not a
+reason for this skill to soften a finding, because a bypassed merge "skips the **reviewer**, and
+nothing else" — the loop, step 4, and the board item all still apply.
 
 **It is also not the closing gate.** [Decision 40](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#process-decisions)
 draws the line and both halves are required:
@@ -399,7 +443,9 @@ at something a reader can open.
 ```markdown
 ## Verdict
 
-**<Not approved — N findings | Approved — no refutation succeeded | Blocked — SPEC gap>**
+**<Not approved — N findings | Approved — no refutation succeeded | Approved with N deferred criteria | Blocked — SPEC gap>**
+
+This is a self-check and not the 1 approval the protection rules require.
 
 Refutations attempted: <what you tried to break, and how>
 
@@ -431,25 +477,45 @@ Refutations attempted: <what you tried to break, and how>
 ## Findings
 
 1. **<file:line>** — <what is wrong> · <the SPEC line it violates, linked> · <what would have to change>
+
+## Deferred criteria, if any
+
+| # | Criterion | Follow-up item | Why deferrable |
+| --- | --- | --- | --- |
+| | <as authored> | <link — filed before this review, not promised> | <not a hard constraint, release gate, or Safeguards behavior> |
+
+## Board
+
+<Status this review implies: back to `In progress` on findings · `Blocked` on a SPEC gap · unchanged if it passes>
 ```
 
 A `Verdict` of approved with an empty `Refutations attempted` is not an approval this skill produced.
+Neither is one with a deferred criterion whose follow-up item column is blank.
 
 ---
 
-## SPEC gaps this skill knows about
+## Questions the SPEC now answers
 
-Recorded as genuinely unspecified rather than answered. Each goes to a human and the
-[Decision Log](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log) when a PR depends on it.
+These three were gaps when this skill was written. They were decided rather than assumed, and they are
+listed here because they are the ones a reviewer is most likely to try to settle by judgement.
 
-| Gap | Current handling |
+| Question | Where it is decided |
 | --- | --- |
-| Whether an agent's review satisfies the "**1 approval**" [protection rule](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#protection-rules-on-main) | Not specified, and GitHub will not let an author approve their own PR. This skill produces findings and a verdict; it does not claim to be the required approval. |
-| Which `Status` a PR that fails review moves to, given [Decision 28](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#process-decisions) calls the machine one-directional | [The dev cycle](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#the-dev-cycle) names `Reviewer` as the owner of leaving `In review` and gives no failure destination other than `Blocked` for a gap. Report the findings and leave the transition to the human; do not invent a backwards edge. |
-| Whether a reviewer may approve a PR that only *partly* satisfies its issue when the rest is agreed follow-up work | Not specified. [§ Closing an item](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#closing-an-item-is-the-authoring-gate-run-backwards) requires a struck criterion to have "a reason recorded on the item", which is an authoring act. Report the unmet criterion and raise the split. |
+| Does an agent's review satisfy the "**1 approval**" [protection rule](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#protection-rules-on-main)? | **No.** [Decision 43](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#process-decisions) · [§ Who reviews](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#who-reviews) — see [*Who reviews*](#who-reviews-and-what-this-skill-is-not) |
+| Which `Status` does a failed review move the item to? | **Back to `In progress`**, the one backwards edge. [Decision 44](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#process-decisions) · [§ A failed review returns the item to `In progress`](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#a-failed-review-returns-the-item-to-in-progress) |
+| May a partly satisfying PR be approved against follow-up work? | **Yes, with every unmet criterion named and each carrying a linked follow-up item** — and never for a hard constraint, a release gate, or Safeguards behavior. [Decision 45](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#process-decisions) · [§ Approving a partial change](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#approving-a-partial-change) — see Rule 1 |
 
-A gap discovered while reviewing goes to a human and the Decision Log — it does not get a row here and
-a guess in the review.
+One more thing a reviewer will meet and should not mistake for a finding: per
+[Decision 46](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#process-decisions) the
+**repository owner may merge or push directly**, so an unreviewed commit on `main` is not by itself a
+violation. What still applies to it is everything the same decision keeps: the loop including step 4,
+the [Conventional Commit](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#conventional-commits)
+title, and the board item. A bypassed change that contradicts the wiki is the ordinary defect.
+
+A **new** gap discovered while reviewing goes to a human and the Decision Log — it does not get a row
+here and a guess in the review. The three above are decided; check
+[§ Open questions](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#open-questions) for
+the ones that are not.
 
 ---
 
@@ -487,3 +553,7 @@ meet is in [`references/verification.md`](references/verification.md).
 - [ ] Every finding is reported with openable evidence, and nothing was fixed on the branch.
 - [ ] Any SPEC gap went to a human and the Decision Log, and nothing gap-dependent was approved.
 - [ ] The verdict states what was attempted, and an approval names a refutation that failed.
+- [ ] The review says it is **not** the required approval.
+- [ ] Any deferred criterion is named, carries a **filed** follow-up item, and is none of a hard
+      constraint, a release gate, or a Safeguards behavior.
+- [ ] The `Status` the review implies is stated — `In progress` on findings, `Blocked` on a gap.
