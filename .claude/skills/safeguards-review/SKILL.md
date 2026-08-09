@@ -14,6 +14,7 @@ so "restraint is Talos's job, not the OS's."
 **SPEC:** [Safeguards & Autonomy](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy)
 · [§ Tiers](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#tiers)
 · [§ Action classification](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#action-classification)
+· [§ The action-type taxonomy](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#the-action-type-taxonomy)
 · [§ Rules](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#rules)
 · [§ The gate fails closed](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#the-gate-fails-closed)
 · [§ What is never allowlistable](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#what-is-never-allowlistable)
@@ -140,20 +141,36 @@ What to check in a diff that adds or touches an action type:
 - [ ] A test asserts the **fallback itself** — feed the classifier an action it does not know and
       assert the irreversible tier. This is the test that survives every future action type somebody
       forgets.
-- [ ] If the action is a **rename**, the old name is not silently dropped. Allowlists are "per
-      project, per action type" ([§ Rules](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#rules)),
-      so an action type is a name users have configured against — the SPEC calls the taxonomy "a
-      public contract users configure against, and renaming one later breaks their config"
-      ([open questions](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#open-questions)).
+- [ ] The type's name is in
+      [the taxonomy](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#the-action-type-taxonomy)
+      and spelled exactly as that table spells it. The taxonomy is versioned and a name in it is a
+      name users have written into `.talos/`.
+- [ ] Allowlist matching is **exact string equality** — the rule is absolute:
+      "**Matching is exact string equality. The dots are not a hierarchy, and no allowlist entry is
+      ever a prefix, a wildcard, or a pattern.**"
+      ([§ Naming and matching](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#naming-and-matching)).
+      An allowlist on `git.push` must not match `git.push.protected`; a prefix match here is how an
+      irreversible action becomes allowlistable without the list being edited.
+- [ ] If the action is a **rename**, the old name is **retained as an alias** and not dropped, and no
+      shipped name is reused for a different meaning — read
+      [§ Adding, renaming, and removing a type](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#adding-renaming-and-removing-a-type)
+      for all four cases, including why *removing* a name is the dangerous one.
+- [ ] A **🔒** type was not moved, and no type was lowered to read tier. Either needs a new
+      [Decision Log](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log) row.
+- [ ] Writes to Safeguards, an allowlist, or a tier are **refused, not tiered** — they are
+      [not a tier](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#refused--not-a-tier)
+      at all, and no approval opens them. A diff that gates one of these behind a prompt has made an
+      absolute limit approvable.
 
-**The taxonomy is an open question, and that is not a blocker here.** "Action-type taxonomy for
-allowlists" is undecided in the
-[Decision Log](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#open-questions), and
+**The taxonomy is decided, and extending it is still a Decision Log append.** Decision
+[37](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#foundational-decisions) settled
+the set as `taxonomy: 1`, so a change no longer picks a name freely: adding a type is "a Decision Log
+append, a row above, and a classifier test"
+([§ Adding, renaming, and removing a type](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#adding-renaming-and-removing-a-type)).
+Deciding the set did **not** retire the unrecognized-call rule —
 [§ Action classification](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#action-classification)
-states the relationship: this rule "is what makes it safe to leave open. Until the taxonomy is
-decided, anything outside it is gated at the top tier instead of waved through." So a change may add
-an action type; a change that *fixes the set* of action types is deciding the open question and goes
-to a human first.
+states the relationship: "the taxonomy is what Talos knows today, and the rule is what happens the
+first time an agent calls something it does not."
 
 ---
 
@@ -175,7 +192,7 @@ How this rule actually gets broken — none of these look like editing the list:
 | --- | --- |
 | A **new** action that *is* one of the listed things under a different name | `syncBranch` that force-pushes, `cleanup` that deletes, `publish` that ships a package. The list names outcomes, not function names |
 | A **composite** action whose steps include a listed one | An action is classified by the most restrictive thing it can do. A "prepare release" that tags, publishes, and deploys is irreversible, whatever the middle steps are |
-| An allowlist entry with **wildcard or prefix matching** | A pattern that can match an irreversible action makes it allowlistable indirectly. Matching is where the list gets bypassed without being edited |
+| An allowlist entry with **wildcard or prefix matching** | Forbidden outright: "no allowlist entry is ever a prefix, a wildcard, or a pattern" ([§ Naming and matching](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#naming-and-matching)). A pattern that can match an irreversible action makes it allowlistable indirectly, and matching is where the list gets bypassed without being edited |
 | An allowlist granted at the **wrong scope** | Allowlists are **per project, per action type** — never global, never "trust everything" ([§ Rules](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#rules)) |
 | A **session-level** override, or a "for the rest of this session" checkbox | The tier is "**Not allowlistable. Ever.**" ([tiers](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#tiers)). "Ever" includes the next ten minutes. A session instruction cannot widen it — rank 5 does not override rank 2 in the [authority order](https://github.com/CalixtoTheBugHunter/talos/wiki/Talos-Guidelines#authority-order) |
 | An **undeclared target** | Per the list's last row. A new connector, host, or service reached before it is in `connectors.yaml` is top-tier regardless of what the action does |
@@ -444,18 +461,22 @@ the existing `default:` branch, which returns `.read`.
    archiving also closes linked items. If the board is not in `connectors.yaml`, the last row of
    [§ What is never allowlistable](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#what-is-never-allowlistable)
    settles it regardless of what archiving means.
-5. **Which tier is a SPEC question, so it goes to a human.** The tier table names "move/create board
-   items" at write tier and "delete anything" at irreversible; *archive* is neither, and picking one
-   would be [filling a gap with an assumption](../spec-driven-change/SKILL.md). Raise it, record it
-   in the [Decision Log](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log) — and note
-   the change is **not blocked** meanwhile: the unrecognized-call rule already gives it a safe
-   behavior, the top tier, which is exactly the case that rule exists for.
+5. **The name is not in the taxonomy, so both the name and the tier go to a human.** `archiveBoardItem`
+   is not a [taxonomy](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#the-action-type-taxonomy)
+   name — it is not even in the `domain.verb` form the SPEC fixes, and the closest entries are
+   `board.item.update` at write tier and `board.item.delete` at irreversible. Picking between them
+   here would be [filling a gap with an assumption](../spec-driven-change/SKILL.md); adding a
+   `board.item.archive` is "a Decision Log append, a row above, and a classifier test"
+   ([§ Adding, renaming, and removing a type](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#adding-renaming-and-removing-a-type)),
+   which is a human decision, not the implementer's. Note the change is **not blocked** meanwhile:
+   the unrecognized-call rule already gives it a safe behavior, the top tier, which is exactly the
+   case that rule exists for.
 6. **Rules 5 and 6 — what is still missing either way.** No denial test, so DoD item 5's "denial
    handled cleanly" is unasserted; and no audit-log entry for the new decision. Both ship in this
    change, not a follow-up.
-7. **Verdict.** Reject. The action gets an explicit tier decided by a human, the `default:` branch
-   becomes the irreversible tier with its own test, and a denial test plus a log entry land in the
-   same PR.
+7. **Verdict.** Reject. The action gets a taxonomy name and an explicit tier decided by a human, the
+   `default:` branch becomes the irreversible tier with its own test, and a denial test plus a log
+   entry land in the same PR.
 
 The shape to reuse: **the skill rejects the mechanism before it argues about the tier.** The tier is
 a SPEC question that may need a human; the missing explicit classification, the read-tier fallback,
@@ -500,8 +521,7 @@ surface:
 
 | Gap | Why it is a gap |
 | --- | --- |
-| **The action-type taxonomy** | An [open question](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#open-questions): "the exact set of action types is a public contract users configure against, and renaming one later breaks their config". A change that *fixes the set* decides this; a change that adds one member does not — see Rule 1 |
-| **Where a specific action sits** | The [tier table](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#tiers) gives examples per tier, not a total mapping. An action that matches no example is the unrecognized case: it is safely gated at the top tier, and *which* tier it belongs in is still a human decision |
+| **Where a specific action sits, when the taxonomy does not name it** | Decision [37](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#foundational-decisions) settled the *set*, and the [tier table](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#tiers) still gives examples per tier rather than a total mapping. An action in neither is the unrecognized case: it is safely gated at the top tier, and *which* tier it belongs in — plus the name it gets — is a human decision and a Decision Log append |
 | **Board write conflicts** | An [open question](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#open-questions) — "Talos and a human can move the same item. Last-write-wins, detect-and-ask, or Talos re-reads before every write?" `detect-and-ask` would add a prompt that is not a Safeguards approval, so it needs deciding before that prompt is designed |
 
 A change that needs one of these answers moves to **Blocked** — which is
@@ -516,7 +536,13 @@ one of these blockers, because the safe default is already specified.
 
 - [ ] [Safeguards & Autonomy](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy)
       was read in this session, from the wiki, before the first edit.
-- [ ] Every new or renamed action type has an **explicit** tier and a test asserting it.
+- [ ] Every new or renamed action type has an **explicit** tier and a test asserting it, and its name
+      is in [the taxonomy](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#the-action-type-taxonomy)
+      spelled exactly as that table spells it — a new name is a Decision Log append first.
+- [ ] Allowlist matching is **exact string equality**, with no prefix, wildcard, or pattern entry.
+- [ ] No **🔒** type was moved, no type was lowered to read tier, and no write to Safeguards, an
+      allowlist, or a tier was made approvable rather than
+      [refused](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#refused--not-a-tier).
 - [ ] The classifier's fallback is the **irreversible** tier, with its own test.
 - [ ] Every new action was checked against **every row** of
       [what is never allowlistable](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#what-is-never-allowlistable),
