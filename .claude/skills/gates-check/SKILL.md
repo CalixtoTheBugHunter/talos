@@ -336,11 +336,43 @@ pipeline. And injected third-party text is
 [data, never instruction](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#prompt-injection-posture) —
 run [`safeguards-review`](../safeguards-review/SKILL.md).
 
-**Note the standing gap.** How a declared ceiling is *enforced* is an
-[open question](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#open-questions) —
-"Does Talos truncate, drop context by priority, or refuse the session and tell the user?" — and it
-blocks Context assembly. A change that needs the answer goes to **Blocked**; a change that merely
-adds context under an existing ceiling does not.
+### What an exceeded ceiling does, now that it is decided
+
+Per [decision 47](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#foundational-decisions)
+and [§ When assembled context exceeds the ceiling](https://github.com/CalixtoTheBugHunter/talos/wiki/Talos-Guidelines#when-assembled-context-exceeds-the-ceiling),
+the ceiling is enforced rather than observed:
+
+> **Context is dropped whole, in a declared order. Talos never truncates a context part, and never
+> drops one silently.**
+
+So a change that assembles context is checked against the enforcement too, not only against the
+budget:
+
+- [ ] **Nothing truncates a context part.** A part is included or dropped. A truncated part cannot be
+      labeled, which is why the SPEC forbids it — see the reasoning on the page rather than trusting
+      this line.
+- [ ] **The two pinned parts are never dropped**: the sub-function's own
+      [Editable Talos Guideline](https://github.com/CalixtoTheBugHunter/talos/wiki/Talos-Guidelines#editable-talos-guidelines)
+      and the [Safeguards](https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#safeguards)
+      copy. Note *why*, because it changes what a reviewer accepts: pinning Safeguards is **not** a
+      safety claim — its prompt copy is
+      [advisory while the gate is enforcement](https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary#what-is-persistent-context-and-what-is-not) —
+      so a diff arguing "we must keep Safeguards or the rules stop applying" has the reason wrong even
+      when it has the behavior right.
+- [ ] **The drop order comes from `.talos/safeguards.md`**, with the compiled-in default when none is
+      declared. Code that reads the order from the guideline file, from a session instruction, or from
+      a constant that shadows the declared one has moved a rank-2 decision to rank 4 — run
+      [`safeguards-review`](../safeguards-review/SKILL.md), and note that writing that file is
+      [`config.safeguards.write`, refused rather than tiered](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#refused--not-a-tier).
+- [ ] **Every dropped part is reported** on the output, in the session, and on the Monitor. A silent
+      drop is the failure this decision exists to prevent, and the output label is the one the SPEC
+      already owned — [missing context is labeled where the output is read](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#missing-context-is-labeled-where-the-output-is-read).
+- [ ] **A pinned-parts overflow does not start the session**, and it is
+      [**Failed**, not **Denied**](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#the-five-states-every-surface-owes).
+      Recording it as a denial names a decision nobody made. No action is attempted, so no tier
+      applies and `taxonomy: 1` is unchanged.
+- [ ] **Dropping is deterministic** — same inputs and same declared order, same parts dropped, so the
+      overhead #58 must reproduce stays reproducible.
 
 ---
 
@@ -570,7 +602,6 @@ surface, all from
 | Gap | Why it is a gap |
 | --- | --- |
 | **Enforcing the no-values rule in CI** | [Decision 19](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#design-decisions) makes a hex literal and a fixed point size defects and the gate's table assigns both to `lint`, but `lint` "is SwiftLint plus SwiftFormat today, so this needs custom rules somebody writes — or it is review-only and the rule is an honor system". Blocks the a11y and lint CI stages. Until decided, both are **review-enforced** — see Rule 9 |
-| **Guideline token-ceiling enforcement** | Each guideline declares a ceiling; whether Talos truncates, drops context by priority, or refuses the session is undecided. Blocks Context assembly, so it blocks any change that has to *act* on an exceeded ceiling — see Rule 6 |
 | **Window and navigation structure** | Foundations settles how surfaces behave, not how many windows exist, and "The answer changes what `⌘⌥→` moves between and what a notification reopens". A keyboard-reachability claim that depends on cross-window focus order needs this decided |
 
 Two more that are not open questions but are genuinely unspecified, and are gaps the first change to
@@ -605,6 +636,10 @@ depend on the answer continues.
 - [ ] Every new interaction acknowledges within 100 ms, independently of completion.
 - [ ] Any new injected context states its token cost, why the agent cannot obtain it otherwise, the
       sub-function ceiling it lands under, and that it reaches the Monitor.
+- [ ] Anything acting on an **exceeded** ceiling drops whole parts in the order
+      `.talos/safeguards.md` declares, never truncates, never drops the guideline or the Safeguards
+      copy, reports every dropped part, and treats a pinned-parts overflow as **Failed** rather than
+      **Denied**.
 - [ ] Every chart and metric has a **non-visual equivalent**: values reachable as text and by
       VoiceOver, series distinguished by more than color, keyboard-navigable, no pointer-only value,
       cost labeled an estimate.
