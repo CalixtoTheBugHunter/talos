@@ -18,6 +18,62 @@ Open the wiki page.
 | Decisions already made | [Decision Log](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log) |
 | Reporting a security issue | [Contributing § Reporting security issues](https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing#reporting-security-issues) — not a public issue |
 
+## Signing your commits
+
+`main` requires
+[signed commits and signed tags](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#protection-rules-on-main),
+and that page states why. Setup is below because the requirement is a wall without it; the rule and
+the reasoning stay on the wiki.
+
+SSH signing is the shortest path on macOS — no extra software, and it reuses the key you already push
+with. GPG works too and needs `brew install gnupg` first.
+
+**Set it up per-clone, not globally**, with `git config` inside your checkout. A global signing key
+signs your commits in every other repository too, under this identity — wrong if you use more than
+one GitHub account on the machine:
+
+```bash
+git config gpg.format ssh
+git config user.signingkey ~/.ssh/id_ed25519.pub   # your key, the .pub
+git config commit.gpgsign true
+git config tag.gpgsign true                        # releases use signed tags
+```
+
+Then add the **same** key to GitHub a second time, at
+[Settings → SSH and GPG keys](https://github.com/settings/keys), with key type **Signing Key**. A key
+registered only as an Authentication Key does not verify signatures — the commit is signed, GitHub
+still calls it Unverified, and nothing in the local setup looks wrong. That is the usual cause of a
+rejected push that appears correctly configured.
+
+### Verify it works
+
+```bash
+git commit --allow-empty -m "chore: signing check"
+git log --format='%G? %GS' -1        # want: G <your signing identity>
+```
+
+`G` means good signature. If you get `N` (none) on a commit you just signed, check
+`git cat-file -p HEAD | grep gpgsig` — when the header is present, the commit **is** signed and only
+local verification is failing, because `git` needs to be told which keys to trust:
+
+```bash
+echo "$(git config user.email) $(cat ~/.ssh/id_ed25519.pub)" >> ~/.ssh/allowed_signers
+git config gpg.ssh.allowedSignersFile ~/.ssh/allowed_signers
+git verify-commit HEAD               # exits 0, names your key
+```
+
+This file is only for verifying locally; signing and GitHub's Verified badge do not depend on it.
+
+Whether GitHub accepts a commit is the authoritative answer, and it is one command:
+
+```bash
+gh api repos/CalixtoTheBugHunter/talos/commits/<sha> --jq '.commit.verification'
+```
+
+`"verified": true` is what the ruleset enforces. A squash merge is signed by GitHub's own key, so a
+merged PR reports `verified` even when the branch commit behind it was not — do not read a green
+`main` as proof your local setup works. Test it on your own commit, before you need it.
+
 ## Contributing with an AI agent
 
 The repo ships **Claude Skills** in [`.claude/skills/`](.claude/skills/README.md) that encode the
