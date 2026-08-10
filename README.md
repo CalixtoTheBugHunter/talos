@@ -10,7 +10,7 @@ of truth. This file states how to build; it does not restate any rule the wiki o
 | | Requirement | Why |
 | --- | --- | --- |
 | OS | **macOS 26** or later | [Technology & Distribution § Decisions](https://github.com/CalixtoTheBugHunter/talos/wiki/Technology-and-Distribution#decisions) |
-| Hardware | **Apple Silicon (arm64)** | Same page — the build sets `ARCHS = arm64` and does not produce an Intel slice |
+| Hardware | **Apple Silicon (arm64)** | Same page — the app bundle is `arm64` only. The package target needs the `xcodebuild` overrides [below](#build-and-test) |
 | Xcode | **Xcode 26** or later, with its license accepted | Swift Testing ships inside Xcode; the Command Line Tools alone cannot build or test this project |
 | Swift | **6.2** toolchain (bundled with Xcode 26) | `swift-tools-version` in `Package.swift` |
 
@@ -27,8 +27,14 @@ sudo xcodebuild -license accept
 ```bash
 swift build                                    # the SPM package
 swift test                                     # Swift Testing suite
-xcodebuild -project Talos.xcodeproj -scheme Talos build   # the app bundle
+xcodebuild -project Talos.xcodeproj -scheme Talos \
+    ARCHS=arm64 ONLY_ACTIVE_ARCH=YES build                # the app bundle
 ```
+
+The `ARCHS`/`ONLY_ACTIVE_ARCH` overrides are **required, not optional**: they are the only way to
+keep the package target from also compiling for `x86_64`, and the reason is a documented limitation
+on the wiki —
+[Technology & Distribution § Intel Macs, Rosetta, and universal binaries](https://github.com/CalixtoTheBugHunter/talos/wiki/Technology-and-Distribution#intel-macs-rosetta-and-universal-binaries).
 
 Open `Talos.xcodeproj` in Xcode to build and test from the IDE; the local Swift package is
 referenced by the project, so no separate checkout step is needed.
