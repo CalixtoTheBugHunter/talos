@@ -11,3 +11,7 @@ xcuserdata/
 
 # macOS
 .DS_Store
+
+# The pinned linters the `lint` CI stage installs into the workspace. Present
+# only when the CI steps are run by hand; see .github/workflows/ci.yml.
+.ci-tools/

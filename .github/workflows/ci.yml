@@ -1,0 +1,275 @@
+# The first half of the CI pipeline. The stage list, its order, and the fact
+# that every stage is a required check are SPEC decisions, and the reasoning is
+# on the wiki rather than repeated here:
+#
+#   https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#ci-pipeline-order
+#   https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#toolchain
+#
+# Each job's `name:` is the required status check context, so a rename here
+# breaks the ruleset in `docs/github/ruleset-main.json` and must change both.
+#
+# What this workflow does NOT do, stated because a green run is otherwise read
+# as a claim it never made:
+#
+#   - It produces three of the six required contexts. `spec-guard`,
+#     `perf-budget`, and `a11y` are produced by no workflow yet, so no PR can
+#     satisfy the ruleset on `main` from this file alone.
+#   - It does not check the no-values rule. Two rows of the accessibility gate
+#     table assign "rejects fixed point sizes" and "rejects hex literals and
+#     bundled color assets" to `lint`, and neither SwiftLint nor SwiftFormat
+#     does that out of the box. Who enforces it is an open question:
+#     https://github.com/CalixtoTheBugHunter/talos/issues/136
+#     A green `lint` here is not a claim about either row.
+
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Read-only by default. Any job needing more declares it itself, so a widened
+# permission is visible in the diff that widened it.
+permissions:
+  contents: read
+
+# Cancel superseded runs on a branch, but never on `main` — a push to `main`
+# is the run whose result the ruleset records.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  # `macos-26` is the arm64 image; `macos-26-intel` is x64. Pinned to an exact
+  # Xcode rather than the image default, because "default" moves on the image's
+  # own schedule and a runner image change must not silently alter results.
+  DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+
+  # Pinned by version AND by checksum. A checksum is the half that detects a
+  # re-tagged asset, which a version alone does not.
+  SWIFTLINT_VERSION: 0.65.0
+  SWIFTLINT_SHA256: d6cb0aa7a2f5f1ef306fc9e37bcb54dc9a26facc8f7784ac0c3dd3eccf5c6ba6
+  SWIFTFORMAT_VERSION: 0.62.1
+  SWIFTFORMAT_SHA256: 7cb1cb1fae04932047c7015441c543848e8e60e1572d808d080e0a1f1661114a
+
+jobs:
+  # ── lint ────────────────────────────────────────────────────────────────
+  lint:
+    name: lint
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Pin the toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      # SwiftFormat 0.62.1 is preinstalled on this image and SwiftLint is not,
+      # but both are installed from a pinned archive anyway: a preinstalled
+      # version is the image's choice, and `.swiftformat` declares
+      # `--min-version 0.62.1` rather than a maximum, so an image bump would
+      # otherwise change what `--lint` asserts without any diff here.
+      - name: Cache the pinned linters
+        id: linters
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .ci-tools
+          key: linters-${{ runner.os }}-${{ runner.arch }}-sl${{ env.SWIFTLINT_VERSION }}-${{ env.SWIFTLINT_SHA256 }}-sf${{ env.SWIFTFORMAT_VERSION }}-${{ env.SWIFTFORMAT_SHA256 }}
+
+      - name: Install the pinned linters
+        if: steps.linters.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p .ci-tools
+
+          verify() { # verify <file> <expected sha256>
+            actual="$(shasum -a 256 "$1" | cut -d' ' -f1)"
+            if [ "$actual" != "$2" ]; then
+              printf '::error::checksum mismatch for %s\n  expected %s\n  actual   %s\n' "$1" "$2" "$actual"
+              exit 1
+            fi
+          }
+
+          curl -fsSL --retry 3 --retry-all-errors -o /tmp/swiftlint.zip \
+            "https://github.com/realm/SwiftLint/releases/download/${SWIFTLINT_VERSION}/portable_swiftlint.zip"
+          verify /tmp/swiftlint.zip "$SWIFTLINT_SHA256"
+          unzip -qo /tmp/swiftlint.zip -d /tmp/swiftlint
+          mv /tmp/swiftlint/swiftlint .ci-tools/swiftlint
+
+          curl -fsSL --retry 3 --retry-all-errors -o /tmp/swiftformat.zip \
+            "https://github.com/nicklockwood/SwiftFormat/releases/download/${SWIFTFORMAT_VERSION}/swiftformat.zip"
+          verify /tmp/swiftformat.zip "$SWIFTFORMAT_SHA256"
+          unzip -qo /tmp/swiftformat.zip -d /tmp/swiftformat
+          mv /tmp/swiftformat/swiftformat .ci-tools/swiftformat
+
+          chmod +x .ci-tools/swiftlint .ci-tools/swiftformat
+
+      - name: Report the linter versions
+        run: |
+          set -euo pipefail
+          .ci-tools/swiftlint version
+          .ci-tools/swiftformat --version
+
+      # No `--strict`: warnings-as-errors comes from `strict: true` in
+      # `.swiftlint.yml`, so the same answer holds in CI, in the pre-commit
+      # hook, and in an editor.
+      - name: SwiftLint
+        run: |
+          set -euo pipefail
+          if ! .ci-tools/swiftlint lint; then
+            printf '::error::SwiftLint found violations. Warnings are errors by `strict: true` in .swiftlint.yml — see https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#toolchain\n'
+            printf 'Fix locally with: swiftlint lint --fix\n'
+            exit 1
+          fi
+
+      - name: SwiftFormat --lint
+        run: |
+          set -euo pipefail
+          if ! .ci-tools/swiftformat --lint .; then
+            printf '::error::SwiftFormat found unformatted files — see https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#toolchain\n'
+            printf 'Fix locally with: swiftformat .\n'
+            printf 'The pre-commit hook in .githooks/pre-commit does this automatically; see CONTRIBUTING.md.\n'
+            exit 1
+          fi
+
+  # ── build ───────────────────────────────────────────────────────────────
+  build:
+    name: build
+    runs-on: macos-26
+    needs: lint
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Pin the toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      # Only SwiftPM's build directory is cached. Nothing derived from Xcode is:
+      # a stale DerivedData is the failure mode a release build exists to catch.
+      - name: Cache SwiftPM
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .build
+          key: spm-release-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.swift', 'Package.resolved') }}
+          restore-keys: |
+            spm-release-${{ runner.os }}-${{ runner.arch }}-
+
+      # Release, not Debug, so an optimization-only failure fails here.
+      - name: Build the package (release)
+        run: |
+          set -euo pipefail
+          if ! swift build -c release; then
+            printf '::error::`swift build -c release` failed. Release builds catch optimization-only failures a Debug build does not.\n'
+            exit 1
+          fi
+
+      # `ARCHS`/`ONLY_ACTIVE_ARCH` are required rather than advisory: they are
+      # the only mechanism that reaches the synthesized package target, per
+      # decision 54 —
+      # https://github.com/CalixtoTheBugHunter/talos/wiki/Technology-and-Distribution#xcode-cannot-express-arm64-only-for-a-local-package-target
+      - name: Build the app bundle (release, arm64)
+        run: |
+          set -euo pipefail
+          if ! xcodebuild -project Talos.xcodeproj -scheme Talos \
+              -configuration Release -derivedDataPath "$RUNNER_TEMP/dd" \
+              ARCHS=arm64 ONLY_ACTIVE_ARCH=YES build; then
+            printf '::error::Release build of the app bundle failed.\n'
+            exit 1
+          fi
+
+      # The release gate is `lipo -archs` on the binary inside the bundle. It is
+      # asserted rather than assumed, because the overrides above are the only
+      # thing keeping it true.
+      - name: Assert the bundle is arm64 only
+        run: |
+          set -euo pipefail
+          binary="$RUNNER_TEMP/dd/Build/Products/Release/Talos.app/Contents/MacOS/Talos"
+          archs="$(lipo -archs "$binary")"
+          printf 'lipo -archs %s -> %s\n' "$binary" "$archs"
+          if [ "$archs" != "arm64" ]; then
+            printf '::error::expected `arm64`, measured `%s`. The SPEC decision is Apple Silicon only — https://github.com/CalixtoTheBugHunter/talos/wiki/Technology-and-Distribution#decisions\n' "$archs"
+            exit 1
+          fi
+
+  # ── test ────────────────────────────────────────────────────────────────
+  test:
+    name: test
+    runs-on: macos-26
+    needs: build
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Pin the toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Cache SwiftPM
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .build
+          key: spm-debug-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.swift', 'Package.resolved') }}
+          restore-keys: |
+            spm-debug-${{ runner.os }}-${{ runner.arch }}-
+
+      # The suite installs nothing — no agent CLI, no credential, no network:
+      # https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#the-suite-installs-nothing
+      - name: Swift Testing
+        id: swift_test
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/test-results"
+          status=0
+          swift test --xunit-output "$RUNNER_TEMP/test-results/results.xml" || status=$?
+          printf 'status=%s\n' "$status" >> "$GITHUB_OUTPUT"
+          exit "$status"
+
+      # Runs even when the suite fails, so a failing run reports its numbers
+      # rather than only its exit code.
+      - name: Report the results
+        if: always() && steps.swift_test.outcome != 'skipped'
+        run: |
+          set -euo pipefail
+          report="$RUNNER_TEMP/test-results/results-swift-testing.xml"
+          if [ ! -f "$report" ]; then
+            printf '::warning::no JUnit report was written — the suite did not run to completion\n'
+            printf 'No test report was produced, so no result is claimed here.\n' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          get() { xmllint --xpath "string(/testsuites/testsuite/@$1)" "$report"; }
+          tests="$(get tests)"
+          failures="$(get failures)"
+          errors="$(get errors)"
+          skipped="$(get skipped)"
+
+          # A table, not prose — Foundations: Tone § Structure over prose.
+          {
+            printf '### Swift Testing\n\n'
+            printf '| Tests | Failures | Errors | Skipped |\n'
+            printf '| --- | --- | --- | --- |\n'
+            printf '| %s | %s | %s | %s |\n\n' "$tests" "$failures" "$errors" "$skipped"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$failures" != "0" ] || [ "$errors" != "0" ]; then
+            printf '#### Failed\n\n' >> "$GITHUB_STEP_SUMMARY"
+            xmllint --xpath '//testcase[failure or error]/@name' "$report" 2>/dev/null \
+              | tr ' ' '\n' | sed -n 's/^name="\(.*\)"$/- `\1`/p' >> "$GITHUB_STEP_SUMMARY" || true
+            printf '\n' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          # A skip is reported rather than swallowed: a skipped test is
+          # indistinguishable from a passing one on a green run.
+          if [ "$skipped" != "0" ]; then
+            printf '::warning::%s test(s) were skipped\n' "$skipped"
+          fi
+
+      - name: Upload the test report
+        if: always() && steps.swift_test.outcome != 'skipped'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: swift-testing-results
+          path: ${{ runner.temp }}/test-results/
+          if-no-files-found: warn

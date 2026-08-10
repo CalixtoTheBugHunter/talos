@@ -49,6 +49,7 @@ referenced by the project, so no separate checkout step is needed.
 | `Talos/` | The app target's sources, `Info.plist`, and entitlements |
 | `Talos.xcodeproj` | The app project — deployment target, architecture, Hardened Runtime |
 | `docs/github/` | Repository configuration kept as reviewable files |
+| `.github/workflows/` | CI — the stages, their order, and which are still unbuilt are on the wiki: [Engineering Standards § CI pipeline order](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#ci-pipeline-order) |
 | `.claude/skills/` | The skills that carry the dev cycle — see [`.claude/skills/README.md`](.claude/skills/README.md) |
 
 ## Contributing
