@@ -255,8 +255,18 @@ jobs:
 
           if [ "$failures" != "0" ] || [ "$errors" != "0" ]; then
             printf '#### Failed\n\n' >> "$GITHUB_STEP_SUMMARY"
-            xmllint --xpath '//testcase[failure or error]/@name' "$report" 2>/dev/null \
-              | tr ' ' '\n' | sed -n 's/^name="\(.*\)"$/- `\1`/p' >> "$GITHUB_STEP_SUMMARY" || true
+            # Indexed `string()` lookups, not a text-stream split on the raw
+            # attribute list: a Swift Testing display name commonly contains a
+            # space (`.swiftformat`'s `--test-case-name-format preserve` keeps
+            # it that way), and splitting on spaces silently dropped any name
+            # that did.
+            failed_count="$(xmllint --xpath 'count(//testcase[failure or error])' "$report" 2>/dev/null)"
+            i=1
+            while [ "$i" -le "$failed_count" ]; do
+              xmllint --xpath "string(//testcase[failure or error][$i]/@name)" "$report" 2>/dev/null \
+                | sed 's/^/- `/; s/$/`/' >> "$GITHUB_STEP_SUMMARY"
+              i=$((i + 1))
+            done
             printf '\n' >> "$GITHUB_STEP_SUMMARY"
           fi
 
