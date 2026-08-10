@@ -74,6 +74,42 @@ gh api repos/CalixtoTheBugHunter/talos/commits/<sha> --jq '.commit.verification'
 merged PR reports `verified` even when the branch commit behind it was not — do not read a green
 `main` as proof your local setup works. Test it on your own commit, before you need it.
 
+## Linting and formatting
+
+[SwiftLint and SwiftFormat](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#toolchain)
+are the SPEC's tools, configured at the repo root in
+[`.swiftlint.yml`](.swiftlint.yml) and [`.swiftformat`](.swiftformat). That page states what each one
+enforces and why; setup is below.
+
+```bash
+brew install swiftlint swiftformat
+```
+
+```bash
+swiftformat .          # autofix
+swiftlint lint         # warnings are errors, from strict: true in .swiftlint.yml
+```
+
+### The pre-commit hook
+
+Installing it is **optional and one command**, run inside your clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+[`.githooks/pre-commit`](.githooks/pre-commit) then runs `swiftformat` and `swiftlint` over the Swift
+files you staged. It formats a wholly-staged file and re-stages it; a file staged in part — `git add
+-p`, or edited after staging — is linted and named instead, because formatting it would stage an edit
+you have not read.
+
+Set it **per-clone, not globally**, for the same reason signing is: `core.hooksPath` in your global
+config points every other repository at a `.githooks` directory that does not exist there.
+
+Uninstall with `git config --unset core.hooksPath`. The hook is a convenience, not the gate — `lint`
+is a [required check](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#ci-pipeline-order),
+and it runs whether or not you installed this.
+
 ## Contributing with an AI agent
 
 The repo ships **Claude Skills** in [`.claude/skills/`](.claude/skills/README.md) that encode the

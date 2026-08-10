@@ -1,6 +1,5 @@
-import Testing
-
 @testable import TalosCore
+import Testing
 
 /// Verifies the minimum OS the SPEC states.
 ///

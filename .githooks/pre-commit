@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+#
+# Runs SwiftFormat then SwiftLint over the staged Swift files, so a style or
+# correctness failure surfaces here instead of in CI.
+#
+# The tools, the order, and the fact that a hook exists at all are SPEC
+# decisions, and the reasoning is on the wiki rather than repeated here:
+#
+#   https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#toolchain
+#
+# Installation is opt-in, per clone, and one command — see CONTRIBUTING.md.
+# This hook is not a substitute for the `lint` CI stage: CI is the required
+# check, and a contributor who has not installed the hook is not doing anything
+# wrong.
+
+set -euo pipefail
+
+fail() {
+  printf 'pre-commit: %s\n' "$1" >&2
+  exit 1
+}
+
+require() { # require <tool> <brew formula>
+  command -v "$1" >/dev/null 2>&1 || fail "$1 is not installed. brew install $2"
+}
+
+# Staged Swift files, NUL-separated so a path with a space survives.
+staged=()
+while IFS= read -r -d '' path; do
+  staged+=("$path")
+done < <(git diff --cached --name-only --diff-filter=ACM -z -- '*.swift')
+
+[ ${#staged[@]} -gt 0 ] || exit 0
+
+require swiftformat swiftformat
+require swiftlint swiftlint
+
+# A file staged in part — `git add -p`, or edited after staging — has content in
+# the index that differs from the worktree. Formatting it would stage an edit
+# nobody read, and re-staging it would swallow the unstaged half into this
+# commit. So those files are linted rather than fixed, and named.
+unstaged=()
+while IFS= read -r -d '' path; do
+  unstaged+=("$path")
+done < <(git diff --name-only -z -- '*.swift')
+
+autofixable=()
+partial=()
+for path in "${staged[@]}"; do
+  is_partial=0
+  for dirty in ${unstaged[@]+"${unstaged[@]}"}; do
+    [ "$path" = "$dirty" ] && is_partial=1 && break
+  done
+  if [ "$is_partial" -eq 1 ]; then partial+=("$path"); else autofixable+=("$path"); fi
+done
+
+# Autofix the wholly-staged files, then re-stage exactly those SwiftFormat
+# changed. § Toolchain: "developers autofix locally".
+if [ ${#autofixable[@]} -gt 0 ]; then
+  swiftformat "${autofixable[@]}" --quiet
+  for path in "${autofixable[@]}"; do
+    if ! git diff --quiet -- "$path"; then
+      git add -- "$path"
+      printf 'pre-commit: formatted and re-staged %s\n' "$path"
+    fi
+  done
+fi
+
+if [ ${#partial[@]} -gt 0 ]; then
+  if ! swiftformat --lint "${partial[@]}" --quiet; then
+    printf 'pre-commit: the files above are staged in part, so they were not\n' >&2
+    printf '            formatted — a fix would stage an edit you have not read.\n' >&2
+    fail "run: swiftformat ${partial[*]}"
+  fi
+fi
+
+# `--force-exclude` so a path named explicitly is still skipped when
+# `.swiftlint.yml` excludes it. Warnings-as-errors comes from `strict: true`
+# there, not from a flag here.
+swiftlint lint --quiet --force-exclude --no-cache "${staged[@]}" \
+  || fail 'SwiftLint found violations. Fix them, or run: swiftlint lint --fix'
