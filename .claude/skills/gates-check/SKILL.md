@@ -29,6 +29,7 @@ And the reason the numbers exist at all, from
 · [§ Liquid Glass is inherited, never applied](https://github.com/CalixtoTheBugHunter/talos/wiki/Design-System#liquid-glass-is-inherited-never-applied)
 · [Talos Guidelines § Editable Talos Guidelines](https://github.com/CalixtoTheBugHunter/talos/wiki/Talos-Guidelines#editable-talos-guidelines)
 · [Engineering Standards § CI pipeline order](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#ci-pipeline-order)
+· [Verification](https://github.com/CalixtoTheBugHunter/talos/wiki/Verification)
 
 This skill **cites** the SPEC; it does not restate it. Rules live on the wiki pages linked here and
 nowhere else — read the page, do not trust a summary in this file. Anything that looks like a rule
@@ -475,7 +476,7 @@ half:
 | Bundle size < 60 MB | `perf-budget` |
 | Token overhead < 5% | `perf-budget`, and measured in the product on the [Monitor Screen](https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#monitor-screen) |
 | First feedback < 100 ms | `perf-budget` ([Loading](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#what-each-state-answers-to)) |
-| 120 fps during Liquid Glass animation | `perf-budget` ([Ready](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#what-each-state-answers-to)) |
+| 120 fps during Liquid Glass animation | **Not `perf-budget`** — a hosted runner is not ProMotion. A [manual pre-release check](https://github.com/CalixtoTheBugHunter/talos/wiki/Verification) on an internal ProMotion display, per [decision 49](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions), plus **review** for the mechanism (Rule 4) ([Ready](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#what-each-state-answers-to)) |
 | No hex literal, no fixed point size | `lint` — **see the gap below** |
 | Every a11y row | `a11y` (XCUITest), per the gate's own table |
 | Non-visual equivalent, never color alone | `a11y` for label/role/keyboard; **review** for whether meaning survives — the gate's table assigns "Never by color alone" and the material/motion judgement to review |
@@ -484,6 +485,15 @@ half:
       rather than implying coverage.
 - [ ] A new surface **adds `a11y` coverage**, rather than relying on a stage that does not know the
       surface exists.
+
+**Four gates are not verified by a stage at all.** Per
+[decision 49](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions) and
+[Verification](https://github.com/CalixtoTheBugHunter/talos/wiki/Verification), the **120 fps** row,
+**VoiceOver comprehensibility**, **Reduce Transparency usability**, and
+[**DoD #5**](https://github.com/CalixtoTheBugHunter/talos/wiki/MVP-Definition-of-Done#notes-on-the-harder-criteria)'s
+denial path are documented **manual pre-release checks** with their measured values recorded. Claiming
+`perf-budget` or `a11y` covers one of them is the false-coverage this rule exists to prevent — and note
+what does *not* follow: a manual gate is still a gate, so Rule 8 applies to it unchanged.
 
 **The `lint` rows are a known gap, not a fact.** An
 [open question](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#open-questions) says
@@ -607,9 +617,13 @@ surface, all from
 Two more that are not open questions but are genuinely unspecified, and are gaps the first change to
 need them should raise rather than answer:
 
-- **How a budget is measured** — the budgets give numbers; no page names the machine, the scenario,
-  or the tolerance `perf-budget` asserts them on. The cold-launch row needs a definition of
-  *interactive* before a check can fail honestly.
+- **How a budget is measured** — narrowed, not closed.
+  [Decision 49](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions)
+  and [Verification](https://github.com/CalixtoTheBugHunter/talos/wiki/Verification) now name the
+  **machine** and the **tool** — `Scripts/verify-local.sh` driving Instruments via `xctrace`, on an
+  internal ProMotion display — for the gates a hosted runner cannot assert. Still unspecified: the
+  **scenario** and the **tolerance** each budget is asserted against, and a definition of
+  *interactive* before the cold-launch row can fail honestly.
 - **How budget headroom is allocated between changes** — nothing says what share of 60 MB or 150 MB
   a single change may take. This is the mechanism by which these gates fail, so a change consuming a
   visible share of a budget should say so out loud rather than assume it is affordable.
