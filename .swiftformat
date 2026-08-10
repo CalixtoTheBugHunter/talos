@@ -1,0 +1,26 @@
+# SwiftFormat configuration.
+#
+# The tool choice and its enforcement are SPEC decisions:
+# https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#toolchain
+# CI runs `--lint`; developers autofix locally, which is what the pre-commit
+# hook in `.githooks/pre-commit` does.
+
+# Matches `swift-tools-version` in Package.swift. Without it SwiftFormat
+# disables the rules that depend on knowing the language version, and says so.
+--swiftversion 6.2
+
+# SwiftLint's `trailing_comma` rejects a trailing comma in a collection literal
+# and SwiftFormat's default (`always`) inserts one, so the two tools disagree
+# and every file fails whichever runs second. The conflict is real and has to be
+# resolved in one of the two files; it is resolved here because SwiftLint's rule
+# is a default and this one is an option.
+--trailing-commas never
+
+# Keeps `@Test("...")` and `@Suite("...")` display names as written. The default
+# (`raw-identifiers`) rewrites the name into a backticked identifier and drops
+# the string, which would delete the property § Toolchain chose Swift Testing
+# for: a `@Test` "keeps a test readable as a statement of the spec it verifies".
+--test-case-name-format preserve
+
+# Build products, not sources — the same set `.swiftlint.yml` excludes.
+--exclude .build,.swiftpm,DerivedData

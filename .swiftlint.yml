@@ -1,0 +1,95 @@
+# SwiftLint configuration.
+#
+# The tool choice and its enforcement are SPEC decisions, not preferences:
+# https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#toolchain
+#
+# `strict` upgrades every warning to an error, which is the `warnings-as-errors`
+# column of that table. It lives here rather than in a CI flag so the same
+# answer holds in CI, in the pre-commit hook, and in an editor — a rule enforced
+# in one place only is a rule that passes locally and fails on push.
+strict: true
+
+# Build products, not sources. SwiftPM synthesizes Swift into `.build`, and
+# nothing generated is a file a contributor can fix.
+excluded:
+  - .build
+  - .swiftpm
+  - DerivedData
+
+# The opt-in half of the catalog, curated. SwiftLint's default rules are the
+# unopinionated baseline; these are the additions, and every one of them is
+# verified clean against the current sources rather than assumed to be.
+#
+# Rules the SPEC forbids configuring here: nothing in this file rejects a hex
+# literal, a fixed point size, `#colorLiteral`, `Font.custom`, or a
+# glass-effect modifier. Those are defects per
+# https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#design-decisions
+# and how they are enforced is an open question owned by
+# https://github.com/CalixtoTheBugHunter/talos/issues/136 — so this file does
+# not answer it, and a green run here is not a claim about the no-values rule.
+opt_in_rules:
+  # SwiftUI and accessibility
+  - accessibility_label_for_image
+  - accessibility_trait_for_button
+  - private_swiftui_state
+
+  # Correctness — the reason SwiftLint earns its configuration cost over
+  # `swift-format` alone, per decision 9 on the Decision Log
+  - discarded_notification_center_observer
+  - discouraged_assert
+  - discouraged_none_name
+  - discouraged_optional_boolean
+  - discouraged_optional_collection
+  - empty_count
+  - empty_string
+  - fallthrough
+  - fatal_error_message
+  - force_unwrapping
+  - identical_operands
+  - implicitly_unwrapped_optional
+  - no_magic_numbers
+  - overridden_super_call
+  - return_value_from_void_function
+  - self_binding
+  - unavailable_function
+  - unhandled_throwing_task
+  - unowned_variable_capture
+  - untyped_error_in_catch
+  - weak_delegate
+  - yoda_condition
+
+  # Idiom — prefer the standard-library spelling over a hand-rolled equivalent
+  - array_init
+  - contains_over_filter_count
+  - contains_over_filter_is_empty
+  - contains_over_first_not_nil
+  - contains_over_range_nil_comparison
+  - empty_collection_literal
+  - explicit_init
+  - first_where
+  - flatmap_over_map_reduce
+  - joined_default_parameter
+  - last_where
+  - legacy_multiple
+  - optional_enum_case_matching
+  - prefer_key_path
+  - prefer_self_in_static_references
+  - prefer_zero_over_explicit_init
+  - redundant_nil_coalescing
+  - shorthand_optional_binding
+  - sorted_first_last
+  - static_operator
+  - toggle_bool
+  - unneeded_parentheses_in_closure_argument
+
+  # Documentation — the SPEC lives on the wiki, so what a declaration owes is a
+  # link to the page that binds it rather than a paraphrase of the rule
+  - local_doc_comment
+  - missing_docs
+
+  # Tests
+  - final_test_case
+
+  # Literals and blocks
+  - discouraged_object_literal
+  - no_empty_block

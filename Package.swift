@@ -2,9 +2,9 @@
 
 import PackageDescription
 
-// Platform, architecture, and toolchain are SPEC decisions, not defaults:
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Technology-and-Distribution
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#toolchain
+/// Platform, architecture, and toolchain are SPEC decisions, not defaults:
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Technology-and-Distribution
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#toolchain
 let package = Package(
     name: "Talos",
     platforms: [.macOS(.v26)],
