@@ -37,7 +37,7 @@ board item comes to exist — and defers to it rather than repeating it.
 | Rewriting an issue's body, criteria, or fields | **Yes** — a rewrite is a re-authoring |
 | Splitting an issue, or breaking an epic into sub-issues | **Yes**, on each resulting leaf and on the epic |
 | Closing an issue, or moving an item to `Done` | **Yes** — see [*Closing an item*](#closing-an-item-run-the-gate-backwards) |
-| Implementing an item that already exists | No — [`execute-issue`](https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing#if-you-contribute-with-an-ai-agent-use-the-skills) |
+| Implementing an item that already exists | No — [`execute-issue`](../execute-issue/SKILL.md) |
 | Reviewing a PR against an item's criteria | No — [`review-pr`](https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing#if-you-contribute-with-an-ai-agent-use-the-skills) |
 | Changing what the SPEC says | No — [`update-spec`](https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing#if-you-contribute-with-an-ai-agent-use-the-skills) |
 
