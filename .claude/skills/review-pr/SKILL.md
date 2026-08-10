@@ -78,7 +78,7 @@ settles what a review is for, and this skill is that decision made runnable.
 | Moving an item out of `In review` | **Yes** — that is the transition this skill owns |
 | Implementing a board item | No — [`execute-issue`](../execute-issue/SKILL.md) |
 | Authoring, rewriting, or closing an item | No — [`create-issue`](../create-issue/SKILL.md) |
-| Changing what the wiki says | No — [`update-spec`](https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing#if-you-contribute-with-an-ai-agent-use-the-skills) |
+| Changing what the wiki says | No — [`update-spec`](../update-spec/SKILL.md) |
 
 Phrasings that fire it: "review #N", "review this PR", "is this mergeable", "can this merge", "look
 over this diff", "what do you think of this change", "approve this", "LGTM?", "any objections",
