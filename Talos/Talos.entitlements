@@ -10,8 +10,8 @@
   https://github.com/CalixtoTheBugHunter/talos/wiki/Technology-and-Distribution#why-unsandboxed-is-safe-here
 
   Binding line:
-  > Sandboxing: **Unsandboxed** - required for spawning agent CLIs and free
-  > filesystem access
+  > | Sandboxing | **Unsandboxed** — required for spawning agent CLIs and free
+  > filesystem access |
 
   The burden of restraint therefore sits on Talos rather than on the OS, and it
   is met by the Safeguards layer:
