@@ -39,7 +39,7 @@ board item comes to exist — and defers to it rather than repeating it.
 | Closing an issue, or moving an item to `Done` | **Yes** — see [*Closing an item*](#closing-an-item-run-the-gate-backwards) |
 | Implementing an item that already exists | No — [`execute-issue`](../execute-issue/SKILL.md) |
 | Reviewing a PR against an item's criteria | No — [`review-pr`](https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing#if-you-contribute-with-an-ai-agent-use-the-skills) |
-| Changing what the SPEC says | No — [`update-spec`](https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing#if-you-contribute-with-an-ai-agent-use-the-skills) |
+| Changing what the SPEC says | No — [`update-spec`](../update-spec/SKILL.md) |
 
 Phrasings that fire it: "open an issue for…", "file a ticket", "add this to the board", "put this in
 the backlog", "we should track this", "break this into sub-issues", "rewrite #N", "fix the fields on
