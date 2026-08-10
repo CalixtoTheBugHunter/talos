@@ -70,10 +70,10 @@ transition each one owns.
 | [`review-pr`](review-pr/SKILL.md) | ✅ | Reviewing a PR, approving one, or asking whether it can merge | Leaving `In review` — on findings, [back to `In progress`](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#a-failed-review-returns-the-item-to-in-progress) | [Adversarial review](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#review-is-adversarial-by-default) — refute the change, verify every acceptance criterion against the diff, the tests, and every constraint page touched; [step 4](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#spec-driven-workflow) or not mergeable; and that an agent's review is [a self-check, not the approval](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#who-reviews) |
 | [`update-spec`](update-spec/SKILL.md) | ✅ | Changing the wiki — including [step 4](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#spec-driven-workflow) firing mid-implementation | None — it is the gate on the SPEC itself, and on leaving `Blocked` | That a SPEC change is a [decision](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log), that binding changes are appended rather than rewritten, the [may-and-may-not-touch](https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing#guidelines-you-may-and-may-not-touch) split, and that the [authority order](https://github.com/CalixtoTheBugHunter/talos/wiki/Talos-Guidelines#authority-order) survives the edit |
 
-**Until the remaining unbuilt skill exists,** the work it owns is not unguarded — it is guarded by
-[`spec-driven-change`](spec-driven-change/SKILL.md), which covers any Talos change, plus the
-constraint skills. It is guarded less specifically, which is why it is a board item rather than a
-nice-to-have.
+**All five workflow skills are in the repo.** `spec-driven-change` still runs first on every change —
+it covers any Talos change and is the default entry point — and the others own the transitions listed
+above. A change that matches none of the four specific ones is not unguarded; it is guarded by
+`spec-driven-change` plus the constraint skills.
 
 ---
 
