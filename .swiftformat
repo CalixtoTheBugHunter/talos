@@ -25,9 +25,13 @@
 --trailing-commas never
 
 # Keeps `@Test("...")` and `@Suite("...")` display names as written. The default
-# (`raw-identifiers`) rewrites the name into a backticked identifier and drops
-# the string, which would delete the property § Toolchain chose Swift Testing
-# for: a `@Test` "keeps a test readable as a statement of the spec it verifies".
+# (`raw-identifiers`) moves the string into a backticked raw identifier, and
+# Swift Testing reports the same name at runtime — so it does not cost the
+# property § Toolchain chose Swift Testing for. It is pinned because the rewrite
+# is lossy at the edges: a backtick inside the display string is silently
+# dropped, and a name containing an escape such as `\n` yields a raw identifier
+# that does not compile. Both arrive as an autofix from the pre-commit hook
+# rather than as an error.
 --test-case-name-format preserve
 
 # Build products, not sources — the same set `.swiftlint.yml` excludes.
