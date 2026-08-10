@@ -237,6 +237,23 @@ skill run needlessly costs a read, while one not run is a hard constraint nobody
 `spec-guard` exists because the boundary rule "is the easiest to violate accidentally" — so a green
 `spec-guard` is a grep having passed, not the boundary having been reviewed.
 
+Two constraint pages have no constraint skill of their own and are therefore read directly when the
+diff touches them —
+[Foundations: Content & Voice](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Content-and-Voice)
+for the words a surface writes, and
+[Foundations: Tone](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Tone) for the shape
+of what a session produces. Tone is reached by a diff two ways, and the second is easy to miss:
+
+| The diff touches | Read Tone because |
+| --- | --- |
+| A guideline file's **output expectations**, or the prompt-assembly code that carries them | That field is [the one path rank 1 has to output](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Tone#where-tone-binds-and-where-it-does-not) |
+| Code that reflows, summarizes, truncates, or re-wraps **agent output** | Tone's *never* column forbids it — "Rewrites, reflows, summarizes, or truncates a word the agent streamed back" — and doing so authors words under the agent's name |
+| A table, chart, or diagram in a Talos surface | [§ Structure over prose](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Tone#structure-over-prose) requires it to survive VoiceOver, 200% text, and the no-color-only rule — which is also [`gates-check`](../gates-check/SKILL.md) territory |
+| A `.claude/skills/` file | The page names the skills as how an agent building Talos meets it |
+
+The second row is a finding even when the reformatting improves readability, and the fourth is why
+this skill cites Tone rather than restating it.
+
 ---
 
 ## Rule 4 — Step 4 of the loop, or the PR is not mergeable

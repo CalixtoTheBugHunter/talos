@@ -21,6 +21,7 @@ one changes what the others are bound by, which is why it carries the heaviest g
 · [Talos Guidelines § Authority order](https://github.com/CalixtoTheBugHunter/talos/wiki/Talos-Guidelines#authority-order)
 · [§ Root Talos Guidelines](https://github.com/CalixtoTheBugHunter/talos/wiki/Talos-Guidelines#root-talos-guidelines)
 · [§ Editable Talos Guidelines](https://github.com/CalixtoTheBugHunter/talos/wiki/Talos-Guidelines#editable-talos-guidelines)
+· [Foundations: Tone § A decision goes to the user as a poll](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Tone#a-decision-goes-to-the-user-as-a-poll)
 
 This skill **cites** the SPEC; it does not restate it. Rules live on the wiki pages linked here and
 nowhere else — read the page, do not trust a summary in this file. Anything that looks like a rule in
@@ -419,10 +420,15 @@ From [Contributing § If you contribute with an AI agent](https://github.com/Cal
    [§ The dev cycle](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#the-dev-cycle)
    calls "a real destination, not a failure to try harder", and whose gate to leave is "The gap is
    decided in the [Decision Log](Decision-Log)."
-2. **Raise it, stating the fork rather than the answer** — the SPEC lines that conflict or are silent,
-   the pages read, the candidate answers, and what each one would change downstream. Per
+2. **Raise it as a poll, stating the fork rather than the answer** — the SPEC lines that conflict or
+   are silent, the pages read, the candidate answers, and what each one would change downstream. Per
    [`spec-driven-change`](../spec-driven-change/SKILL.md#escalating-a-spec-gap): "Not a recommendation
-   dressed as a fact."
+   dressed as a fact." The shape is specified by
+   [Foundations: Tone § A decision goes to the user as a poll](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Tone#a-decision-goes-to-the-user-as-a-poll)
+   — named and enumerated options, a recommendation marked as one and placed first, and a question
+   that fits on a screen. A fork needing three paragraphs of setup has not been reduced yet, and the
+   [SPEC link goes out before the poll](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Tone#every-reference-carries-its-url)
+   so the human can read the page rather than the agent's account of it.
 3. **Record the decision in the [Decision Log](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log)**
    — appended per [Rule 2](#rule-2--appended-never-rewritten) — **before** the dependent code is
    written, and edit the prose page in the same commit.
