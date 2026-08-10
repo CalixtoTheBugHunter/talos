@@ -27,6 +27,7 @@ And the reason the numbers exist at all, from
 · [§ First feedback under 100 ms](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#first-feedback-under-100-ms)
 · [Design System: Foundations § The platform is the design system](https://github.com/CalixtoTheBugHunter/talos/wiki/Design-System#the-platform-is-the-design-system)
 · [§ Liquid Glass is inherited, never applied](https://github.com/CalixtoTheBugHunter/talos/wiki/Design-System#liquid-glass-is-inherited-never-applied)
+· [Foundations: Tone § Structure over prose](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Tone#structure-over-prose)
 · [Talos Guidelines § Editable Talos Guidelines](https://github.com/CalixtoTheBugHunter/talos/wiki/Talos-Guidelines#editable-talos-guidelines)
 · [Engineering Standards § CI pipeline order](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#ci-pipeline-order)
 · [Verification](https://github.com/CalixtoTheBugHunter/talos/wiki/Verification)
@@ -418,6 +419,13 @@ later tune against. A metric only a sighted user can read fails item 10 while it
       [no mouse-only paths](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Interaction-and-Keyboard#no-mouse-only-paths)
       and the VoiceOver gate together.
 - [ ] It **holds its layout at 200% text size**, in both appearance modes.
+
+These four are also what
+[Foundations: Tone § Structure over prose](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Tone#structure-over-prose)
+depends on when it asks for a table, a chart, or a diagram over a paragraph: "**Structure that only
+works visually is a defect, not a shortcut.**" Where it cannot meet these, "a plain list is the
+correct answer and a picture is not." So Tone never licenses a graphic this rule would reject — a
+change citing Tone to justify a chart still owes every box above.
 - [ ] Cost is **labeled an estimate wherever it appears** and never presented as a bill — cost is "an
       **estimate**, always labeled as such in the UI"
       ([how cost is measured](https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#how-cost-is-measured)),

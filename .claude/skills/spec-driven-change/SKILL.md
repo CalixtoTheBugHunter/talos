@@ -12,6 +12,7 @@ afterwards.
 **SPEC:** [Engineering Standards § Spec-driven workflow](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#spec-driven-workflow)
 · [Contributing](https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing)
 · [Contributing § Before you write code](https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing#before-you-write-code-read-the-constraints)
+· [Foundations: Tone](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Tone)
 
 This skill **cites** the SPEC; it does not restate it. Rules live on the wiki pages linked here and
 nowhere else — read the page, do not trust a summary in this file. Anything that looks like a rule
@@ -229,6 +230,35 @@ it; do not invent the tie-breaker.
 
 ---
 
+## How this skill's own output is shaped
+
+The SPEC governs the shape of what an agent writes back, not only what it builds:
+[Foundations: Tone](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Tone), whose
+[binding table](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Tone#where-tone-binds-and-where-it-does-not)
+names the skills in `.claude/skills/` as how an agent building Talos meets it. Read the page; the
+rules are there and are not repeated here. It binds every output this skill and its siblings produce
+— a plan, a review, an escalation, a status answer — and the two that bite most often on this skill
+are:
+
+- **The SPEC gap escalation is a poll**, per
+  [§ A decision goes to the user as a poll](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Tone#a-decision-goes-to-the-user-as-a-poll).
+  That is the same shape *Escalating a SPEC gap* above already requires — named candidate answers and
+  what each would change, rather than an open question — so Tone is where that shape is specified and
+  step 2 of the escalation is its application.
+- **Every reference carries its URL**, per
+  [§ Every reference carries its URL](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Tone#every-reference-carries-its-url).
+  A wiki page, board item, issue, or PR named without a link is incomplete. This is why step 3 asks
+  for the binding line **quoted verbatim with its link**: the quote is checkable and the link is
+  reachable, and neither substitutes for the other.
+
+What Tone never shortens away is on the page under
+[§ What brevity never buys](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Tone#what-brevity-never-buys)
+— including a stated uncertainty and the fact that a source was not read. A brief answer that reads
+as complete because the qualifier was cut is the failure that section names, and on this skill it
+would mean a gap going unraised.
+
+---
+
 ## Sibling skills
 
 This skill is the entry point, not the whole guard. The skill-to-constraint mapping is on the wiki
@@ -254,5 +284,9 @@ lifecycle.
 - [ ] No wiki rule was restated in this repo's own words; everything is a link.
 - [ ] If code and SPEC diverged: the wiki was fixed in this PR, and the change was raised as a
       decision if it was binding.
-- [ ] Every SPEC gap encountered went to a human and the Decision Log — none was assumed.
+- [ ] Every SPEC gap encountered went to a human and the Decision Log — none was assumed, and each
+      was raised as a [poll](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Tone#a-decision-goes-to-the-user-as-a-poll).
+- [ ] Every reference in the output — wiki page, board item, issue, PR — [carries its URL](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Tone#every-reference-carries-its-url).
+- [ ] Nothing [Tone never shortens away](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Tone#what-brevity-never-buys)
+      was cut for brevity — a stated uncertainty least of all.
 - [ ] Every sibling skill matching this change was run.

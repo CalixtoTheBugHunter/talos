@@ -96,6 +96,29 @@ typically precede a violation. This table is a summary of it; the `SKILL.md` is 
 
 ---
 
+## Two constraint pages have no skill of their own
+
+[Foundations: Content & Voice](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Content-and-Voice)
+and [Foundations: Tone](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Tone) are binding
+like every other SPEC page, and no constraint skill above guards them. They are **read directly** when
+a change touches them, and [`review-pr`](review-pr/SKILL.md#rule-3--every-constraint-page-the-change-touches-in-contributings-order)
+lists what reaches Tone from a diff.
+
+Tone is the one page here that also governs **an agent's own output** while it works on Talos — its
+[binding table](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Tone#where-tone-binds-and-where-it-does-not)
+names the skills in `.claude/skills/` as how an agent building Talos meets it, so it applies to
+every plan, review, escalation, and answer these skills produce, not only to shipped UI. It is cited
+by [`spec-driven-change` § How this skill's own output is shaped](spec-driven-change/SKILL.md#how-this-skills-own-output-is-shaped),
+and the rules live on the wiki rather than in any file here.
+
+Adding a skill for either is not the fix if one drifts —
+[Decision 30](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#process-decisions) makes a
+constraint skill guard "one hard constraint", and the mapping that decides whether one exists is
+[the wiki's table](https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing#if-you-contribute-with-an-ai-agent-use-the-skills),
+so a new skill is a SPEC change first.
+
+---
+
 ## A SPEC gap goes to a human, never to an assumption
 
 The rule every skill in this directory shares, from
