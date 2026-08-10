@@ -204,13 +204,43 @@ The Monitor's side of the same rule is on
       stays measurable — a release gate at "< 5% of session tokens", which requires knowing what
       Talos added versus what the user's prompt would have cost.
 
-**Log format drift is an open question, and it does not block this rule.** "Session log format drift"
-is undecided in the
-[Decision Log](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#open-questions) — what
-happens when a CLI update changes the format, "fail loudly, or degrade to token-less sessions". So an
-adapter may parse a format; an adapter that *decides the degradation behavior* is settling the open
-question and goes to a human first. Expect proxying to be re-proposed as the fix; it is already
-refused.
+### What a failed parse does, now that it is decided
+
+Per [decision 50](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#foundational-decisions)
+and [§ When the log format changes](https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#when-the-log-format-changes),
+drift has a specified behavior rather than an open question:
+
+> **A token count Talos cannot parse is absent and named. It is never repaired, inferred, or shown as
+> zero.**
+
+The adapter is where this lands, because the adapter is where the parse is. Six checks, and the first
+three are the ones a diff gets right for the wrong reason:
+
+- [ ] **A failed parse reports no count — it does not report zero.** `TokenUsage(input: 0, output: 0)`
+      is the violation that looks like a default: it type-checks, it aggregates, and it is
+      indistinguishable downstream from a session that genuinely used nothing. The absence has to
+      survive as an absence, so the count is optional or the report is a failure case.
+- [ ] **The reason travels with the absence.** A nil count with no reason cannot produce the label the
+      SPEC requires, and the Monitor cannot invent one without
+      [learning a log format](https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#how-cost-is-measured).
+      This is not a string for core to parse — it is a typed reason, on the same terms as Rule 3's
+      counts.
+- [ ] **No partial repair, and no carrying the last good value forward.** Summing the fields that did
+      parse, inferring output from input, or reusing the previous session's number all produce a
+      figure the UI will still label an estimate. The accuracy line is what forbids this: counts are
+      "Accurate — reported by the agent itself", and a repaired count is not.
+- [ ] **The session still runs.** An adapter that refuses to launch, or kills a session, because it
+      could not parse usage has made the Monitor a precondition of the agent. Usage reporting is one
+      of the six capabilities and gates none of the others.
+- [ ] **The version is captured**, because the banner names "the version the parse stopped working
+      at". An adapter that knows only *that* the parse failed cannot support it.
+- [ ] **No network call and no proxying as the repair.** Expect this to be re-proposed the first time
+      drift happens — [§ No proxying](https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#no-proxying)
+      now says the objection is unchanged by the parse having broken, so it is settled rather than
+      arguable.
+
+The UI half — where the label appears, and the overhead-coverage rule — is
+[`gates-check`](../gates-check/SKILL.md), not this skill.
 
 ---
 
@@ -413,7 +443,6 @@ surface:
 
 | Gap | Why it is a gap |
 | --- | --- |
-| **Session log format drift** | An [open question](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#open-questions): "What happens when a CLI update changes that format — fail loudly, or degrade to token-less sessions?" An adapter may parse a format; one that decides the *degradation* behavior settles the question. See Rule 3 |
 | **Keychain reference syntax** | `agents.yaml` holds "references to secrets, never secrets" ([Project Library](https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#where-it-lives)) and no page specifies the reference format. The adapter is where a reference gets resolved, so it is where the shape gets decided by accident. It is a public config contract users write against |
 | **Multi-agent orchestration** | A project "may configure **more than one agent**, and Talos orchestrates which one handles which job" ([§ Agent adapters](https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary#agent-adapters)), and no page states *how* one is selected per job. An adapter change that assumes a selection rule has decided it |
 
@@ -437,6 +466,8 @@ that does not depend on it continues.
       decision it carries back is the gate's.
 - [ ] Tokens cross as **structured data**; no agent log-format knowledge exists outside the adapter;
       the adapter computes no cost and makes no network call.
+- [ ] A **failed parse reports an absence with a reason, never a zero**, does not stop the session, and
+      is not repaired from whatever did parse.
 - [ ] `stop()` kills the process **and its children**, asserted by a test that nothing survives — and
       it works while a pending approval waits.
 - [ ] Abnormal exit is a typed failure attributed to the agent, and the session is still recorded.

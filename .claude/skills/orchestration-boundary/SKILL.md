@@ -381,11 +381,18 @@ boundary:
 
 | Gap | Why it is a gap |
 | --- | --- |
-| **Session log format drift** | An [open question](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#open-questions): "Cost tracking parses Claude Code's own logs. What happens when a CLI update changes that format — fail loudly, or degrade to token-less sessions?" Expect proxying to be re-proposed as the fix. It is already refused by [§ No proxying](https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#no-proxying); the *degradation* behavior is what is undecided |
 | **Keychain reference syntax** | `agents.yaml` holds "references to secrets, never secrets" ([Project Library](https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#where-it-lives)) and no page specifies the reference format. It is a public config contract users write against, so it wants a decision rather than whichever shape the first implementation picks |
 
-A change that needs either answer stops at the question. Everything in the change that does not
+A change that needs that answer stops at the question. Everything in the change that does not
 depend on it continues.
+
+**Log format drift is no longer one of these.**
+[Decision 50](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#foundational-decisions)
+settled it, and the part that matters on this boundary is that
+[§ No proxying](https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#no-proxying) now
+states the refusal survives the parse breaking. So a diff proposing interception *because* a format
+changed is refused on the page rather than argued — the degradation behavior belongs to
+[`agent-adapter`](../agent-adapter/SKILL.md).
 
 ---
 

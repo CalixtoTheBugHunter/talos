@@ -326,6 +326,15 @@ So any change to what Talos assembles into a prompt states:
 - [ ] **That it reaches the Monitor**, which tracks
       [Talos-added token overhead](https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#monitor-screen)
       as a first-class metric. Overhead that is not measured cannot be gated.
+- [ ] **That the figure carries its coverage.** Per
+      [decision 50](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#foundational-decisions)
+      a session whose token counts could not be parsed is
+      [excluded from this budget, and the exclusion is counted where the figure appears](https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#when-the-log-format-changes) —
+      overhead is a ratio, so a session with no counts supplies no denominator. An overhead figure
+      shown without how many sessions it was computed from is the failure this catches: the gate reads
+      green while saying nothing about whether it was measured over three sessions or three hundred,
+      which is an unmeasured number presented as measured. A `perf-budget` assertion that passes
+      because every non-conforming session was quietly dropped has asserted nothing.
 - [ ] **That nothing injected is a secret.** Secrets live in the macOS Keychain only — never on disk,
       never in `.talos/`
       ([Technology & Distribution](https://github.com/CalixtoTheBugHunter/talos/wiki/Technology-and-Distribution#decisions)).

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Talos runs UNSANDBOXED. `com.apple.security.app-sandbox` is deliberately
+  absent from this file, and adding it is a defect rather than a hardening
+  improvement.
+
+  The reason is a SPEC decision, stated on the wiki and not restated here:
+  https://github.com/CalixtoTheBugHunter/talos/wiki/Technology-and-Distribution#decisions
+  https://github.com/CalixtoTheBugHunter/talos/wiki/Technology-and-Distribution#why-unsandboxed-is-safe-here
+
+  Binding line:
+  > | Sandboxing | **Unsandboxed** — required for spawning agent CLIs and free
+  > filesystem access |
+
+  The burden of restraint therefore sits on Talos rather than on the OS, and it
+  is met by the Safeguards layer:
+  https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy
+-->
+<plist version="1.0">
+<dict/>
+</plist>
