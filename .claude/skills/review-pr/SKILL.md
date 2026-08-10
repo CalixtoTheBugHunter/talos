@@ -76,7 +76,7 @@ settles what a review is for, and this skill is that decision made runnable.
 | Rejecting a PR, or requesting changes | **Yes** — the finding has to be evidenced against the diff |
 | Self-checking your own PR before asking for review | **Yes**, with [*Who reviews*](#who-reviews-and-what-this-skill-is-not) read first |
 | Moving an item out of `In review` | **Yes** — that is the transition this skill owns |
-| Implementing a board item | No — [`execute-issue`](https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing#if-you-contribute-with-an-ai-agent-use-the-skills) |
+| Implementing a board item | No — [`execute-issue`](../execute-issue/SKILL.md) |
 | Authoring, rewriting, or closing an item | No — [`create-issue`](../create-issue/SKILL.md) |
 | Changing what the wiki says | No — [`update-spec`](https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing#if-you-contribute-with-an-ai-agent-use-the-skills) |
 
