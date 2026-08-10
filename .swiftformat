@@ -9,6 +9,14 @@
 # disables the rules that depend on knowing the language version, and says so.
 --swiftversion 6.2
 
+# The version the two options below were resolved against. An older binary does
+# not know `--test-case-name-format`, so it would apply the default this file
+# exists to override — and because the pre-commit hook autofixes rather than
+# checking, that arrives as a rewritten file instead of an error. SwiftFormat
+# exits non-zero here rather than formatting, which a CI pin cannot do: the pin
+# governs the runner, and this governs whatever binary a contributor has.
+--min-version 0.62.1
+
 # SwiftLint's `trailing_comma` rejects a trailing comma in a collection literal
 # and SwiftFormat's default (`always`) inserts one, so the two tools disagree
 # and every file fails whichever runs second. The conflict is real and has to be
