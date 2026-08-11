@@ -21,7 +21,12 @@ let package = Package(
         .target(name: "TalosCore"),
         .testTarget(name: "TalosCoreTests", dependencies: ["TalosCore"]),
 
-        .target(name: "TalosPersistence", dependencies: ["TalosCore"]),
+        .target(
+            name: "TalosPersistence",
+            dependencies: ["TalosCore"],
+            linkerSettings: [.linkedLibrary("sqlite3")]
+        ),
+        .testTarget(name: "TalosPersistenceTests", dependencies: ["TalosPersistence"]),
 
         .target(
             name: "TalosProjectLibrary",

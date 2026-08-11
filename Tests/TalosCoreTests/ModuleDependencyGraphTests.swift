@@ -31,8 +31,10 @@ struct ModuleDependencyGraphTests {
         let packageURL = repositoryRoot.appendingPathComponent("Package.swift")
         let text = try String(contentsOf: packageURL, encoding: .utf8)
 
-        let pattern = #"\.target\(\s*name:\s*"([A-Za-z]+)"\s*(?:,\s*dependencies:\s*\[([^\]]*)\])?\s*\)"#
-        let regex = try Regex(pattern)
+        let namePart = #"\.target\(\s*name:\s*"([A-Za-z]+)"\s*"#
+        let dependenciesPart = #"(?:,\s*dependencies:\s*\[([^\]]*)\])?"#
+        let trailingArgumentsPart = #"(?:,\s*\w+:\s*\[[^\]]*\])*\s*\)"#
+        let regex = try Regex(namePart + dependenciesPart + trailingArgumentsPart)
 
         var graph: [String: Set<String>] = [:]
         for match in text.matches(of: regex) {
