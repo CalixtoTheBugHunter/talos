@@ -20,13 +20,9 @@ excluded:
 # unopinionated baseline; these are the additions, and every one of them is
 # verified clean against the current sources rather than assumed to be.
 #
-# Rules the SPEC forbids configuring here: nothing in this file rejects a hex
-# literal, a fixed point size, `#colorLiteral`, `Font.custom`, or a
-# glass-effect modifier. Those are defects per
-# https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#design-decisions
-# and how they are enforced is an open question owned by
-# https://github.com/CalixtoTheBugHunter/talos/issues/136 — so this file does
-# not answer it, and a green run here is not a claim about the no-values rule.
+# `no_magic_numbers` is load-bearing beyond its own name: per decision 56 it is
+# what rejects a hardcoded frame or spacing value, so removing it would silently
+# drop one of the eight no-values classes.
 opt_in_rules:
   # SwiftUI and accessibility
   - accessibility_label_for_image
@@ -91,5 +87,69 @@ opt_in_rules:
   - final_test_case
 
   # Literals and blocks
+  #
+  # `discouraged_object_literal` is load-bearing beyond its own name too: it is
+  # what rejects `#colorLiteral`, which is why no `talos_` rule below duplicates
+  # that class. Measured, not assumed — `tools/design-guard/self-test.sh` asserts
+  # it still fires.
   - discouraged_object_literal
   - no_empty_block
+
+# The no-values rule, per decision 56:
+# https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions
+#
+# The rule itself is on the wiki and is not restated here — each rule's message
+# carries the page that binds it:
+#   https://github.com/CalixtoTheBugHunter/talos/wiki/Design-System#the-platform-is-the-design-system
+#   https://github.com/CalixtoTheBugHunter/talos/wiki/Design-System#liquid-glass-is-inherited-never-applied
+#
+# Three classes are deliberately NOT here, stated because a green run is
+# otherwise read as a claim it never made:
+#
+#   - `#colorLiteral` is `discouraged_object_literal`, above.
+#   - A hardcoded frame or spacing value is `no_magic_numbers`, above. Its
+#     loophole — a named constant holding a hard-coded number — is review-
+#     enforced, not covered here.
+#   - A bundled color asset is not a Swift file, so SwiftLint cannot see one.
+#     `tools/design-guard/design-guard.sh` scans for `*.colorset`.
+#
+# And what `no_magic_numbers` does NOT do for the rules below: it flags several
+# of these classes incidentally, but only while a bare number is present.
+# `.font(.system(size: bodySize))` carries no literal and passes it clean, which
+# is why each class below has a rule that matches the spelling rather than the
+# number.
+#
+# Severity comes from `strict: true` at the top of this file, so each of these
+# is an error rather than a warning. `excluded_match_kinds` keeps a comment that
+# *describes* a forbidden spelling from being a violation of it — this file's own
+# reasoning would otherwise fail the build.
+custom_rules:
+  talos_no_hex_or_literal_color:
+    name: "no hex or literal color"
+    regex: '(Color|NSColor|UIColor|CGColor)\s*\([^)\n]{0,60}\b(hex|red|srgbRed|calibratedRed|white)\s*:|"#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?"'
+    message: "Talos never defines a brand palette, a hex literal, or a bundled color asset — use a system semantic color: https://github.com/CalixtoTheBugHunter/talos/wiki/Design-System#the-platform-is-the-design-system"
+    excluded_match_kinds: [comment, docComment]
+
+  talos_no_fixed_point_size:
+    name: "no fixed point size"
+    regex: '\.(system|systemFont|monospacedSystemFont|monospacedDigitSystemFont|boldSystemFont)\s*\(\s*(size|ofSize)\s*:'
+    message: "Talos never defines a type scale or a fixed point size — use a macOS text style, or the gate at 200% cannot hold: https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Accessibility#how-the-gate-is-checked"
+    excluded_match_kinds: [comment, docComment]
+
+  talos_no_font_custom:
+    name: "no custom font"
+    regex: '(Font|NSFont|UIFont)\s*\.\s*custom\s*\(|\.custom\s*\(\s*"'
+    message: "Talos adopts macOS text styles and defines no font of its own: https://github.com/CalixtoTheBugHunter/talos/wiki/Design-System#the-platform-is-the-design-system"
+    excluded_match_kinds: [comment, docComment]
+
+  talos_no_hand_placed_blur:
+    name: "no hand-placed blur"
+    regex: '\.blur\s*\(\s*radius\s*:|NSVisualEffectView'
+    message: "No custom material, tint, or blur behind a Talos surface — glass is inherited from standard SwiftUI chrome: https://github.com/CalixtoTheBugHunter/talos/wiki/Design-System#liquid-glass-is-inherited-never-applied"
+    excluded_match_kinds: [comment, docComment]
+
+  talos_no_applied_glass_effect:
+    name: "no hand-applied glass effect"
+    regex: '\.glassEffect\s*\(|\.glassBackgroundEffect\s*\(|\bGlassEffectContainer\b'
+    message: "Liquid Glass is inherited, never applied — no glass-effect modifier on a Talos view and no glass-effect container of its own: https://github.com/CalixtoTheBugHunter/talos/wiki/Design-System#liquid-glass-is-inherited-never-applied"
+    excluded_match_kinds: [comment, docComment]

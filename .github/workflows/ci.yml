@@ -14,12 +14,12 @@
 #   - It produces four of the six required contexts. `perf-budget` and `a11y`
 #     are produced by no workflow yet, so no PR can satisfy the ruleset on
 #     `main` from this file alone.
-#   - It does not check the no-values rule. Two rows of the accessibility gate
-#     table assign "rejects fixed point sizes" and "rejects hex literals and
-#     bundled color assets" to `lint`, and neither SwiftLint nor SwiftFormat
-#     does that out of the box. Who enforces it is an open question:
-#     https://github.com/CalixtoTheBugHunter/talos/issues/136
-#     A green `lint` here is not a claim about either row.
+#   - The no-values rule is checked inside `lint`, per decision 56 — SwiftLint
+#     `custom_rules` for six of the eight classes, plus `design-guard` for the
+#     two SwiftLint cannot see. `design-guard` is a STEP, not a stage, so it adds
+#     no seventh required context. Three residues are review-enforced and a
+#     green `lint` claims nothing about them:
+#     tools/design-guard/README.md § What is NOT covered.
 
 name: ci
 
@@ -132,6 +132,19 @@ jobs:
             printf 'The pre-commit hook in .githooks/pre-commit does this automatically; see CONTRIBUTING.md.\n'
             exit 1
           fi
+
+      # The no-values rule, per decision 56. The self-test runs first for the
+      # reason `spec-guard`'s does: a rule SwiftLint rejects as invalid "falls
+      # back to default" and silently catches nothing, which is green on a clean
+      # tree — so proving the rule still fails on a deliberate violation is what
+      # makes the step below mean something. It finds `.ci-tools/swiftlint`
+      # itself, so it tests the pinned binary this job installed rather than
+      # whatever is on PATH.
+      - name: Self-test the no-values rule
+        run: tools/design-guard/self-test.sh
+
+      - name: design-guard
+        run: tools/design-guard/design-guard.sh
 
   # ── build ───────────────────────────────────────────────────────────────
   build:

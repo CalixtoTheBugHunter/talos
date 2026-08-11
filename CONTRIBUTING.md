@@ -103,6 +103,11 @@ files you staged. It formats a wholly-staged file and re-stages it; a file stage
 -p`, or edited after staging — is linted and named instead, because formatting it would stage an edit
 you have not read.
 
+It also runs [`design-guard`](tools/design-guard/README.md), which is the half of the no-values rule
+SwiftLint cannot see. That one scans the repository's tracked files rather than your staged set —
+the same surface `lint` scans, so the two give the same answer — and it runs even when you staged no
+Swift at all, because a bundled color asset is not a Swift file.
+
 Set it **per-clone, not globally**, for the same reason signing is: `core.hooksPath` in your global
 config points every other repository at a `.githooks` directory that does not exist there.
 
