@@ -494,7 +494,7 @@ half:
 | Token overhead < 5% | `perf-budget`, and measured in the product on the [Monitor Screen](https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#monitor-screen) |
 | First feedback < 100 ms | `perf-budget` ([Loading](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#what-each-state-answers-to)) |
 | 120 fps during Liquid Glass animation | **Not `perf-budget`** — a hosted runner is not ProMotion. A [manual pre-release check](https://github.com/CalixtoTheBugHunter/talos/wiki/Verification) on an internal ProMotion display, per [decision 49](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions), plus **review** for the mechanism (Rule 4) ([Ready](https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#what-each-state-answers-to)) |
-| No hex literal, no fixed point size | `lint` — **see the gap below** |
+| No hex literal, no fixed point size | `lint`, per [decision 56](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions) — SwiftLint `custom_rules` plus `tools/design-guard/`. **Two residues are review-enforced**, listed in `tools/design-guard/README.md` § What is NOT covered, and `lint` claims nothing about them |
 | Every a11y row | `a11y` (XCUITest), per the gate's own table |
 | Non-visual equivalent, never color alone | `a11y` for label/role/keyboard; **review** for whether meaning survives — the gate's table assigns "Never by color alone" and the material/motion judgement to review |
 
@@ -512,12 +512,20 @@ denial path are documented **manual pre-release checks** with their measured val
 `perf-budget` or `a11y` covers one of them is the false-coverage this rule exists to prevent — and note
 what does *not* follow: a manual gate is still a gate, so Rule 8 applies to it unchanged.
 
-**The `lint` rows are a known gap, not a fact.** An
-[open question](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#open-questions) says
-so directly: `lint` "is SwiftLint plus SwiftFormat today, so this needs custom rules somebody writes
-— or it is review-only and the rule is an honor system", blocking "The a11y and lint CI stages".
-Until that is decided, treat a hex literal or a fixed point size as **review-enforced** and do not
-claim `lint` catches it.
+**The `lint` rows are decided, and two residues are still review-enforced.**
+[Decision 56](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions)
+settles the former open question: seven of the eight no-values classes are enforced by SwiftLint —
+five by new `custom_rules`, two by rules already enabled — and the eighth, a bundled color asset, is
+**split**, because the asset is a directory of JSON no SwiftLint configuration can reach while the
+lookup that resolves it is ordinary Swift. `tools/design-guard/` owns the asset and is a step inside
+`lint` rather than a stage of its own. So a hex literal, a fixed point size, `#colorLiteral`,
+`Font.custom`, a hand-placed blur, a glass-effect modifier, a frame or spacing value written as a
+numeric literal, and a bundled color asset — the asset and the `Color("Name")` lookup both — **are**
+caught by `lint` and may be claimed as such. What may **not** be claimed is listed in
+`tools/design-guard/README.md` § What is NOT covered: class 6's named-constant loophole and a custom
+`Material` type stay **review-enforced**. Whether a hand-placed *system* material is forbidden at all
+is not a residue but an undecided question, in
+[Decision Log § Open questions](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#open-questions).
 
 ---
 
@@ -628,7 +636,6 @@ surface, all from
 
 | Gap | Why it is a gap |
 | --- | --- |
-| **Enforcing the no-values rule in CI** | [Decision 19](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#design-decisions) makes a hex literal and a fixed point size defects and the gate's table assigns both to `lint`, but `lint` "is SwiftLint plus SwiftFormat today, so this needs custom rules somebody writes — or it is review-only and the rule is an honor system". Blocks the a11y and lint CI stages. Until decided, both are **review-enforced** — see Rule 9 |
 | **Window and navigation structure** | Foundations settles how surfaces behave, not how many windows exist, and "The answer changes what `⌘⌥→` moves between and what a notification reopens". A keyboard-reachability claim that depends on cross-window focus order needs this decided |
 
 Two more that are not open questions but are genuinely unspecified, and are gaps the first change to

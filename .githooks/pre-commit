@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
-# Runs SwiftFormat then SwiftLint over the staged Swift files, so a style or
-# correctness failure surfaces here instead of in CI.
+# Runs SwiftFormat then SwiftLint over the staged Swift files, plus design-guard
+# over the repository, so a style, correctness, or no-values failure surfaces
+# here instead of in CI.
 #
 # The tools, the order, and the fact that a hook exists at all are SPEC
 # decisions, and the reasoning is on the wiki rather than repeated here:
@@ -23,6 +24,23 @@ fail() {
 require() { # require <tool> <brew formula>
   command -v "$1" >/dev/null 2>&1 || fail "$1 is not installed. brew install $2"
 }
+
+# The half of the no-values rule SwiftLint cannot see, per decision 56 —
+# https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions
+#
+# It runs first and unconditionally, because one of the two classes it owns is a
+# bundled color asset, which is not a Swift file: a commit staging only a
+# `.colorset` would otherwise exit below without it. Like the `lint` stage, it
+# scans the repository's tracked files rather than this commit's diff, so it can
+# report a violation this commit did not introduce — that identical surface is
+# what makes the local answer and CI's the same one.
+#
+# Silent when it passes. Its output is the failure message, not a status line.
+guard_output=''
+if ! guard_output="$(tools/design-guard/design-guard.sh 2>&1)"; then
+  printf '%s\n' "$guard_output" >&2
+  fail 'design-guard found violations of the no-values rule. What it does not cover is in tools/design-guard/README.md'
+fi
 
 # Staged Swift files, NUL-separated so a path with a space survives.
 staged=()
