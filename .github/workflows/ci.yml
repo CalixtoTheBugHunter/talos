@@ -11,9 +11,9 @@
 # What this workflow does NOT do, stated because a green run is otherwise read
 # as a claim it never made:
 #
-#   - It produces three of the six required contexts. `spec-guard`,
-#     `perf-budget`, and `a11y` are produced by no workflow yet, so no PR can
-#     satisfy the ruleset on `main` from this file alone.
+#   - It produces four of the six required contexts. `perf-budget` and `a11y`
+#     are produced by no workflow yet, so no PR can satisfy the ruleset on
+#     `main` from this file alone.
 #   - It does not check the no-values rule. Two rows of the accessibility gate
 #     table assign "rejects fixed point sizes" and "rejects hex literals and
 #     bundled color assets" to `lint`, and neither SwiftLint nor SwiftFormat
@@ -283,3 +283,27 @@ jobs:
           name: swift-testing-results
           path: ${{ runner.temp }}/test-results/
           if-no-files-found: warn
+
+  # ── spec-guard ──────────────────────────────────────────────────────────
+  # The automation of MVP Definition of Done item 11, which that page calls
+  # "checkable by grep":
+  # https://github.com/CalixtoTheBugHunter/talos/wiki/MVP-Definition-of-Done#notes-on-the-harder-criteria
+  #
+  # `macos-26` rather than a Linux runner, though the check needs no toolchain:
+  # the script is run locally on macOS too, and the same grep implementation is
+  # what makes CI and a developer's machine give the same answer.
+  spec-guard:
+    name: spec-guard
+    runs-on: macos-26
+    needs: test
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The self-test runs first. A guard that matches nothing is green on any
+      # codebase, so proving it still fails on a deliberate violation is what
+      # makes the step below mean something.
+      - name: Self-test the guard
+        run: tools/spec-guard/self-test.sh
+
+      - name: spec-guard
+        run: tools/spec-guard/spec-guard.sh
