@@ -10,7 +10,7 @@
 # It covers BOTH halves of decision 56, because the split between them is an
 # implementation detail a reader should not have to know to trust the rule:
 #
-#   - the seven classes `.swiftlint.yml` owns, run through the repository's own
+#   - the classes `.swiftlint.yml` owns, run through the repository's own
 #     config rather than a copy of it, so the rules under test are the shipped
 #     ones;
 #   - the bundled color asset and the escape hatch `design-guard.sh` owns.
@@ -63,7 +63,7 @@ fail() {
 }
 
 # ── part 1: the classes `.swiftlint.yml` owns ───────────────────────────────
-printf '\n.swiftlint.yml — the seven classes SwiftLint owns\n'
+printf '\n.swiftlint.yml — the classes SwiftLint owns\n'
 
 lintdir="$work/lint"
 mkdir -p "$lintdir"
