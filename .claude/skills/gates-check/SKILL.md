@@ -630,15 +630,11 @@ an agent that hits one "does not stay In progress and decide the open question b
 
 Do not fill a gap with an assumption; raise it for a human decision and the
 [Decision Log](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log), per
-[`spec-driven-change` § Escalating a SPEC gap](../spec-driven-change/SKILL.md). Known gaps on this
-surface, all from
-[§ Open questions](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#open-questions):
+[`spec-driven-change` § Escalating a SPEC gap](../spec-driven-change/SKILL.md). Check
+[§ Open questions](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#open-questions)
+first, since a gap listed there is already known and the decision comes before the code.
 
-| Gap | Why it is a gap |
-| --- | --- |
-| **Window and navigation structure** | Foundations settles how surfaces behave, not how many windows exist, and "The answer changes what `⌘⌥→` moves between and what a notification reopens". A keyboard-reachability claim that depends on cross-window focus order needs this decided |
-
-Two more that are not open questions but are genuinely unspecified, and are gaps the first change to
+Two that are not open questions but are genuinely unspecified, and are gaps the first change to
 need them should raise rather than answer:
 
 - **How a budget is measured** — narrowed, not closed.
