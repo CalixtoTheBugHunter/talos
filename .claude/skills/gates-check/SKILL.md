@@ -632,9 +632,14 @@ Do not fill a gap with an assumption; raise it for a human decision and the
 [Decision Log](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log), per
 [`spec-driven-change` § Escalating a SPEC gap](../spec-driven-change/SKILL.md). Check
 [§ Open questions](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#open-questions)
-first, since a gap listed there is already known and the decision comes before the code.
+first, since a gap listed there is already known and the decision comes before the code. The one open
+question on this surface:
 
-Two that are not open questions but are genuinely unspecified, and are gaps the first change to
+| Gap | Why it is a gap |
+| --- | --- |
+| **Is hand-placing a *system* material forbidden, or only a custom one?** | [§ Liquid Glass is inherited, never applied](https://github.com/CalixtoTheBugHunter/talos/wiki/Design-System#liquid-glass-is-inherited-never-applied) forbids "a **custom** material, tint, or blur behind a Talos surface", so `.background(.ultraThinMaterial)` — a system material, hand-placed — is settled by neither that line nor [decision 20](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#design-decisions). It is the residue Rule 4 cannot decide: `talos_no_hand_placed_blur` deliberately does not match it, and `tools/design-guard/README.md` records why. A change that hand-places a system material raises this rather than picking a reading |
+
+Two more that are not open questions but are genuinely unspecified, and are gaps the first change to
 need them should raise rather than answer:
 
 - **How a budget is measured** — narrowed, not closed.
