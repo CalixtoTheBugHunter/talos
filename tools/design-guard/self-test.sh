@@ -10,10 +10,13 @@
 # It covers BOTH halves of decision 56, because the split between them is an
 # implementation detail a reader should not have to know to trust the rule:
 #
-#   - the six classes `.swiftlint.yml` owns, run through the repository's own
+#   - the seven classes `.swiftlint.yml` owns, run through the repository's own
 #     config rather than a copy of it, so the rules under test are the shipped
 #     ones;
-#   - the two classes `design-guard.sh` owns.
+#   - the bundled color asset and the escape hatch `design-guard.sh` owns.
+#
+# Class 3 appears in both parts, because it is split: the asset is design-guard's
+# and the Swift-side lookup that resolves it is SwiftLint's.
 #
 # The violating fixture is GENERATED, never committed. A hex literal or a
 # `.colorset` in a committed test fixture is itself the violation the rule exists
@@ -60,7 +63,7 @@ fail() {
 }
 
 # ── part 1: the classes `.swiftlint.yml` owns ───────────────────────────────
-printf '\n.swiftlint.yml — the six classes SwiftLint owns\n'
+printf '\n.swiftlint.yml — the seven classes SwiftLint owns\n'
 
 lintdir="$work/lint"
 mkdir -p "$lintdir"
@@ -90,6 +93,8 @@ struct ViolatingView: View {
                 .blur(radius: 8)
             Text(verbatim: "class 8 — a hand-applied glass effect")
                 .glassEffect()
+            Text(verbatim: "class 3 — the Swift side, a named color asset")
+                .foregroundStyle(Color("BrandBlue"))
         }
         .frame(width: 320, height: 240)
     }
@@ -108,13 +113,53 @@ struct LegitimateView: View {
         VStack {
             Text(verbatim: "a semantic color")
                 .foregroundStyle(.primary)
+            Text(verbatim: "a system color by keypath, not by name")
+                .foregroundStyle(Color(nsColor: .labelColor))
             Text(verbatim: "a macOS text style")
                 .font(.largeTitle)
             Text(verbatim: "standard spacing")
                 .padding()
+            Label {
+                Text(verbatim: "an SF Symbol, whose name is a string in no color initializer")
+            } icon: {
+                Image(systemName: "sidebar.left")
+            }
         }
         .frame(maxWidth: .infinity)
         .background(.background)
+    }
+}
+SWIFT
+
+# Inherited glass, in its own fixture so the assertion below can name it. This is
+# the case the issue's Notes paragraph turns on: decision 20 bans APPLYING glass,
+# not inheriting it, and a rule that cannot tell those apart fails every surface
+# the design system depends on. Standard chrome carries glass with no modifier at
+# all, which is why there is nothing here for class 8's rule to match — and that
+# is a property worth asserting rather than arguing.
+cat >"$lintdir/InheritedGlass.swift" <<'SWIFT'
+import SwiftUI
+
+/// Standard macOS chrome. Liquid Glass arrives from the platform.
+struct InheritedGlassView: View {
+    /// Body.
+    var body: some View {
+        NavigationSplitView {
+            List {
+                Text(verbatim: "Sidebar")
+            }
+        } detail: {
+            Text(verbatim: "Detail")
+        }
+        .toolbar {
+            ToolbarItem {
+                Button {
+                    // No action — this fixture is linted, never run.
+                } label: {
+                    Text(verbatim: "Run")
+                }
+            }
+        }
     }
 }
 SWIFT
@@ -125,6 +170,7 @@ lint_output() { # lint_output <file>
 
 violating_out="$(lint_output Violating.swift)"
 legitimate_out="$(lint_output Legitimate.swift)"
+inherited_out="$(lint_output InheritedGlass.swift)"
 
 # Before any rule is asserted: a rule SwiftLint rejects "falls back to default"
 # and silently catches nothing, which is green on a clean tree. That is how an
@@ -152,6 +198,17 @@ expect_rule talos_no_fixed_point_size     'class 4, a fixed point size'
 expect_rule talos_no_font_custom          'class 5, Font.custom'
 expect_rule talos_no_hand_placed_blur     'class 7, a hand-placed blur'
 expect_rule talos_no_applied_glass_effect 'class 8, a hand-applied glass effect'
+expect_rule talos_no_named_color_asset    'class 3, the Swift-side lookup of a named color asset'
+
+# Decision 20 bans applying glass, not inheriting it. Asserted separately from
+# the general silence check below, because this is the one false positive that
+# would fail every standard surface in the app rather than an edge case.
+if printf '%s' "$inherited_out" | grep -q 'talos_no_applied_glass_effect'; then
+    fail 'inherited glass is not an applied glass effect' \
+        'standard chrome tripped class 8 — the rule cannot tell inheriting from applying'
+else
+    pass 'inherited glass is not an applied glass effect'
+fi
 
 # Both spellings of class 1, because the hex string carries no numeric literal
 # and `no_magic_numbers` therefore cannot reach it.
@@ -163,9 +220,9 @@ else
         'the hex string spelling was not reported; no_magic_numbers cannot reach it'
 fi
 
-# The legitimate file must trip no no-values rule. Unrelated rules are ignored:
+# Neither legitimate file may trip a no-values rule. Unrelated rules are ignored:
 # this asserts the no-values rules specifically, not the whole catalog.
-noisy="$(printf '%s' "$legitimate_out" |
+noisy="$(printf '%s\n%s' "$legitimate_out" "$inherited_out" |
     grep -oE '\((talos_[a-z_]+|no_magic_numbers|discouraged_object_literal)\)' || true)"
 if [ -z "$noisy" ]; then
     pass 'the legitimate spelling of every class is silent'
@@ -175,7 +232,7 @@ else
 fi
 
 # ── part 2: the classes `design-guard.sh` owns ──────────────────────────────
-printf '\ndesign-guard.sh — the two classes SwiftLint cannot see\n'
+printf '\ndesign-guard.sh — the bundled asset and the escape hatch\n'
 
 expect_reported() { # expect_reported <tree> <check name>
     local out status=0

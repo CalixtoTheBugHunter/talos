@@ -103,7 +103,9 @@ opt_in_rules:
 #   https://github.com/CalixtoTheBugHunter/talos/wiki/Design-System#the-platform-is-the-design-system
 #   https://github.com/CalixtoTheBugHunter/talos/wiki/Design-System#liquid-glass-is-inherited-never-applied
 #
-# Three classes are deliberately NOT here, stated because a green run is
+# Seven of the eight no-values classes are enforced here outright, and the
+# eighth — a bundled color asset — only half. Six have a rule below; the other
+# two are rules already in `opt_in_rules` above. Stated because a green run is
 # otherwise read as a claim it never made:
 #
 #   - `#colorLiteral` is `discouraged_object_literal`, above.
@@ -111,7 +113,9 @@ opt_in_rules:
 #     loophole — a named constant holding a hard-coded number — is review-
 #     enforced, not covered here.
 #   - A bundled color asset is not a Swift file, so SwiftLint cannot see one.
-#     `tools/design-guard/design-guard.sh` scans for `*.colorset`.
+#     `tools/design-guard/design-guard.sh` scans for `*.colorset`. Only the
+#     asset itself, though: the Swift-side lookup that resolves one IS visible
+#     here, and `talos_no_named_color_asset` below matches it.
 #
 # And what `no_magic_numbers` does NOT do for the rules below: it flags several
 # of these classes incidentally, but only while a bare number is present.
@@ -152,4 +156,15 @@ custom_rules:
     name: "no hand-applied glass effect"
     regex: '\.glassEffect\s*\(|\.glassBackgroundEffect\s*\(|\bGlassEffectContainer\b'
     message: "Liquid Glass is inherited, never applied — no glass-effect modifier on a Talos view and no glass-effect container of its own: https://github.com/CalixtoTheBugHunter/talos/wiki/Design-System#liquid-glass-is-inherited-never-applied"
+    excluded_match_kinds: [comment, docComment]
+
+  # The Swift half of class 3. `design-guard` catches the `.colorset`; this
+  # catches the lookup that resolves it, because an asset nobody references is
+  # dead weight while a reference is the thing that puts a hand-defined color on
+  # screen. Measured on 0.65.0: `Color(.systemBlue)`, `Color(nsColor:)`,
+  # `Image("…")`, and `NSImage(named:)` are all left clean.
+  talos_no_named_color_asset:
+    name: "no named color asset"
+    regex: '(Color|NSColor|UIColor)\s*\(\s*("|named\s*:\s*")'
+    message: "Talos never defines a bundled color asset, so nothing looks one up by name — use a system semantic color: https://github.com/CalixtoTheBugHunter/talos/wiki/Design-System#the-platform-is-the-design-system"
     excluded_match_kinds: [comment, docComment]

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
-# design-guard — the two halves of the no-values rule that SwiftLint's
-# `custom_rules` structurally cannot check.
+# design-guard — the two checks the no-values rule needs that SwiftLint's
+# `custom_rules` structurally cannot do: a bundled color asset, and a suppression
+# that cites no decision.
 #
 # The rules it enforces live on the wiki and are not restated here; each check
 # below carries the page and anchor that binds it, and prints them on failure:
@@ -27,10 +28,10 @@
 #
 # Stated because a green run is otherwise read as a claim it never made:
 #
-#   - It does not check the six classes `.swiftlint.yml` owns — a hex or literal
-#     color, a fixed point size, `Font.custom`, a hand-placed blur, a glass
-#     effect, and `#colorLiteral`. Those are SwiftLint rules, and a green run
-#     here says nothing about them.
+#   - It does not check what `.swiftlint.yml` owns — a hex or literal color, a
+#     fixed point size, `Font.custom`, a hand-placed blur, a glass effect,
+#     `#colorLiteral`, or the Swift-side lookup of a named color asset. Those are
+#     SwiftLint rules, and a green run here says nothing about them.
 #   - It does not check a hardcoded frame or spacing value. That is
 #     `no_magic_numbers`, and its loophole — a named constant holding a
 #     hard-coded number — is review-enforced by decision 56, not checked here.
