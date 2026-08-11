@@ -3,11 +3,15 @@ import SQLite3
 
 /// The local SQLite database.
 ///
-/// An `actor` so every call is off the caller's thread — including the main
-/// thread, per https://github.com/CalixtoTheBugHunter/talos/issues/38's
-/// "Write path is off the main thread and does not block UI." A caller on
-/// `@MainActor` reaches this type only through `await`, which hands the work
-/// to the actor's own executor rather than running it inline.
+/// An `actor` so every call after construction is off the caller's thread —
+/// including the main thread, per
+/// https://github.com/CalixtoTheBugHunter/talos/issues/38's "Write path is
+/// off the main thread and does not block UI." Construction is off the
+/// caller's thread too, because `init` is `async`: a synchronous actor
+/// `init` runs on the *caller's* thread — actor isolation only takes effect
+/// once the instance exists — so `init` here does the file I/O, the
+/// `sqlite3_open_v2` call, and every pending migration on the actor's own
+/// executor instead.
 public actor Database {
     /// `nonisolated(unsafe)` because `deinit` is `nonisolated` on an actor and
     /// `OpaquePointer` is not `Sendable`. Safe here specifically: every other
@@ -26,7 +30,7 @@ public actor Database {
     ///   `version` greater than the database's current `PRAGMA user_version`
     ///   are applied — forward-only, and a fresh (empty) database starts at
     ///   `user_version` 0, so every migration runs on it in order.
-    public init(url: URL, migrations: [Migration]) throws {
+    public init(url: URL, migrations: [Migration]) async throws {
         try FileManager.default.createDirectory(
             at: url.deletingLastPathComponent(),
             withIntermediateDirectories: true

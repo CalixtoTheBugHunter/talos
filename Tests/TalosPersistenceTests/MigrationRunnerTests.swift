@@ -37,7 +37,7 @@ struct MigrationRunnerTests {
     @Test("A migration runs against a brand-new, empty database")
     func migrationFromEmpty() async throws {
         let url = Self.temporaryDatabaseURL()
-        let database = try Database(url: url, migrations: [Self.exampleSchema])
+        let database = try await Database(url: url, migrations: [Self.exampleSchema])
 
         #expect(try await database.userVersion() == 1)
         #expect(try await Set(database.tableNames()) == ["exampleSessions", "exampleTokenRecords"])
@@ -49,11 +49,11 @@ struct MigrationRunnerTests {
     @Test("A migration already applied is never reapplied")
     func migrationsAreForwardOnly() async throws {
         let url = Self.temporaryDatabaseURL()
-        _ = try Database(url: url, migrations: [Self.exampleSchema])
+        _ = try await Database(url: url, migrations: [Self.exampleSchema])
 
         // Reopening with the same migration list must not re-run version 1's
         // CREATE TABLE, which would throw on a duplicate table name.
-        let reopened = try Database(url: url, migrations: [Self.exampleSchema])
+        let reopened = try await Database(url: url, migrations: [Self.exampleSchema])
         #expect(try await reopened.userVersion() == 1)
     }
 
@@ -61,14 +61,14 @@ struct MigrationRunnerTests {
     @Test("Only migrations newer than the current version are applied")
     func onlyNewerMigrationsApply() async throws {
         let url = Self.temporaryDatabaseURL()
-        _ = try Database(url: url, migrations: [Self.exampleSchema])
+        _ = try await Database(url: url, migrations: [Self.exampleSchema])
 
         let addColumn = Migration(
             version: 2,
             name: "add a column",
             sql: "ALTER TABLE exampleSessions ADD COLUMN note TEXT;"
         )
-        let reopened = try Database(url: url, migrations: [Self.exampleSchema, addColumn])
+        let reopened = try await Database(url: url, migrations: [Self.exampleSchema, addColumn])
         #expect(try await reopened.userVersion() == 2)
     }
 
@@ -85,7 +85,7 @@ struct MigrationRunnerTests {
 
         var caughtError: DatabaseError?
         do {
-            _ = try Database(url: url, migrations: [noProjectID])
+            _ = try await Database(url: url, migrations: [noProjectID])
         } catch let error as DatabaseError {
             caughtError = error
         }
@@ -94,14 +94,14 @@ struct MigrationRunnerTests {
 
         // Rolled back: the table must not exist afterward, and user_version
         // must still be 0 so a corrected migration 1 can be applied.
-        let recovered = try Database(url: url, migrations: [Self.exampleSchema])
+        let recovered = try await Database(url: url, migrations: [Self.exampleSchema])
         #expect(try await recovered.userVersion() == 1)
         #expect(try await Set(recovered.tableNames()) == ["exampleSessions", "exampleTokenRecords"])
     }
 
     /// Migrations must be supplied in strictly increasing version order.
     @Test("Out-of-order migration versions are rejected")
-    func outOfOrderVersionsAreRejected() throws {
+    func outOfOrderVersionsAreRejected() async throws {
         let url = Self.temporaryDatabaseURL()
         let first = Migration(
             version: 2,
@@ -116,7 +116,7 @@ struct MigrationRunnerTests {
 
         var caughtError: DatabaseError?
         do {
-            _ = try Database(url: url, migrations: [first, second])
+            _ = try await Database(url: url, migrations: [first, second])
         } catch let error as DatabaseError {
             caughtError = error
         }
@@ -127,17 +127,23 @@ struct MigrationRunnerTests {
     @Test("An insert referencing a nonexistent parent row is rejected")
     func foreignKeysAreEnforced() async throws {
         let url = Self.temporaryDatabaseURL()
-        let database = try Database(url: url, migrations: [Self.exampleSchema])
+        let database = try await Database(url: url, migrations: [Self.exampleSchema])
 
-        var threw = false
+        var caughtError: DatabaseError?
         do {
             try await database.execute(
                 "INSERT INTO exampleTokenRecords (id, project_id, session_id) VALUES (1, 'p1', 999);"
             )
-        } catch {
-            threw = true
+        } catch let error as DatabaseError {
+            caughtError = error
         }
-        #expect(threw)
+
+        // SQLite's own text for a foreign-key violation, distinct from every
+        // other `execFailed` this call could otherwise raise (a syntax error,
+        // a missing table) — so this fails if `PRAGMA foreign_keys = ON`
+        // stops being applied even though the insert still throws for some
+        // unrelated reason.
+        #expect(caughtError == .execFailed(message: "FOREIGN KEY constraint failed"))
     }
 
     /// > Deletes cascade so removing a session removes its token records
@@ -145,7 +151,7 @@ struct MigrationRunnerTests {
     @Test("Deleting a parent row cascades to its dependents")
     func deletesCascade() async throws {
         let url = Self.temporaryDatabaseURL()
-        let database = try Database(url: url, migrations: [Self.exampleSchema])
+        let database = try await Database(url: url, migrations: [Self.exampleSchema])
 
         try await database.execute("INSERT INTO exampleSessions (id, project_id) VALUES (1, 'p1');")
         try await database.execute("INSERT INTO exampleTokenRecords (id, project_id, session_id) VALUES (1, 'p1', 1);")
