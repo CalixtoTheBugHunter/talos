@@ -481,6 +481,13 @@ jobs:
   #     Motion, and Reduce Transparency are not exercised here. Full,
   #     surface-by-surface coverage as those surfaces are built is
   #     https://github.com/CalixtoTheBugHunter/talos/issues/97.
+  #   - `TalosUITests.swift` only fails the audit on Talos's own
+  #     accessibility-relevant element types (currently just `.staticText`).
+  #     `performAccessibilityAudit(.all)` also walks AppKit's own window
+  #     chrome — an anonymous root content Group, a TouchBar — which no
+  #     placement of a SwiftUI accessibility modifier can label, because
+  #     Talos's view code does not create those elements. See that file's
+  #     comment for what was tried.
   a11y:
     name: a11y
     runs-on: macos-26
