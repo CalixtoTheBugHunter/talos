@@ -80,6 +80,10 @@ check "AC8 stale approvals dismissed on push" "true" "$(param pull_request dismi
 check "AC8 the most recent push must be approved" "true" \
   "$(param pull_request require_last_push_approval)"
 
+# Decision 62 — a code owner's approval is required on the high-risk paths.
+check "decision 62 code owner review required" "true" \
+  "$(param pull_request require_code_owner_review)"
+
 # Decision 46 — the owner is not bound by the list above.
 check "decision 46 owner bypass present" "always" \
   "$(printf '%s' "$main" | jq -r '[.bypass_actors[] | select(.actor_type=="RepositoryRole") | .bypass_mode][0] // empty')"

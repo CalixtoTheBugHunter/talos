@@ -1,0 +1,17 @@
+# The list of high-risk paths. The rule requiring a code owner's approval on
+# them, and the criterion for what earns a path a place here, live on the SPEC
+# and are not restated:
+#
+#   https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#protection-rules-on-main
+#   https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#process-decisions  (decision 62)
+#
+# Secret handling is matched by filename rather than by directory because no
+# SPEC line fixes a path for it.
+
+/Sources/TalosSafeguards/   @CalixtoTheBugHunter
+/Sources/TalosAdapters/     @CalixtoTheBugHunter
+*Keychain*.swift            @CalixtoTheBugHunter
+*Secret*.swift              @CalixtoTheBugHunter
+/.github/workflows/         @CalixtoTheBugHunter
+/.claude/skills/            @CalixtoTheBugHunter
+/tools/spec-guard/          @CalixtoTheBugHunter
