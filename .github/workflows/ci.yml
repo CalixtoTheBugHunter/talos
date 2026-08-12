@@ -20,6 +20,10 @@
 #     `design-guard` is a STEP, not a stage, so it adds no seventh required
 #     context. Two residues are review-enforced and a green `lint` claims nothing
 #     about them: tools/design-guard/README.md § What is NOT covered.
+#   - The PR title's Conventional Commits format is also checked inside `lint`,
+#     by `pr-title-guard` — a STEP, not a stage, for the same reason
+#     `design-guard` and `codeowners-guard` are: it adds no required context of
+#     its own. See tools/pr-title-guard/README.md.
 
 name: ci
 
@@ -162,6 +166,21 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: tools/codeowners-guard/codeowners-guard.sh
+
+      # Only the `pull_request` event carries a PR title/body to check — a
+      # push to `main` has neither, so this step is a no-op there rather than
+      # a failure. Self-test runs first, for the same reason the guards above
+      # run theirs first: a guard that matches nothing is green on any title.
+      - name: Self-test the PR title guard
+        if: github.event_name == 'pull_request'
+        run: tools/pr-title-guard/self-test.sh
+
+      - name: pr-title-guard
+        if: github.event_name == 'pull_request'
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: tools/pr-title-guard/pr-title-guard.sh
 
   # ── build ───────────────────────────────────────────────────────────────
   build:
