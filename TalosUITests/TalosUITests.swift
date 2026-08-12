@@ -31,10 +31,10 @@ final class TalosUITests: XCTestCase {
             // identical issue, on the identical node, survived three
             // independently different placements. Accepted for exactly
             // this shape; anything else still fails the audit.
-            if issue.auditType == .sufficientElementDescription,
-               issue.compactDescription == "Element has no description",
-               issue.element?.elementType == .group
-            {
+            let isRootWindowContainerDescriptionGap = issue.auditType == .sufficientElementDescription
+                && issue.compactDescription == "Element has no description"
+                && issue.element?.elementType == .group
+            if isRootWindowContainerDescriptionGap {
                 return true
             }
             print("ACCESSIBILITY AUDIT ISSUE: \(issue)")
