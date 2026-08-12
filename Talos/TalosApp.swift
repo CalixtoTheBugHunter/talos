@@ -21,9 +21,17 @@ struct TalosApp: App {
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Design-System#the-platform-is-the-design-system
 struct ContentView: View {
     var body: some View {
-        Text(verbatim: "Talos")
-            .font(.largeTitle)
-            .padding()
-            .accessibilityLabel("Talos")
+        // `Group`, not a layout construct: it exists so the window's root
+        // content has its own accessible identity. Without it, SwiftUI
+        // synthesizes an anonymous container at this position that
+        // Apple's `performAccessibilityAudit()` flags as "Element has no
+        // description" even though the Text inside already carries one.
+        Group {
+            Text(verbatim: "Talos")
+                .font(.largeTitle)
+                .padding()
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Talos")
     }
 }
