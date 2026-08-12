@@ -15,3 +15,11 @@ xcuserdata/
 # The pinned linters the `lint` CI stage installs into the workspace. Present
 # only when the CI steps are run by hand; see .github/workflows/ci.yml.
 .ci-tools/
+
+# Local persistence — dogfooding Talos on its own repository.
+# .talos/local/ is never committed: https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#where-it-lives
+.talos/local/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.db
