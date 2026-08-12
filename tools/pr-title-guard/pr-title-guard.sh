@@ -56,10 +56,15 @@ if [ -z "$TITLE" ]; then
     exit 1
 fi
 
-if [[ "$TITLE" =~ ^(${type_pattern})\((${scope_pattern})\)!?:\ .+$ ]]; then
+# The subject group requires at least one non-whitespace character —
+# `.+` alone accepts a subject that is only spaces, which is not a subject.
+# The `!` marker is captured on its own so breaking-change detection below
+# reads the marker's actual position instead of searching the title for the
+# substring `!:`, which a subject could contain coincidentally.
+if [[ "$TITLE" =~ ^(${type_pattern})\((${scope_pattern})\)(!)?:\ (.*[^[:space:]].*)$ ]]; then
     printf 'pr-title-guard: "%s" matches Conventional Commits.\n' "$TITLE"
 
-    if [[ "$TITLE" == *"!:"* ]]; then
+    if [ -n "${BASH_REMATCH[3]}" ]; then
         printf 'pr-title-guard: breaking change marked via `!`.\n'
     fi
     if printf '%s' "$BODY" | grep -qE '^BREAKING CHANGE: .+'; then

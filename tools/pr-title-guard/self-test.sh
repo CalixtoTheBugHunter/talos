@@ -82,6 +82,7 @@ expect_fail 'unknown scope'           'feat(nonsense): add x'
 expect_fail 'missing colon'           'feat(core) add x'
 expect_fail 'missing space after colon' 'feat(core):add x'
 expect_fail 'empty subject'           'feat(core): '
+expect_fail 'whitespace-only subject' 'feat(core):    '
 expect_fail 'uppercase type'          'Feat(core): add x'
 expect_fail 'empty title'             ''
 
