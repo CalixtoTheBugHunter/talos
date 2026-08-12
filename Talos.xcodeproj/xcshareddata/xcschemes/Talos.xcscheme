@@ -20,6 +20,20 @@
                ReferencedContainer = "container:Talos.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "7A2000000000000000F0001"
+               BuildableName = "TalosUITests.xctest"
+               BlueprintName = "TalosUITests"
+               ReferencedContainer = "container:Talos.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -35,6 +49,16 @@
                BlueprintIdentifier = "7A10000000000000000F0002"
                BuildableName = "TalosCoreXcodeTests.xctest"
                BlueprintName = "TalosCoreXcodeTests"
+               ReferencedContainer = "container:Talos.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "7A2000000000000000F0001"
+               BuildableName = "TalosUITests.xctest"
+               BlueprintName = "TalosUITests"
                ReferencedContainer = "container:Talos.xcodeproj">
             </BuildableReference>
          </TestableReference>

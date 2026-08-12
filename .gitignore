@@ -16,6 +16,11 @@ xcuserdata/
 # only when the CI steps are run by hand; see .github/workflows/ci.yml.
 .ci-tools/
 
+# The one-run-back trend caches `perf-budget`/`a11y` read and write; see
+# .github/workflows/ci.yml.
+.ci-perf-history/
+.ci-a11y-history/
+
 # Local persistence — dogfooding Talos on its own repository.
 # .talos/local/ is never committed: https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#where-it-lives
 .talos/local/

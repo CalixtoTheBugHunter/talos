@@ -11,9 +11,11 @@
 # What this workflow does NOT do, stated because a green run is otherwise read
 # as a claim it never made:
 #
-#   - It produces four of the six required contexts. `perf-budget` and `a11y`
-#     are produced by no workflow yet, so no PR can satisfy the ruleset on
-#     `main` from this file alone.
+#   - It now produces all six required contexts. `perf-budget` and `a11y`
+#     assert only what a hosted runner can measure — see each job's own
+#     header comment for what it explicitly does not claim, and
+#     https://github.com/CalixtoTheBugHunter/talos/wiki/Verification for the
+#     four gates that stay a documented manual pre-release check.
 #   - The no-values rule is checked inside `lint`, per decision 56 — SwiftLint
 #     rules for seven of the eight classes, plus `design-guard` for the bundled
 #     color asset and the escape hatch, neither of which SwiftLint can see.
@@ -356,3 +358,208 @@ jobs:
 
       - name: spec-guard
         run: tools/spec-guard/spec-guard.sh
+
+  # ── perf-budget ─────────────────────────────────────────────────────────
+  # Asserts the one budget in
+  # https://github.com/CalixtoTheBugHunter/talos/wiki/Vision-and-Principles#budgets-that-make-the-above-testable
+  # that is measurable on a hosted runner with zero dependency on runtime app
+  # behavior that does not exist yet (no session, no agent, no Monitor
+  # Screen): app bundle size, < 60 MB.
+  #
+  # What this job does NOT claim, stated because a green run is otherwise
+  # read as covering more than it does — per
+  # https://github.com/CalixtoTheBugHunter/talos/wiki/Verification, "Nothing
+  # on this page duplicates a required check":
+  #
+  #   - Idle memory, active memory, cold launch, idle CPU/no-polling-timers,
+  #     and UI-interaction latency are not measured here. They are
+  #     https://github.com/CalixtoTheBugHunter/talos/issues/108, a separate,
+  #     Instruments/xctrace-driven mechanism this job does not duplicate.
+  #   - Frame rate during Liquid Glass animation is a documented manual
+  #     pre-release check per decision 49 — a GitHub-hosted runner is not a
+  #     ProMotion display — tracked by
+  #     https://github.com/CalixtoTheBugHunter/talos/issues/154.
+  #   - Talos-added token overhead is a runtime, per-session metric measured
+  #     on the Monitor Screen, not a static build property.
+  perf-budget:
+    name: perf-budget
+    runs-on: macos-26
+    needs: spec-guard
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Pin the toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Cache SwiftPM
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .build
+          key: spm-release-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.swift', 'Package.resolved') }}
+          restore-keys: |
+            spm-release-${{ runner.os }}-${{ runner.arch }}-
+
+      # Same build this budget is measured against at release time — release
+      # config, arm64 only, per decision 54.
+      - name: Build the app bundle (release, arm64)
+        run: |
+          set -euo pipefail
+          xcodebuild -project Talos.xcodeproj -scheme Talos \
+            -configuration Release -derivedDataPath "$RUNNER_TEMP/dd" \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=YES build
+
+      # A single prior measurement, carried forward via cache rather than
+      # committed to the repo — restore-keys falls back to the most recent
+      # run's save under this prefix, following the same restore-keys idiom
+      # already used above for SwiftPM. This is deliberately one data point,
+      # not unbounded history: enough to show whether THIS change made it
+      # worse, without a bot committing to `main` to keep a growing log.
+      - name: Restore the previous measured bundle size
+        id: restore-history
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .ci-perf-history/bundle-size-mb.txt
+          key: perf-budget-bundle-size-${{ github.run_id }}
+          restore-keys: |
+            perf-budget-bundle-size-
+
+      - name: Measure the app bundle size
+        id: measure
+        run: |
+          set -euo pipefail
+          budget_mb=60
+          app="$RUNNER_TEMP/dd/Build/Products/Release/Talos.app"
+          measured_mb="$(du -sm "$app" | cut -f1)"
+
+          previous_mb='n/a'
+          if [ -f .ci-perf-history/bundle-size-mb.txt ]; then
+            previous_mb="$(cat .ci-perf-history/bundle-size-mb.txt)"
+          fi
+
+          {
+            printf '### perf-budget\n\n'
+            printf '| Budget | Measured | Previous run | SPEC budget |\n'
+            printf '| --- | --- | --- | --- |\n'
+            printf '| App bundle size | %s MB | %s MB | < %s MB |\n\n' "$measured_mb" "$previous_mb" "$budget_mb"
+            printf 'Does **not** measure idle/active memory, cold launch, idle CPU, or UI-latency — see https://github.com/CalixtoTheBugHunter/talos/issues/108.\n'
+          } >>"$GITHUB_STEP_SUMMARY"
+
+          mkdir -p .ci-perf-history
+          printf '%s' "$measured_mb" >.ci-perf-history/bundle-size-mb.txt
+
+          if [ "$measured_mb" -ge "$budget_mb" ]; then
+            printf '::error::perf-budget: app bundle size %s MB breaches the SPEC budget of < %s MB.\n' "$measured_mb" "$budget_mb"
+            printf '  spec: https://github.com/CalixtoTheBugHunter/talos/wiki/Vision-and-Principles#budgets-that-make-the-above-testable\n'
+            exit 1
+          fi
+
+      - name: Save this run's measured bundle size
+        if: always()
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .ci-perf-history/bundle-size-mb.txt
+          key: perf-budget-bundle-size-${{ github.run_id }}
+
+  # ── a11y ────────────────────────────────────────────────────────────────
+  # A required XCUITest stage per
+  # https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#ci-pipeline-order.
+  # Runs Apple's built-in `performAccessibilityAudit()` against the current
+  # surface — the structural half of the gate Verification carves out for
+  # CI: "`a11y` asserts labels, hints, and roles."
+  #
+  # What this job does NOT claim, stated for the same reason perf-budget's
+  # header does:
+  #
+  #   - VoiceOver *comprehensibility* — whether the spoken result makes
+  #     sense — is a judgement, not an assertion; it stays a documented
+  #     manual pre-release check per
+  #     https://github.com/CalixtoTheBugHunter/talos/wiki/Verification.
+  #   - Streaming-output announcements, the approval prompt's announce-before
+  #     -acting behavior, dark/light mode, text size at 100%/200%, Reduce
+  #     Motion, and Reduce Transparency are not exercised here. Full,
+  #     surface-by-surface coverage as those surfaces are built is
+  #     https://github.com/CalixtoTheBugHunter/talos/issues/97.
+  a11y:
+    name: a11y
+    runs-on: macos-26
+    needs: perf-budget
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Pin the toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Cache SwiftPM
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .build
+          key: spm-debug-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Package.swift', 'Package.resolved') }}
+          restore-keys: |
+            spm-debug-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Build for testing
+        run: |
+          set -euo pipefail
+          xcodebuild build-for-testing -project Talos.xcodeproj -scheme Talos \
+            -configuration Debug -only-testing:TalosUITests \
+            -derivedDataPath "$RUNNER_TEMP/dd"
+
+      - name: Restore the previous audit issue count
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .ci-a11y-history/issue-count.txt
+          key: a11y-issue-count-${{ github.run_id }}
+          restore-keys: |
+            a11y-issue-count-
+
+      - name: Run the accessibility audit
+        id: audit
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/test-results"
+          status=0
+          xcodebuild test-without-building -project Talos.xcodeproj -scheme Talos \
+            -configuration Debug -only-testing:TalosUITests \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            -resultBundlePath "$RUNNER_TEMP/test-results/a11y.xcresult" || status=$?
+
+          previous='n/a'
+          if [ -f .ci-a11y-history/issue-count.txt ]; then
+            previous="$(cat .ci-a11y-history/issue-count.txt)"
+          fi
+          issues=0
+          if [ "$status" -ne 0 ]; then
+            issues=1
+          fi
+
+          {
+            printf '### a11y\n\n'
+            printf '| Check | This run | Previous run |\n'
+            printf '| --- | --- | --- |\n'
+            printf '| Accessibility audit failures | %s | %s |\n\n' "$issues" "$previous"
+            printf 'Structural audit only — labels, traits, contrast, hit-target size. Comprehensibility, streaming announcements, and full surface coverage are tracked separately; see this job'"'"'s header comment.\n'
+          } >>"$GITHUB_STEP_SUMMARY"
+
+          mkdir -p .ci-a11y-history
+          printf '%s' "$issues" >.ci-a11y-history/issue-count.txt
+
+          exit "$status"
+
+      - name: Save this run's audit issue count
+        if: always()
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .ci-a11y-history/issue-count.txt
+          key: a11y-issue-count-${{ github.run_id }}
+
+      - name: Upload the test report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: a11y-results
+          path: ${{ runner.temp }}/test-results/
+          if-no-files-found: warn
