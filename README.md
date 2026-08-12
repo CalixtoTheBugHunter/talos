@@ -3,7 +3,8 @@
 AI Plataform for Software Developement
 
 The **SPEC lives in the [wiki](https://github.com/CalixtoTheBugHunter/talos/wiki)** and is the source
-of truth. This file states how to build; it does not restate any rule the wiki owns.
+of truth. This file states how to build; it does not restate any rule the wiki owns. Work is tracked
+on the [Talos Board](https://github.com/users/CalixtoTheBugHunter/projects/5).
 
 ## Build prerequisites
 

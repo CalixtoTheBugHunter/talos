@@ -1,0 +1,14 @@
+# Normalize line endings to LF for text files, regardless of the
+# contributor's platform or editor.
+* text=auto eol=lf
+
+# Binary types this repo actually holds — never diffed or line-ending
+# converted.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.icns binary
+*.pdf binary
+*.zip binary
+*.ico binary
