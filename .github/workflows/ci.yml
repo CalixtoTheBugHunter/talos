@@ -146,6 +146,23 @@ jobs:
       - name: design-guard
         run: tools/design-guard/design-guard.sh
 
+      # Asserts .github/CODEOWNERS still parses and still covers the six
+      # categories in § Protection rules on `main`. A step inside `lint`, not
+      # a stage of its own, per the same precedent as design-guard above:
+      # https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#ci-pipeline-order
+      #
+      # The self-test runs first, for the same reason design-guard's does: a
+      # guard that matches nothing is green on any input.
+      - name: Self-test the CODEOWNERS guard
+        run: tools/codeowners-guard/self-test.sh
+
+      # GH_TOKEN authenticates the live `gh api .../codeowners/errors` call —
+      # no elevated permission, the default `contents: read` token is enough.
+      - name: codeowners-guard
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: tools/codeowners-guard/codeowners-guard.sh
+
   # ── build ───────────────────────────────────────────────────────────────
   build:
     name: build

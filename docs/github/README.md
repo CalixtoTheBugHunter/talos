@@ -22,6 +22,13 @@ source of truth, and
 | [`ruleset-tags.json`](ruleset-tags.json) | The tag ruleset, which is how "signed tags required" is enforced — a branch ruleset cannot reach tags |
 | [`verify-rulesets.sh`](verify-rulesets.sh) | Asserts the live configuration still matches, criterion by criterion |
 
+There are **two** verification surfaces here, and they assert different things:
+`verify-rulesets.sh` below asserts the *ruleset* — that `require_code_owner_review` and everything
+else in this directory still matches what GitHub enforces. It says nothing about whether
+`.github/CODEOWNERS` itself still parses or still covers the paths that ruleset makes binding.
+[`tools/codeowners-guard/`](../../tools/codeowners-guard/README.md) is what asserts the *ownership
+file*, and it runs automatically as a step inside CI's `lint` job rather than by hand.
+
 ## Verifying
 
 ```sh
