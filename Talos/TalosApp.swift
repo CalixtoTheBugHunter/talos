@@ -10,8 +10,16 @@ import TalosCore
 @main
 struct TalosApp: App {
     var body: some Scene {
+        // The accessibility identity is given here, at the WindowGroup's own
+        // content position, rather than inside ContentView's body. Without
+        // it, SwiftUI synthesizes an anonymous container at exactly this
+        // position that Apple's `performAccessibilityAudit()` flags as
+        // "Element has no description" even though ContentView's Text
+        // already carries one.
         WindowGroup {
             ContentView()
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel("Talos")
         }
     }
 }
@@ -21,14 +29,8 @@ struct TalosApp: App {
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Design-System#the-platform-is-the-design-system
 struct ContentView: View {
     var body: some View {
-        // Without an explicit accessibility identity on the root view,
-        // SwiftUI synthesizes an anonymous container at this position that
-        // Apple's `performAccessibilityAudit()` flags as "Element has no
-        // description" even though the Text itself already carries one.
         Text(verbatim: "Talos")
             .font(.largeTitle)
             .padding()
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel("Talos")
     }
 }
