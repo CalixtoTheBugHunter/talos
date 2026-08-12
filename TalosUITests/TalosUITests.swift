@@ -21,6 +21,12 @@ final class TalosUITests: XCTestCase {
     func testRootWindowHasNoAccessibilityAuditIssues() throws {
         let app = XCUIApplication()
         app.launch()
-        try app.performAccessibilityAudit()
+        try app.performAccessibilityAudit { issue in
+            print("ACCESSIBILITY AUDIT ISSUE: \(issue)")
+            print("  element: \(issue.element?.debugDescription ?? "nil")")
+            print("  auditType: \(issue.auditType)")
+            print("  compactDescription: \(issue.compactDescription)")
+            return false
+        }
     }
 }
