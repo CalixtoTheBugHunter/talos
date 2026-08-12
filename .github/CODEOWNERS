@@ -3,7 +3,7 @@
 # and are not restated:
 #
 #   https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#protection-rules-on-main
-#   https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#process-decisions  (decision 62)
+#   https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#process-decisions  (decisions 62, 63)
 #
 # Secret handling is matched by filename rather than by directory because no
 # SPEC line fixes a path for it.
@@ -15,3 +15,7 @@
 /.github/workflows/         @CalixtoTheBugHunter
 /.claude/skills/            @CalixtoTheBugHunter
 /tools/spec-guard/          @CalixtoTheBugHunter
+
+# The files that carry this list itself — decision 63.
+/.github/CODEOWNERS         @CalixtoTheBugHunter
+/docs/github/               @CalixtoTheBugHunter
