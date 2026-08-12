@@ -86,6 +86,20 @@ check_category 'the credentials a release holds' '/.github/workflows/' '.github/
 check_category 'the skills every agent contributes through' '/.claude/skills/' '.claude/skills/example-skill/SKILL.md'
 check_category 'the spec-guard check that enforces DoD 11' '/tools/spec-guard/' 'tools/spec-guard/spec-guard.sh'
 
+# A complete, correct CODEOWNERS must stay covered even when an unrelated file
+# in the CALLER's cwd happens to collide with a bare filename glob. `covered()`
+# parses each pattern with `read`, never `set -- $line` — the earlier version
+# glob-expanded an unquoted `*Keychain*.swift` against real files in cwd and
+# reported a fully correct file as missing that category.
+collide_dir="$work/collide-caller-cwd"
+mkdir -p "$collide_dir"
+touch "$collide_dir/ZKeychainZ.swift"
+if out="$(cd "$collide_dir" && "$GUARD" "$complete" 2>&1)"; then
+    pass 'a colliding filename in the caller cwd does not break a correct file'
+else
+    fail 'a colliding filename in the caller cwd does not break a correct file' "$out"
+fi
+
 # A pattern with no owner covers nothing — "silently unowned" is exactly the
 # case of a line that still matches but assigns no one.
 unowned="$work/unowned"
@@ -134,6 +148,32 @@ if [ "$status" -eq 0 ]; then
     pass 'an empty errors array passes'
 else
     fail 'an empty errors array passes' "$out"
+fi
+
+# A missing `gh` must fail the build, not silently skip the live check. Built
+# by dropping every PATH entry that holds a `gh` executable — never by
+# shadowing `gh` with something that still resolves, which would test a
+# different codepath.
+no_gh_path=''
+still_has_git=0
+while IFS= read -r dir; do
+    [ -n "$dir" ] || continue
+    if [ -x "$dir/gh" ]; then continue; fi
+    no_gh_path="$no_gh_path:$dir"
+    [ -x "$dir/git" ] && still_has_git=1
+done <<<"$(printf '%s' "$PATH" | tr ':' '\n')"
+no_gh_path="${no_gh_path#:}"
+
+if [ "$still_has_git" -ne 1 ]; then
+    fail 'gh missing fails the build rather than silently passing' \
+        'every PATH entry with gh also lacked git on this machine — cannot isolate the case'
+else
+    out="$(PATH="$no_gh_path" "$GUARD" 2>&1)" && status=0 || status=$?
+    if [ "$status" -ne 0 ] && printf '%s' "$out" | grep -qF 'gh is required'; then
+        pass 'gh missing fails the build rather than silently passing'
+    else
+        fail 'gh missing fails the build rather than silently passing' "$out"
+    fi
 fi
 
 # ── verdict ─────────────────────────────────────────────────────────────────

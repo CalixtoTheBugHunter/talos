@@ -93,11 +93,17 @@ check_live_parse_errors() { # check_live_parse_errors <repo> <ref>
     local repo="$1" ref="$2" out status=0 count
 
     command -v gh >/dev/null 2>&1 || {
-        printf '::error::codeowners-guard: gh is required — https://cli.github.com\n' >&2
+        report 'gh is required to run the live CODEOWNERS validator' \
+            'A step inside lint fails when .github/CODEOWNERS has a parse error or an unresolvable owner' \
+            "$PROTECTION" \
+            'gh is not on PATH — https://cli.github.com. A missing tool is a failure, not a skip.'
         return 2
     }
     command -v jq >/dev/null 2>&1 || {
-        printf '::error::codeowners-guard: jq is required\n' >&2
+        report 'jq is required to read the live CODEOWNERS validator response' \
+            'A step inside lint fails when .github/CODEOWNERS has a parse error or an unresolvable owner' \
+            "$PROTECTION" \
+            'jq is not on PATH. A missing tool is a failure, not a skip.'
         return 2
     }
 
@@ -181,16 +187,18 @@ match_pattern() {
 # covered <example path> <codeowners file> — true if some line's pattern
 # matches, and that line names at least one owner.
 covered() {
-    local example="$1" file="$2" pattern line
+    local example="$1" file="$2" pattern rest line
     while IFS= read -r line; do
         line="${line%$'\r'}"
-        # shellcheck disable=SC2086,SC2206
-        set -- $line
-        [ "$#" -eq 0 ] && continue
-        pattern="$1"
+        # `read`, not `set -- $line`: the pattern column IS a glob
+        # (`*Keychain*.swift`), and unquoted `set --` pathname-expands an
+        # unquoted glob against whatever files happen to exist in the caller's
+        # cwd — a real file that happens to collide corrupts the parsed
+        # pattern. `read` only splits; it never touches the filesystem.
+        read -r pattern rest <<<"$line" || true
+        [ -n "${pattern-}" ] || continue
         case "$pattern" in '#'*) continue ;; esac
-        shift
-        [ "$#" -ge 1 ] || continue
+        [ -n "${rest//[[:space:]]/}" ] || continue
         match_pattern "$pattern" "$example" && return 0
     done <"$file"
     return 1
