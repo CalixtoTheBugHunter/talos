@@ -295,6 +295,15 @@ and is not made redundant by it. [Decision Log #40](https://github.com/CalixtoTh
 draws the line: "a reviewer refutes a PR against the diff, an author confirms an item against its
 ticket, and an item can pass review with a criterion nobody checked."
 
+**Closing an epic runs [`review-epic`](../review-epic/SKILL.md) instead of the per-criterion table
+above.** Per [decision 65](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log) and
+[§ Closing an epic: the `review-epic` fast path](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#closing-an-epic-the-review-epic-fast-path),
+an epic's leaves already paid this section's evidentiary cost individually, so re-deriving it a second
+time at the epic level proves nothing new. `create-issue` still owns the `In review` → `Done`
+transition; `review-epic` supplies the epic-specific checks — every sub-issue actually `Done`, the
+epic's own done condition against its Spec Pages, and a smoke test for regression — and this skill
+completes the move to `Done` once those checks pass.
+
 ---
 
 ## The item body template
