@@ -11,14 +11,9 @@ this PR references the wiki page it implements and the DoD criterion it advances
 
 **Spec Page:** <!-- link to the wiki page(s) this PR implements -->
 
-**DoD criterion advanced:**
-<!--
-State the numbered MVP DoD criterion (https://github.com/CalixtoTheBugHunter/talos/wiki/MVP-Definition-of-Done)
-this PR advances. If none, you must state why — "not applicable" alone is not
-a reason:
+**DoD criterion advanced:** <!-- the numbered MVP DoD criterion (https://github.com/CalixtoTheBugHunter/talos/wiki/MVP-Definition-of-Done) this PR advances, or: -->
 
 Not applicable, because ___
--->
 
 ## Constraint checklist
 
