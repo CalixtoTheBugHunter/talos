@@ -21,6 +21,14 @@ final class TalosUITests: XCTestCase {
     func testRootWindowHasNoAccessibilityAuditIssues() throws {
         let app = XCUIApplication()
         app.launch()
+
+        // Every issue is accepted here (always `true`), so the audit
+        // enumerates the whole tree instead of stopping at the first
+        // rejection. `talosOwnIssues` is the real count this test asserts
+        // against — the CI script parses `ACCESSIBILITY_ISSUE_COUNT:`
+        // below rather than reading a bare pass/fail exit code, so a
+        // regression from 1 issue to 3 is visible, not just "failing".
+        var talosOwnIssues: [XCUIAccessibilityAuditIssue] = []
         try app.performAccessibilityAudit { issue in
             // `performAccessibilityAudit(.all)` walks every accessibility
             // node AppKit generates for a window, not only the ones Talos's
@@ -32,16 +40,24 @@ final class TalosUITests: XCTestCase {
             //
             // ContentView currently authors exactly one accessibility-
             // relevant element: the `Text`, which maps to `.staticText`.
-            // Anything of a different element type is framework chrome
-            // Talos's code did not create and cannot label — so only a
-            // `.staticText` issue fails this audit. As real controls are
-            // added, their element types join this check; that growth is
+            // An issue with no element reference at all is framework-level
+            // noise the same way — there is nothing in Talos's view code to
+            // attach a label to — so it is excused by the same `guard`,
+            // explicitly, rather than by an unrelated type mismatch. As
+            // real controls are added, their element types join this
+            // check; that growth is
             // https://github.com/CalixtoTheBugHunter/talos/issues/97.
-            if issue.element?.elementType != .staticText {
+            guard let elementType = issue.element?.elementType, elementType == .staticText else {
                 return true
             }
-            print("ACCESSIBILITY AUDIT ISSUE: \(issue)")
-            return false
+            talosOwnIssues.append(issue)
+            return true
         }
+
+        for issue in talosOwnIssues {
+            print("ACCESSIBILITY AUDIT ISSUE: \(issue)")
+        }
+        print("ACCESSIBILITY_ISSUE_COUNT: \(talosOwnIssues.count)")
+        XCTAssertTrue(talosOwnIssues.isEmpty, "\(talosOwnIssues.count) accessibility issue(s) on Talos's own elements")
     }
 }

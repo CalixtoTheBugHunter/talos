@@ -528,26 +528,36 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/test-results"
-          status=0
+
+          # `|| true` neutralizes `set -e` for this one pipeline so the
+          # script reaches the PIPESTATUS read below on a test failure —
+          # xcodebuild's own exit code, not tee's, is what `status` must
+          # carry. `TalosUITests.swift` never throws early (every audit
+          # issue is accepted so it can keep enumerating), and instead
+          # prints `ACCESSIBILITY_ISSUE_COUNT: N` unconditionally — a real
+          # count, not a bare pass/fail bit, is what gets read below.
           xcodebuild test-without-building -project Talos.xcodeproj -scheme Talos \
             -configuration Debug -only-testing:TalosUITests \
             -derivedDataPath "$RUNNER_TEMP/dd" \
-            -resultBundlePath "$RUNNER_TEMP/test-results/a11y.xcresult" || status=$?
+            -resultBundlePath "$RUNNER_TEMP/test-results/a11y.xcresult" \
+            2>&1 | tee "$RUNNER_TEMP/test-results/a11y.log" || true
+          status=${PIPESTATUS[0]}
+
+          issues="$(grep -oE 'ACCESSIBILITY_ISSUE_COUNT: [0-9]+' "$RUNNER_TEMP/test-results/a11y.log" | tail -1 | awk '{print $2}')"
+          if [ -z "$issues" ]; then
+            issues='unknown'
+          fi
 
           previous='n/a'
           if [ -f .ci-a11y-history/issue-count.txt ]; then
             previous="$(cat .ci-a11y-history/issue-count.txt)"
-          fi
-          issues=0
-          if [ "$status" -ne 0 ]; then
-            issues=1
           fi
 
           {
             printf '### a11y\n\n'
             printf '| Check | This run | Previous run |\n'
             printf '| --- | --- | --- |\n'
-            printf '| Accessibility audit failures | %s | %s |\n\n' "$issues" "$previous"
+            printf '| Accessibility audit issues (on Talos'"'"'s own elements) | %s | %s |\n\n' "$issues" "$previous"
             printf 'Structural audit only — labels, traits, contrast, hit-target size. Comprehensibility, streaming announcements, and full surface coverage are tracked separately; see this job'"'"'s header comment.\n'
           } >>"$GITHUB_STEP_SUMMARY"
 
