@@ -1,0 +1,54 @@
+name: SPEC change
+description: The wiki is wrong, unclear, or silent on something and needs updating.
+labels: ["type:spec"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Per [Contributing § If you contribute with an AI agent](https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing#if-you-contribute-with-an-ai-agent-use-the-skills),
+        the `update-spec` skill owns wiki changes. A **binding** change (one that changes what's
+        allowed or required) is a decision recorded in the Decision Log; a **non-binding** fix
+        (typo, broken link, clarification that changes no behavior) is not.
+
+  - type: input
+    id: wiki-page
+    attributes:
+      label: Wiki page
+      placeholder: "https://github.com/CalixtoTheBugHunter/talos/wiki/<Page>#<section>"
+    validations:
+      required: true
+
+  - type: textarea
+    id: current-text
+    attributes:
+      label: Current text
+      description: Quote the current wiki text verbatim.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-text
+    attributes:
+      label: Proposed text
+    validations:
+      required: true
+
+  - type: dropdown
+    id: binding
+    attributes:
+      label: Is this binding?
+      description: >
+        Binding = changes what's allowed or required, and needs a Decision Log entry.
+        Non-binding = typo, broken link, or a clarification that changes no behavior.
+      options:
+        - "Binding — needs a Decision Log entry"
+        - "Non-binding — typo, link, or clarification only"
+    validations:
+      required: true
+
+  - type: textarea
+    id: reasoning
+    attributes:
+      label: Why the current text is wrong or insufficient
+    validations:
+      required: true
