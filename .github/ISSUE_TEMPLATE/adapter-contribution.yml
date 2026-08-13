@@ -1,0 +1,54 @@
+name: Agent adapter contribution
+description: Add support for a new agent CLI (e.g. Gemini CLI, Codex CLI, an Ollama-backed CLI).
+labels: ["type:adapter"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Per [Contributing § The easiest high-value contribution: an agent adapter](https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing#the-easiest-high-value-contribution-an-agent-adapter),
+        "adding an agent means writing one adapter and never touching Talos core." If writing
+        this adapter requires changing Talos core, that's a bug in Talos core — describe it
+        below rather than working around it.
+
+  - type: input
+    id: agent-cli
+    attributes:
+      label: Agent CLI
+      placeholder: "e.g. Gemini CLI, Codex CLI, an Ollama-backed CLI"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: capabilities
+    attributes:
+      label: The six adapter capabilities
+      description: Every adapter declares these. Check each one this contribution addresses.
+      options:
+        - label: How to launch the agent
+        - label: How to pass a prompt
+        - label: How to stream its output
+        - label: How to detect a tool call or a permission request
+        - label: How to report token usage
+        - label: How to stop it
+    validations:
+      required: true
+
+  - type: dropdown
+    id: core-changes
+    attributes:
+      label: Does this require changing Talos core?
+      options:
+        - "No — the adapter is self-contained"
+        - "Yes — describe the core bug below"
+    validations:
+      required: true
+
+  - type: textarea
+    id: core-bug
+    attributes:
+      label: If yes, describe the core bug this reveals
+      description: >
+        Per Contributing, a needed core change is reported as a core bug in Talos, not worked
+        around inside the adapter.
+    validations:
+      required: false

@@ -1,0 +1,13 @@
+# Per Contributing § Reporting security issues:
+# https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing#reporting-security-issues
+#
+#   "Please do not open a public issue for a security vulnerability, especially
+#   anything touching the Safeguards gate, secret handling, or prompt injection.
+#   Contact @CalixtoTheBugHunter directly."
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/CalixtoTheBugHunter
+    about: >-
+      Do not open a public issue for a security vulnerability. Contact
+      @CalixtoTheBugHunter directly instead.

@@ -1,0 +1,51 @@
+name: Feature
+description: A new capability or behavior for Talos.
+labels: ["type:feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Per [Engineering Standards § Issues are never independent of the SPEC](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#issues-are-never-independent-of-the-spec),
+        every issue is dependent on the SPEC. Quote the binding lines verbatim — don't
+        paraphrase them. If the SPEC doesn't cover something this feature needs, say so
+        instead of guessing; it becomes a SPEC GAP for the Decision Log.
+
+  - type: input
+    id: spec-page
+    attributes:
+      label: Spec Page
+      description: The wiki page(s) this feature implements, and why each one binds it.
+      placeholder: "https://github.com/CalixtoTheBugHunter/talos/wiki/<Page>#<section>"
+    validations:
+      required: true
+
+  - type: textarea
+    id: dod
+    attributes:
+      label: DoD criterion
+      description: >
+        The MVP DoD criterion (https://github.com/CalixtoTheBugHunter/talos/wiki/MVP-Definition-of-Done)
+        this feature advances, or a stated justification for none.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+      description: Checkable criteria, traced to the SPEC lines quoted above rather than to judgement.
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: spec-gap
+    attributes:
+      label: SPEC GAP (if any)
+      description: >
+        If this feature needs an assumption the SPEC doesn't cover, describe the gap here
+        instead of guessing. It goes to the Decision Log before this issue is built.
+    validations:
+      required: false

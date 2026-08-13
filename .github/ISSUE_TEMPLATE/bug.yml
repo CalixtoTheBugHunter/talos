@@ -1,0 +1,43 @@
+name: Bug
+description: Something behaves differently than the SPEC (or common sense) says it should.
+labels: ["type:bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Per [Engineering Standards § Spec-driven workflow](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#spec-driven-workflow),
+        "when the wiki and the code disagree, the wiki wins and the code is a bug." If you
+        believe the SPEC itself is wrong, file a **SPEC change** issue instead.
+
+        Security vulnerabilities are **not** filed here — see
+        [Contributing § Reporting security issues](https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing#reporting-security-issues).
+
+  - type: textarea
+    id: current-behavior
+    attributes:
+      label: Current behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected behavior
+      description: What should happen instead, and the wiki page it traces to (if any).
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro-steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+
+  - type: input
+    id: spec-page
+    attributes:
+      label: Spec Page (if the expected behavior is documented)
+      placeholder: "https://github.com/CalixtoTheBugHunter/talos/wiki/<Page>#<section>"
+    validations:
+      required: false
