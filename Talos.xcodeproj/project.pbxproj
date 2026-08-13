@@ -11,7 +11,18 @@
 		7A10000000000000000A0002 /* TalosCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A10000000000000000E0001 /* TalosCore */; };
 		7A10000000000000000A0003 /* MinimumSupportedOSTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B0005 /* MinimumSupportedOSTests.swift */; };
 		7A10000000000000000A0004 /* TalosCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A10000000000000000E0002 /* TalosCore */; };
+		7A20000000000000000A0001 /* TalosUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A20000000000000000B0001 /* TalosUITests.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		7A2000000000000000130001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7A1000000000000000130001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7A10000000000000000F0001 /* Talos */;
+			remoteInfo = Talos;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		7A10000000000000000B0001 /* TalosApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalosApp.swift; sourceTree = "<group>"; };
@@ -20,6 +31,8 @@
 		7A10000000000000000B0004 /* Talos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Talos.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7A10000000000000000B0005 /* MinimumSupportedOSTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MinimumSupportedOSTests.swift; path = Tests/TalosCoreTests/MinimumSupportedOSTests.swift; sourceTree = SOURCE_ROOT; };
 		7A10000000000000000B0006 /* TalosCoreXcodeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TalosCoreXcodeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		7A20000000000000000B0001 /* TalosUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalosUITests.swift; sourceTree = "<group>"; };
+		7A20000000000000000B0002 /* TalosUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TalosUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -39,6 +52,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7A2000000000000000C0001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -47,8 +67,17 @@
 			children = (
 				7A10000000000000000D0002 /* Talos */,
 				7A10000000000000000D0004 /* Tests */,
+				7A20000000000000000D0001 /* TalosUITests */,
 				7A10000000000000000D0003 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		7A20000000000000000D0001 /* TalosUITests */ = {
+			isa = PBXGroup;
+			children = (
+				7A20000000000000000B0001 /* TalosUITests.swift */,
+			);
+			path = TalosUITests;
 			sourceTree = "<group>";
 		};
 		7A10000000000000000D0004 /* Tests */ = {
@@ -74,6 +103,7 @@
 			children = (
 				7A10000000000000000B0004 /* Talos.app */,
 				7A10000000000000000B0006 /* TalosCoreXcodeTests.xctest */,
+				7A20000000000000000B0002 /* TalosUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -120,6 +150,25 @@
 			productReference = 7A10000000000000000B0006 /* TalosCoreXcodeTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		7A2000000000000000F0001 /* TalosUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7A2000000000000000100001 /* Build configuration list for PBXNativeTarget "TalosUITests" */;
+			buildPhases = (
+				7A2000000000000000110001 /* Sources */,
+				7A2000000000000000C0001 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				7A2000000000000000120001 /* PBXTargetDependency */,
+			);
+			name = TalosUITests;
+			packageProductDependencies = (
+			);
+			productName = TalosUITests;
+			productReference = 7A20000000000000000B0002 /* TalosUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -135,6 +184,10 @@
 					};
 					7A10000000000000000F0002 = {
 						CreatedOnToolsVersion = 26.0;
+					};
+					7A2000000000000000F0001 = {
+						CreatedOnToolsVersion = 26.0;
+						TestTargetID = 7A10000000000000000F0001;
 					};
 				};
 			};
@@ -157,6 +210,7 @@
 			targets = (
 				7A10000000000000000F0001 /* Talos */,
 				7A10000000000000000F0002 /* TalosCoreXcodeTests */,
+				7A2000000000000000F0001 /* TalosUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -188,7 +242,23 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7A2000000000000000110001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7A20000000000000000A0001 /* TalosUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		7A2000000000000000120001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7A10000000000000000F0001 /* Talos */;
+			targetProxy = 7A2000000000000000130001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		7A1000000000000000150001 /* Debug */ = {
@@ -334,6 +404,34 @@
 			};
 			name = Release;
 		};
+		7A2000000000000000150001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.calixtothebughunter.talos.TalosUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TEST_TARGET_NAME = Talos;
+			};
+			name = Debug;
+		};
+		7A2000000000000000150002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.calixtothebughunter.talos.TalosUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TEST_TARGET_NAME = Talos;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -360,6 +458,15 @@
 			buildConfigurations = (
 				7A1000000000000000150005 /* Debug */,
 				7A1000000000000000150006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7A2000000000000000100001 /* Build configuration list for PBXNativeTarget "TalosUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7A2000000000000000150001 /* Debug */,
+				7A2000000000000000150002 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
