@@ -16,7 +16,7 @@ struct LogRedactionTests {
             "ghp_" + String(repeating: "D", count: 20),
             "github_pat_" + String(repeating: "E", count: 22),
             "glpat-" + String(repeating: "F", count: 20),
-            "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9abcdefghijklmnop"
+            "Authorization: Bearer " + String(repeating: "a1B2", count: 6)
         ]
     )
     func secretShapedLiteralsAreRedacted(secret: String) {
