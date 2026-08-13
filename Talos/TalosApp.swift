@@ -33,6 +33,7 @@ struct TalosApp: App {
 /// The export flow behind the "Export Logs for Bug Report…" menu command.
 /// A free-standing type, not a method on `TalosApp`, because `App` is a
 /// value type recreated by SwiftUI and this flow owns no state across runs.
+@MainActor
 enum LogExportCommand {
     static func run() {
         let panel = NSSavePanel()
@@ -52,7 +53,6 @@ enum LogExportCommand {
         }
     }
 
-    @MainActor
     private static func presentResult(succeeded: Bool) {
         let alert = NSAlert()
         alert.messageText = succeeded ? "Logs Exported" : "Export Failed"
