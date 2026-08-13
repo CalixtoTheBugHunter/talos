@@ -13,6 +13,9 @@ struct LogRedactionTests {
             "sk-" + String(repeating: "A", count: 40),
             "AIza" + String(repeating: "B", count: 35),
             "AKIA" + String(repeating: "C", count: 16),
+            "ghp_" + String(repeating: "D", count: 20),
+            "github_pat_" + String(repeating: "E", count: 22),
+            "glpat-" + String(repeating: "F", count: 20),
             "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9abcdefghijklmnop"
         ]
     )
@@ -28,10 +31,20 @@ struct LogRedactionTests {
         #expect(LogRedaction.redacted(text) == text)
     }
 
-    @Test("A long opaque token with no recognized prefix is still redacted")
-    func opaqueLongTokenIsRedacted() {
-        let token = String(repeating: "x9Z", count: 12)
-        let redacted = LogRedaction.redacted("session token \(token) accepted")
-        #expect(!redacted.contains(token))
+    /// A UUID and a hex digest are the same shape a blanket "long
+    /// alphanumeric run" filter would also catch — and exactly the kind of
+    /// non-secret diagnostic identifier a log line exists to carry. This is
+    /// the regression test for that false positive: neither identifier
+    /// carries a recognized secret prefix, so both must survive intact.
+    @Test(
+        "Benign long identifiers with no secret shape are not redacted",
+        arguments: [
+            "550e8400-e29b-41d4-a716-446655440000",
+            String(repeating: "a1b2c3d4", count: 5)
+        ]
+    )
+    func benignLongIdentifiersAreNotRedacted(identifier: String) {
+        let text = "session \(identifier) started"
+        #expect(LogRedaction.redacted(text) == text)
     }
 }

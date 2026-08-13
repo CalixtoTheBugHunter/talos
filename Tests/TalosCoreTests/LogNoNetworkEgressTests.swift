@@ -7,11 +7,19 @@ import Testing
 /// reading source text rather than by running the code: a networking symbol
 /// either appears in the logging sources or it does not, and that is true
 /// regardless of which destination it would have reached.
+///
+/// Named symbols, not a general secret/network scanner: this list is
+/// Foundation/Network-framework client types plus the raw POSIX socket
+/// calls a hand-rolled client would use instead. A novel networking
+/// mechanism this list doesn't name would pass silently — the same
+/// disclosed limitation `tools/spec-guard/spec-guard.sh` states about its
+/// own pattern matching.
 @Suite("Logging has no network egress")
 struct LogNoNetworkEgressTests {
     private static let networkingSymbols = [
         "URLSession", "URLRequest", "NWConnection", "NWListener",
-        "Socket(", "CFSocket", "dispatch_io_create", "InputStream(url:"
+        "Socket(", "CFSocket", "dispatch_io_create", "InputStream(url:",
+        "socket(", "connect(", "send(", "recv("
     ]
 
     private static var repositoryRoot: URL {

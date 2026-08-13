@@ -11,14 +11,23 @@ import OSLog
 /// The caller decides the destination `URL`, which is how
 /// https://github.com/CalixtoTheBugHunter/talos/issues/39's "requiring
 /// explicit action" holds: nothing in this type writes anywhere on its own.
+///
+/// `.currentProcessIdentifier` is the only scope a non-entitled macOS app
+/// can read via the public `OSLogStore` API — there is no way to read a
+/// *previous* launch's history without Apple's private log-collection
+/// entitlement. So this can only ever export the currently running
+/// session, never a session that already crashed and relaunched. `export`
+/// states that in the file itself (see `header` below) rather than only in
+/// this comment, since the person reading the exported text is the one who
+/// needs to know it.
 public enum LogExporter {
     public enum ExportError: Error, Sendable {
         case storeUnavailable
         case writeFailed
     }
 
-    /// Writes every entry under `Log.subsystem` to `url` as plain text, one
-    /// line per entry, oldest first.
+    /// Writes every entry under one of Talos's own module subsystems to
+    /// `url` as plain text, one redacted line per entry, oldest first.
     public static func export(to url: URL) throws {
         let store: OSLogStore
         do {
@@ -27,11 +36,13 @@ public enum LogExporter {
             throw ExportError.storeUnavailable
         }
 
+        let talosSubsystems = Set(Log.Category.allCases.map(\.subsystem))
+
         let position = store.position(date: .distantPast)
         let entries: [OSLogEntryLog]
         do {
             entries = try store.getEntries(at: position).compactMap { entry -> OSLogEntryLog? in
-                guard let logEntry = entry as? OSLogEntryLog, logEntry.subsystem == Log.subsystem else {
+                guard let logEntry = entry as? OSLogEntryLog, talosSubsystems.contains(logEntry.subsystem) else {
                     return nil
                 }
                 return logEntry
@@ -41,12 +52,20 @@ public enum LogExporter {
         }
 
         let formatter = ISO8601DateFormatter()
-        let text = entries
-            .map { "\(formatter.string(from: $0.date)) [\($0.category)] \($0.composedMessage)" }
+        let header = """
+        # Talos log export — this session only.
+        # Relaunching Talos starts a new session; an earlier session's logs are not included here.
+
+        """
+        let body = entries
+            .map { entry in
+                let line = "\(formatter.string(from: entry.date)) [\(entry.category)] \(entry.composedMessage)"
+                return LogRedaction.redacted(line)
+            }
             .joined(separator: "\n")
 
         do {
-            try text.write(to: url, atomically: true, encoding: .utf8)
+            try (header + body).write(to: url, atomically: true, encoding: .utf8)
         } catch {
             throw ExportError.writeFailed
         }

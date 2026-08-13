@@ -10,9 +10,25 @@ struct LogTests {
     /// The identifier is decision 51's, the same one
     /// `DatabaseLocationTests.bundleIdentifierMatchesDecision51` checks for
     /// `TalosPersistence`.
-    @Test("The subsystem matches decision 51's bundle identifier")
-    func subsystemMatchesDecision51() {
-        #expect(Log.subsystem == "com.calixtothebughunter.talos")
+    @Test("The root identifier matches decision 51's bundle identifier")
+    func rootIdentifierMatchesDecision51() {
+        #expect(Log.rootIdentifier == "com.calixtothebughunter.talos")
+    }
+
+    /// Each module gets its own subsystem — not one shared across all of
+    /// them — which is what "defined subsystems per module" means literally.
+    @Test(
+        "Each category's subsystem is the root identifier plus its own module name",
+        arguments: Log.Category.allCases
+    )
+    func categorySubsystemIsNamespacedUnderTheRoot(category: Log.Category) {
+        #expect(category.subsystem == "com.calixtothebughunter.talos.\(category.rawValue)")
+    }
+
+    @Test("No two categories share a subsystem")
+    func subsystemsAreAllDistinct() {
+        let subsystems = Log.Category.allCases.map(\.subsystem)
+        #expect(Set(subsystems).count == subsystems.count)
     }
 
     /// Walks up from this test file's location to the repository root — the
@@ -45,10 +61,8 @@ struct LogTests {
         #expect(categoryNames == moduleNames)
     }
 
-    @Test("Every category produces a logger scoped to the Talos subsystem")
-    func loggerUsesTheTalosSubsystem() {
-        for category in Log.Category.allCases {
-            _ = Log.logger(category) // constructs without trapping for every declared category
-        }
+    @Test("Every category produces a logger without trapping", arguments: Log.Category.allCases)
+    func loggerConstructsForEveryCategory(category: Log.Category) {
+        _ = Log.logger(category)
     }
 }

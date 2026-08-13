@@ -57,7 +57,7 @@ enum LogExportCommand {
         let alert = NSAlert()
         alert.messageText = succeeded ? "Logs Exported" : "Export Failed"
         alert.informativeText = succeeded
-            ? "Talos's local logs were saved to the location you chose."
+            ? "Talos's local logs from this session were saved to the location you chose."
             : "Talos could not read or save the local logs."
         alert.alertStyle = succeeded ? .informational : .warning
         alert.runModal()

@@ -9,14 +9,17 @@ public enum Log {
     /// The bundle identifier decision 51 fixed for everything Talos owns —
     /// one identity, the same one `DatabaseLocation.bundleIdentifier` uses in
     /// `TalosPersistence`, kept as its own literal here because `TalosCore`
-    /// has no dependency of its own to share it from.
+    /// has no dependency of its own to share it from. Every module's own
+    /// subsystem (`Category.subsystem` below) is namespaced under this root
+    /// rather than being a second, unrelated identity.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions
-    public static let subsystem = "com.calixtothebughunter.talos"
+    public static let rootIdentifier = "com.calixtothebughunter.talos"
 
-    /// One category per module in `ARCHITECTURE.md`, so a log line's origin
-    /// is legible in Console.app without reading the call site. Raw values
-    /// are the module names verbatim, which is what
-    /// `Tests/TalosCoreTests/LogTests.swift` checks against that file.
+    /// One category — and one distinct OSLog subsystem — per module in
+    /// `ARCHITECTURE.md`, so a log line's origin is legible in Console.app
+    /// without reading the call site. Raw values are the module names
+    /// verbatim, which is what `Tests/TalosCoreTests/LogTests.swift` checks
+    /// against that file.
     public enum Category: String, CaseIterable, Sendable {
         case core = "TalosCore"
         case persistence = "TalosPersistence"
@@ -25,12 +28,21 @@ public enum Log {
         case adapters = "TalosAdapters"
         case orchestration = "TalosOrchestration"
         case talosUI = "TalosUI"
+
+        /// This module's own subsystem — `"com.calixtothebughunter.talos.<Module>"` —
+        /// satisfying https://github.com/CalixtoTheBugHunter/talos/issues/39's
+        /// "defined subsystems per module" literally, distinct per module
+        /// rather than shared across all of them.
+        public var subsystem: String {
+            "\(Log.rootIdentifier).\(rawValue)"
+        }
     }
 
-    /// A `Logger` scoped to `category`. Constructing an `os.Logger` is cheap
-    /// and safe at each call site, so no caching layer sits in front of it.
+    /// A `Logger` scoped to `category`'s own subsystem. Constructing an
+    /// `os.Logger` is cheap and safe at each call site, so no caching layer
+    /// sits in front of it.
     public static func logger(_ category: Category) -> Logger {
-        Logger(subsystem: subsystem, category: category.rawValue)
+        Logger(subsystem: category.subsystem, category: category.rawValue)
     }
 }
 
