@@ -1,0 +1,48 @@
+# Configures Dependabot for the two dependency ecosystems Talos has, per this
+# issue's acceptance criteria:
+#
+#   https://github.com/CalixtoTheBugHunter/talos/wiki/Technology-and-Distribution
+#   https://github.com/CalixtoTheBugHunter/talos/wiki/Vision-and-Principles#talos-is-not-complicated
+#   https://github.com/CalixtoTheBugHunter/talos/issues/31
+#
+# Each ecosystem's updates are grouped into a single PR per run rather than one
+# PR per dependency, so a solo maintainer sees a manageable stream regardless
+# of how many packages or actions bump in a given week.
+#
+# This does not, on its own, slow or complicate automatic updates: it only
+# schedules the PRs. The dependency-age-guard CI check (decision 64) is what
+# holds the *merge* until a bumped version has aged past a configured minimum
+# — https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#dependency-update-age
+# — and it is a separate, already-decided mechanism this file does not
+# implement.
+
+version: 2
+updates:
+  # Package.swift / Package.resolved. `swift` is the ecosystem identifier
+  # GitHub Dependabot uses for Swift Package Manager.
+  - package-ecosystem: "swift"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      swift-dependencies:
+        patterns:
+          - "*"
+    labels:
+      - "type:chore"
+      - "area:security"
+
+  # The pinned actions in .github/workflows/*.yml.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      github-actions-dependencies:
+        patterns:
+          - "*"
+    labels:
+      - "type:chore"
+      - "area:security"

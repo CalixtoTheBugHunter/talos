@@ -32,6 +32,14 @@
 #     `main`); the full-history scan issue #29 also requires is a separate
 #     scheduled workflow — secret-scan-scheduled.yml — not part of this
 #     required check. See tools/secret-scan/README.md.
+#   - Issue #31's dependency justification check is also a STEP inside `lint`,
+#     not a stage, for the same reason. See
+#     tools/dependency-justification-guard/README.md. The dependency-review
+#     scan issue #31 also requires (known vulnerabilities, license
+#     compatibility) is a separate workflow — dependency-review.yml — for the
+#     same reason secret-scan-scheduled.yml is: it needs the GitHub-hosted
+#     dependency graph, not this repo's own checkout, and per decision 64 it
+#     is not a required check either.
 
 name: ci
 
@@ -208,6 +216,23 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_BODY: ${{ github.event.pull_request.body }}
         run: tools/pr-title-guard/pr-title-guard.sh
+
+      # Issue #31's justification criterion. Only `pull_request` carries a PR
+      # body and a meaningful base to diff a new dependency against — same
+      # reason pr-title-guard is gated the same way, immediately above.
+      # Self-test runs first, for the same reason every guard above runs
+      # theirs first: a guard that matches nothing is green on any diff.
+      - name: Self-test the dependency justification guard
+        if: github.event_name == 'pull_request'
+        run: tools/dependency-justification-guard/self-test.sh
+
+      - name: dependency-justification-guard
+        if: github.event_name == 'pull_request'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: tools/dependency-justification-guard/dependency-justification-guard.sh
 
       # A step, not a stage — see this file's header and decision 64. Self-test
       # runs first, for the same reason every guard above runs theirs first: a

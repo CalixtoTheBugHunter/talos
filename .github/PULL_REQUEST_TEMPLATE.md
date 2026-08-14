@@ -26,6 +26,18 @@ these are rejected rather than negotiated. Check each only if this PR was verifi
 - [ ] **Accessibility** — VoiceOver, keyboard, Reduce Motion/Transparency, contrast, text size checked for any new surface. ([Essential Tools § Accessibility](https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#accessibility))
 - [ ] None of the above apply to this change.
 
+## Dependency justification
+
+Required only if this PR adds a new dependency — a new `.package(` entry in `Package.swift`, or a
+new GitHub Action `uses:` reference. A version bump of an existing dependency (Dependabot's normal
+job) is not "adding" one and needs neither box checked.
+
+- [ ] N/A — no new dependency added
+- [ ] New dependency added, justified below:
+
+<!-- name, why it's needed, its license, and why it does not cross the orchestration boundary
+     (https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary) -->
+
 ## Did the SPEC need updating?
 
 - [ ] No — the SPEC already covered this and nothing here contradicts it.

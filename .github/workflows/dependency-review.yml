@@ -1,0 +1,69 @@
+# The dependency-review half of issue #31: flags a new dependency carrying a
+# known vulnerability, and checks a new dependency's license against
+# Apache-2.0 — the reasoning Contributing gives for choosing Apache-2.0 over
+# AGPL-3.0 is that copyleft would block adoption inside companies, so a
+# copyleft dependency reintroduces the problem the project's own license
+# exists to avoid:
+#
+#   https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing#license
+#   https://github.com/CalixtoTheBugHunter/talos/wiki/Vision-and-Principles#talos-is-not-complicated
+#
+# A separate workflow, not a step inside ci.yml's `lint` job: this action
+# needs no Xcode toolchain and reads the GitHub-hosted dependency graph for
+# this PR's base/head, not this repo's own checkout — `ubuntu-latest` is fine
+# because, unlike spec-guard.sh, the check being run is not a repo script
+# whose behavior must match between CI and a contributor's machine.
+#
+# NOT a required status check: per decision 64, no new required-status-check
+# context is added for the gitleaks or dependency-review scans this issue
+# schedules, regardless of trigger —
+#   https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions
+# A finding here still fails this run and posts a PR comment, which is
+# "visible" per that decision without widening the required-check gap in
+# docs/github/ruleset-main.json.
+
+name: dependency-review
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  # Only for the PR comment below; the check itself needs no more than read.
+  pull-requests: write
+
+jobs:
+  dependency-review:
+    name: dependency-review
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # fail-on-severity: flags a new dependency with a known vulnerability at
+      # any severity — Talos ships an unsandboxed, notarized binary, so the
+      # bar for "acceptable known vulnerability" is low.
+      #
+      # allow-licenses, not deny-licenses: the latter is deprecated as of this
+      # pinned version, "for possible removal in the next major release" per
+      # https://github.com/actions/dependency-review-action/issues/938 — a
+      # future major-version bump (which .github/dependabot.yml schedules,
+      # and which this repo's own dependency-justification-guard does not
+      # flag, since a version bump changes no dependency identity) could
+      # silently drop license enforcement with nothing positioned to catch
+      # it. allow-licenses is the documented, non-deprecated replacement and
+      # fails closed instead of open: only a license on this list passes,
+      # everything else — including a copyleft license this list never
+      # anticipated — is denied by default. The list is every permissive
+      # license realistically seen in the swift and github-actions
+      # ecosystems; a legitimate new one is a one-line addition here, not a
+      # silent gap.
+      - name: Dependency Review
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: low
+          license-check: true
+          vulnerability-check: true
+          allow-licenses: >-
+            MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, BSD-3-Clause-Clear,
+            ISC, 0BSD, Unlicense, Zlib, CC0-1.0
+          comment-summary-in-pr: on-failure
