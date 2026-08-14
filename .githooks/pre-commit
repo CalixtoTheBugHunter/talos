@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 #
 # Runs SwiftFormat then SwiftLint over the staged Swift files, plus design-guard
-# over the repository, so a style, correctness, or no-values failure surfaces
-# here instead of in CI.
+# over the repository and a gitleaks secret scan over the staged diff, so a
+# style, correctness, no-values, or secret-shaped-literal failure surfaces here
+# instead of in CI — or instead of reaching git at all.
 #
 # The tools, the order, and the fact that a hook exists at all are SPEC
 # decisions, and the reasoning is on the wiki rather than repeated here:
@@ -40,6 +41,20 @@ guard_output=''
 if ! guard_output="$(tools/design-guard/design-guard.sh 2>&1)"; then
   printf '%s\n' "$guard_output" >&2
   fail 'design-guard found violations of the no-values rule. What it does not cover is in tools/design-guard/README.md'
+fi
+
+# Also unconditional, and also before the Swift-only early exit below: a
+# secret staged in YAML, JSON, or Markdown is still this commit's content, and
+# the same committed .gitleaks.toml the CI scan reads is what decides here too
+# — https://github.com/CalixtoTheBugHunter/talos/issues/29. See the `require`
+# precedent applied to swiftformat/swiftlint below; this is that same pattern
+# applied to gitleaks, run earlier because the tool it needs is not Swift-only.
+require gitleaks gitleaks
+
+secret_scan_output=''
+if ! secret_scan_output="$(tools/secret-scan/secret-scan.sh protect-staged 2>&1)"; then
+  printf '%s\n' "$secret_scan_output" >&2
+  fail 'secret-scan found a secret-shaped literal staged for commit. See tools/secret-scan/README.md and SECURITY.md if this is real.'
 fi
 
 # Staged Swift files, NUL-separated so a path with a space survives.
