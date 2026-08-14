@@ -43,20 +43,27 @@ jobs:
       # any severity — Talos ships an unsandboxed, notarized binary, so the
       # bar for "acceptable known vulnerability" is low.
       #
-      # deny-licenses: the copyleft family incompatible with distributing
-      # Talos under Apache-2.0 — strong copyleft (GPL, AGPL) and weak
-      # copyleft (LGPL) alike, plus the network-copyleft SSPL. A permissive
-      # license (MIT, BSD, Apache-2.0, ISC, MPL-2.0, …) is not denied.
+      # allow-licenses, not deny-licenses: the latter is deprecated as of this
+      # pinned version, "for possible removal in the next major release" per
+      # https://github.com/actions/dependency-review-action/issues/938 — a
+      # future major-version bump (which .github/dependabot.yml schedules,
+      # and which this repo's own dependency-justification-guard does not
+      # flag, since a version bump changes no dependency identity) could
+      # silently drop license enforcement with nothing positioned to catch
+      # it. allow-licenses is the documented, non-deprecated replacement and
+      # fails closed instead of open: only a license on this list passes,
+      # everything else — including a copyleft license this list never
+      # anticipated — is denied by default. The list is every permissive
+      # license realistically seen in the swift and github-actions
+      # ecosystems; a legitimate new one is a one-line addition here, not a
+      # silent gap.
       - name: Dependency Review
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: low
           license-check: true
           vulnerability-check: true
-          deny-licenses: >-
-            GPL-1.0-only, GPL-1.0-or-later, GPL-2.0-only, GPL-2.0-or-later,
-            GPL-3.0-only, GPL-3.0-or-later, AGPL-1.0-only, AGPL-1.0-or-later,
-            AGPL-3.0-only, AGPL-3.0-or-later, LGPL-2.0-only, LGPL-2.0-or-later,
-            LGPL-2.1-only, LGPL-2.1-or-later, LGPL-3.0-only, LGPL-3.0-or-later,
-            SSPL-1.0
+          allow-licenses: >-
+            MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, BSD-3-Clause-Clear,
+            ISC, 0BSD, Unlicense, Zlib, CC0-1.0
           comment-summary-in-pr: on-failure
