@@ -1,0 +1,62 @@
+# The dependency-review half of issue #31: flags a new dependency carrying a
+# known vulnerability, and checks a new dependency's license against
+# Apache-2.0 — the reasoning Contributing gives for choosing Apache-2.0 over
+# AGPL-3.0 is that copyleft would block adoption inside companies, so a
+# copyleft dependency reintroduces the problem the project's own license
+# exists to avoid:
+#
+#   https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing#license
+#   https://github.com/CalixtoTheBugHunter/talos/wiki/Vision-and-Principles#talos-is-not-complicated
+#
+# A separate workflow, not a step inside ci.yml's `lint` job: this action
+# needs no Xcode toolchain and reads the GitHub-hosted dependency graph for
+# this PR's base/head, not this repo's own checkout — `ubuntu-latest` is fine
+# because, unlike spec-guard.sh, the check being run is not a repo script
+# whose behavior must match between CI and a contributor's machine.
+#
+# NOT a required status check: per decision 64, no new required-status-check
+# context is added for the gitleaks or dependency-review scans this issue
+# schedules, regardless of trigger —
+#   https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions
+# A finding here still fails this run and posts a PR comment, which is
+# "visible" per that decision without widening the required-check gap in
+# docs/github/ruleset-main.json.
+
+name: dependency-review
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  # Only for the PR comment below; the check itself needs no more than read.
+  pull-requests: write
+
+jobs:
+  dependency-review:
+    name: dependency-review
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # fail-on-severity: flags a new dependency with a known vulnerability at
+      # any severity — Talos ships an unsandboxed, notarized binary, so the
+      # bar for "acceptable known vulnerability" is low.
+      #
+      # deny-licenses: the copyleft family incompatible with distributing
+      # Talos under Apache-2.0 — strong copyleft (GPL, AGPL) and weak
+      # copyleft (LGPL) alike, plus the network-copyleft SSPL. A permissive
+      # license (MIT, BSD, Apache-2.0, ISC, MPL-2.0, …) is not denied.
+      - name: Dependency Review
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: low
+          license-check: true
+          vulnerability-check: true
+          deny-licenses: >-
+            GPL-1.0-only, GPL-1.0-or-later, GPL-2.0-only, GPL-2.0-or-later,
+            GPL-3.0-only, GPL-3.0-or-later, AGPL-1.0-only, AGPL-1.0-or-later,
+            AGPL-3.0-only, AGPL-3.0-or-later, LGPL-2.0-only, LGPL-2.0-or-later,
+            LGPL-2.1-only, LGPL-2.1-or-later, LGPL-3.0-only, LGPL-3.0-or-later,
+            SSPL-1.0
+          comment-summary-in-pr: on-failure
