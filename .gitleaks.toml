@@ -1,0 +1,36 @@
+# The committed gitleaks config both the CI scan and the pre-commit hook read,
+# so the local answer and CI's are the same one:
+#
+#   https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#toolchain
+#   https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#a-scanners-self-test-never-commits-its-fixture-whole
+#   https://github.com/CalixtoTheBugHunter/talos/wiki/Technology-and-Distribution#decisions
+#   https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#what-is-never-allowlistable
+#
+# Run by tools/secret-scan/secret-scan.sh — see that directory's README for
+# what a green run does and does not claim.
+
+# Start from gitleaks' full upstream ruleset rather than a hand-picked subset,
+# so tuning below can only ADD an exception, never silently drop a detection
+# class — "without disabling real detection" is an acceptance criterion of
+# https://github.com/CalixtoTheBugHunter/talos/issues/29, not a suggestion.
+[extend]
+useDefault = true
+
+# The one exclusion, and why it is not a test-fixture tuning entry.
+#
+# tools/secret-scan/self-test.sh proves this scan still fails on a real
+# violation by assembling a deliberately secret-shaped literal — per decision
+# 66, from non-matching parts, so the finished string never appears whole in
+# this file's own committed source. This path exclusion is a second,
+# independent layer on top of that discipline, not a substitute for it:
+# tools/spec-guard/spec-guard.sh has the identical structural problem for its
+# own pattern table and solves it the same way — exclude the one file whose
+# job is to construct the violating shape, rather than weaken a rule that
+# would otherwise fire correctly everywhere else.
+#
+# self-test.sh itself asserts this list names only that one path — see its
+# "the exclusion stays narrow" case.
+[allowlist]
+paths = [
+  '''tools/secret-scan/self-test\.sh''',
+]

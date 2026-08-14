@@ -26,6 +26,12 @@
 #     by `pr-title-guard` — a STEP, not a stage, for the same reason
 #     `design-guard` and `codeowners-guard` are: it adds no required context of
 #     its own. See tools/pr-title-guard/README.md.
+#   - The gitleaks secret scan is also a STEP inside `lint`, not a stage, per
+#     decision 64 — https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions.
+#     It scans only this PR's own commits (or the pushed range on a push to
+#     `main`); the full-history scan issue #29 also requires is a separate
+#     scheduled workflow — secret-scan-scheduled.yml — not part of this
+#     required check. See tools/secret-scan/README.md.
 
 name: ci
 
@@ -57,6 +63,8 @@ env:
   SWIFTLINT_SHA256: d6cb0aa7a2f5f1ef306fc9e37bcb54dc9a26facc8f7784ac0c3dd3eccf5c6ba6
   SWIFTFORMAT_VERSION: 0.62.1
   SWIFTFORMAT_SHA256: 7cb1cb1fae04932047c7015441c543848e8e60e1572d808d080e0a1f1661114a
+  GITLEAKS_VERSION: 8.30.1
+  GITLEAKS_SHA256: b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5
 
 jobs:
   # ── lint ────────────────────────────────────────────────────────────────
@@ -64,7 +72,11 @@ jobs:
     name: lint
     runs-on: macos-26
     steps:
+      # Full history, not the default shallow clone: the secret-scan step below
+      # needs the PR's base commit to exist locally to walk `base..head`.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
 
       - name: Pin the toolchain
         run: |
@@ -81,7 +93,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .ci-tools
-          key: linters-${{ runner.os }}-${{ runner.arch }}-sl${{ env.SWIFTLINT_VERSION }}-${{ env.SWIFTLINT_SHA256 }}-sf${{ env.SWIFTFORMAT_VERSION }}-${{ env.SWIFTFORMAT_SHA256 }}
+          key: linters-${{ runner.os }}-${{ runner.arch }}-sl${{ env.SWIFTLINT_VERSION }}-${{ env.SWIFTLINT_SHA256 }}-sf${{ env.SWIFTFORMAT_VERSION }}-${{ env.SWIFTFORMAT_SHA256 }}-gl${{ env.GITLEAKS_VERSION }}-${{ env.GITLEAKS_SHA256 }}
 
       - name: Install the pinned linters
         if: steps.linters.outputs.cache-hit != 'true'
@@ -109,13 +121,26 @@ jobs:
           unzip -qo /tmp/swiftformat.zip -d /tmp/swiftformat
           mv /tmp/swiftformat/swiftformat .ci-tools/swiftformat
 
-          chmod +x .ci-tools/swiftlint .ci-tools/swiftformat
+          curl -fsSL --retry 3 --retry-all-errors -o /tmp/gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_darwin_arm64.tar.gz"
+          verify /tmp/gitleaks.tar.gz "$GITLEAKS_SHA256"
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          mv /tmp/gitleaks .ci-tools/gitleaks
+
+          chmod +x .ci-tools/swiftlint .ci-tools/swiftformat .ci-tools/gitleaks
 
       - name: Report the linter versions
         run: |
           set -euo pipefail
           .ci-tools/swiftlint version
           .ci-tools/swiftformat --version
+          .ci-tools/gitleaks version
+
+      # tools/secret-scan/secret-scan.sh resolves `gitleaks` via `command -v`,
+      # same as it does for a contributor's brew-installed binary locally —
+      # one lookup mechanism, not two.
+      - name: Add the pinned gitleaks to PATH
+        run: echo "${{ github.workspace }}/.ci-tools" >> "$GITHUB_PATH"
 
       # No `--strict`: warnings-as-errors comes from `strict: true` in
       # `.swiftlint.yml`, so the same answer holds in CI, in the pre-commit
@@ -183,6 +208,27 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_BODY: ${{ github.event.pull_request.body }}
         run: tools/pr-title-guard/pr-title-guard.sh
+
+      # A step, not a stage — see this file's header and decision 64. Self-test
+      # runs first, for the same reason every guard above runs theirs first: a
+      # scan that matches nothing is green on any diff.
+      - name: Self-test the secret scan
+        run: tools/secret-scan/self-test.sh
+
+      # `pull_request` scans only this PR's own commits — a secret already on
+      # `main` before this PR existed is not this diff's problem to flag, and
+      # the full-history answer is the scheduled workflow's job, not this
+      # required check's. `push` (post-merge, on `main`) scans the pushed
+      # range the same way. See tools/secret-scan/README.md.
+      - name: secret-scan
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = 'pull_request' ]; then
+            range='${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}'
+          else
+            range='${{ github.event.before }}..${{ github.sha }}'
+          fi
+          tools/secret-scan/secret-scan.sh detect --log-opts="$range"
 
   # ── build ───────────────────────────────────────────────────────────────
   build:
