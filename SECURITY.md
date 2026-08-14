@@ -2,14 +2,79 @@
 
 ## Reporting a vulnerability
 
+**Primary path: [GitHub private vulnerability reporting](https://github.com/CalixtoTheBugHunter/talos/security/advisories/new),
+enabled on this repository.** Use the **Report a vulnerability** button on the
+[Security tab](https://github.com/CalixtoTheBugHunter/talos/security) — it opens a private draft
+advisory visible only to you and the maintainer, and keeps the whole exchange (report, triage,
+fix, disclosure) in one place.
+
+If GitHub's reporting flow is unavailable to you, contact
+[@CalixtoTheBugHunter](https://github.com/CalixtoTheBugHunter) directly as a fallback.
+
 Do **not** open a public issue for a security vulnerability — especially anything touching the
-[Safeguards gate](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy), secret
-handling, or [prompt injection](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#prompt-injection-posture).
-Contact [@CalixtoTheBugHunter](https://github.com/CalixtoTheBugHunter) directly. This is the same
-procedure the wiki states in
-[Contributing § Reporting security issues](https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing#reporting-security-issues)
-— this file exists in addition to that page because GitHub's own Security tab reads a repository-root
+sensitive areas below. This is the same procedure the wiki states in
+[Contributing § Reporting security issues](https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing#reporting-security-issues);
+this file exists in addition to that page because GitHub's own Security tab reads a repository-root
 `SECURITY.md`, not the wiki.
+
+## Sensitive areas
+
+A report touching any of these gets priority triage, because a mistake here is the class of thing
+Talos's own design is built to contain:
+
+| Area | Why it matters |
+| --- | --- |
+| [Safeguards gate](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy) | The deny-by-default tier system that stands between an agent's intent and actual execution |
+| Secret handling | Talos holds no model API keys; secrets live in the macOS Keychain only — [Technology & Distribution](https://github.com/CalixtoTheBugHunter/talos/wiki/Technology-and-Distribution#decisions) |
+| [Prompt injection](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#prompt-injection-posture) | Third-party content Talos reads (issues, PR comments, logs, web pages) must never raise a tier, grant an allowlist, or trigger an irreversible action |
+| Subprocess spawning | [Only the agent adapter layer may spawn a process](https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary#only-the-adapter-layer-spawns-a-process); a spawn anywhere else, or a `stop` that leaves a child alive, is the failure mode this area exists to catch |
+| Notarized-build supply chain | Codesigning, notarization, and the Homebrew cask update that ship a [tag-driven release](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#releases) |
+
+## Scope
+
+**In scope:** anything that lets an agent session bypass the Safeguards gate or escalate a tier
+without approval, read or exfiltrate a secret, turn third-party content into an executed instruction,
+spawn or escape a subprocess outside the adapter layer, or tamper with the signed/notarized release
+artifact or its distribution path.
+
+**Out of scope:** Talos runs
+[unsandboxed by design](https://github.com/CalixtoTheBugHunter/talos/wiki/Technology-and-Distribution#why-unsandboxed-is-safe-here) —
+it must spawn agent CLIs and access project files freely, and restraint is enforced by the
+Safeguards gate rather than by the OS sandbox. **Talos running unsandboxed is not itself a
+vulnerability.** A report that Talos "can" read/write files or run processes, with no described way
+past the gate, is expected behavior, not a finding.
+
+## What to expect
+
+- **Acknowledgement** within **3 business days** of a report through GitHub private vulnerability
+  reporting.
+- **Triage**, confirming whether the report is accepted and its severity, within **7 business
+  days**.
+- **Fix timeline**, once accepted, target by severity — communicated in the advisory, and extended
+  with the reporter kept updated if the fix is more complex than expected:
+
+  | Severity | Target |
+  | --- | --- |
+  | Critical | 30 days |
+  | High | 60 days |
+  | Medium / Low | 90 days, or folded into the next scheduled release |
+
+## Coordinated disclosure
+
+Public disclosure is coordinated with the reporter, defaulting to **90 days** after acknowledgement
+or whenever a fix ships — whichever comes first — extendable by mutual agreement for a fix that
+needs more time. The reporter is credited in the published advisory unless they ask to stay
+anonymous.
+
+## Supported versions
+
+Talos is pre-1.0 ([`v1.0.0-alpha` milestone](https://github.com/CalixtoTheBugHunter/talos/wiki/MVP-Definition-of-Done)).
+[Releases are tag-driven](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#releases)
+and no maintenance branches exist —
+[work happens on short-lived branches off `main`](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#branching),
+which is always releasable. Only the **most recently published release** and **`main`** are
+supported; an older alpha or beta build does not receive a backported fix — upgrade to the latest
+release. This will be revisited once 1.0 ships and a version-support matrix has something to say.
 
 ## Secret leak response
 

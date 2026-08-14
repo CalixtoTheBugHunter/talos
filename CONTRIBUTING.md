@@ -16,7 +16,7 @@ Open the wiki page.
 | How a change is traced to the SPEC | [Engineering Standards § Spec-driven workflow](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#spec-driven-workflow) |
 | What to work on | The [Talos Board](https://github.com/users/CalixtoTheBugHunter/projects/5) |
 | Decisions already made | [Decision Log](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log) |
-| Reporting a security issue | [Contributing § Reporting security issues](https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing#reporting-security-issues) — not a public issue |
+| Reporting a security issue | [`SECURITY.md`](SECURITY.md) and [Contributing § Reporting security issues](https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing#reporting-security-issues) — not a public issue |
 
 ## Signing your commits
 
