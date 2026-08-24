@@ -40,6 +40,10 @@
 #     same reason secret-scan-scheduled.yml is: it needs the GitHub-hosted
 #     dependency graph, not this repo's own checkout, and per decision 64 it
 #     is not a required check either.
+#   - Issue #32's workflow-permissions/pin checks are also a STEP inside
+#     `lint`, not a stage, for the same reason. See
+#     tools/workflow-hardening-guard/README.md and
+#     https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#workflow-hardening.
 
 name: ci
 
@@ -233,6 +237,17 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: tools/dependency-justification-guard/dependency-justification-guard.sh
+
+      # Issue #32's mutable-tag criterion. A step, not a stage, for the same
+      # reason as the guards above — see § Workflow hardening:
+      #   https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#workflow-hardening
+      # Not gated to `pull_request`: this checks the committed workflow files
+      # themselves, which exist on a push to `main` too.
+      - name: Self-test the workflow hardening guard
+        run: tools/workflow-hardening-guard/self-test.sh
+
+      - name: workflow-hardening-guard
+        run: tools/workflow-hardening-guard/workflow-hardening-guard.sh
 
       # A step, not a stage — see this file's header and decision 64. Self-test
       # runs first, for the same reason every guard above runs theirs first: a
