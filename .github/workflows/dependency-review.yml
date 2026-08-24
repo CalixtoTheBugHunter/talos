@@ -27,15 +27,20 @@ name: dependency-review
 on:
   pull_request:
 
+# Read-only at the workflow level. The one job below that needs more declares
+# it on itself — see § Workflow hardening:
+#   https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#workflow-hardening
 permissions:
   contents: read
-  # Only for the PR comment below; the check itself needs no more than read.
-  pull-requests: write
 
 jobs:
   dependency-review:
     name: dependency-review
     runs-on: ubuntu-latest
+    # Only for the PR comment below; the check itself needs no more than read.
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
