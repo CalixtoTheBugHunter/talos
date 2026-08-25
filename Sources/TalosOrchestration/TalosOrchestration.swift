@@ -2,5 +2,4 @@
 // the agent adapter layer into one run.
 //
 // Deliberately empty: this target exists so the module graph in
-// `ARCHITECTURE.md` builds, and the pipeline is its own board item.
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary#the-shared-session-model
+// `ARCHITECTURE.md` builds.

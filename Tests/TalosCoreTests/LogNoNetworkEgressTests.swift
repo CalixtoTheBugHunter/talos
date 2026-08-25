@@ -1,11 +1,10 @@
 import Foundation
 import Testing
 
-/// Verifies "No log destination is a network endpoint — asserted by a
-/// test" from https://github.com/CalixtoTheBugHunter/talos/issues/39, the
-/// same way `ModuleDependencyGraphTests` asserts a structural property by
-/// reading source text rather than by running the code: a networking symbol
-/// either appears in the logging sources or it does not, and that is true
+/// Verifies no log destination is a network endpoint, the same way
+/// `ModuleDependencyGraphTests` asserts a structural property by reading
+/// source text rather than by running the code: a networking symbol either
+/// appears in the logging sources or it does not, and that is true
 /// regardless of which destination it would have reached.
 ///
 /// Named symbols, not a general secret/network scanner: this list is

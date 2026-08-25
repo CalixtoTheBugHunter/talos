@@ -1,25 +1,20 @@
 import OSLog
 
 /// A logging facade over `OSLog`. No destination here is ever a network
-/// endpoint — logs stay in the unified logging system on this machine, which
-/// is what keeps this file consistent with
+/// endpoint — logs stay in the unified logging system on this machine.
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Technology-and-Distribution#no-telemetry
-/// ("Talos collects nothing about you and sends nothing anywhere").
 public enum Log {
-    /// The bundle identifier decision 51 fixed for everything Talos owns —
-    /// one identity, the same one `DatabaseLocation.bundleIdentifier` uses in
-    /// `TalosPersistence`, kept as its own literal here because `TalosCore`
-    /// has no dependency of its own to share it from. Every module's own
-    /// subsystem (`Category.subsystem` below) is namespaced under this root
-    /// rather than being a second, unrelated identity.
-    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions
+    /// One identity for everything Talos owns, shared with
+    /// `DatabaseLocation.bundleIdentifier` in `TalosPersistence` — kept as
+    /// its own literal here because `TalosCore` has no dependency to share
+    /// it from. Every module's subsystem (`Category.subsystem` below) is
+    /// namespaced under this root rather than being a second identity.
     public static let rootIdentifier = "com.calixtothebughunter.talos"
 
     /// One category — and one distinct OSLog subsystem — per module in
     /// `ARCHITECTURE.md`, so a log line's origin is legible in Console.app
     /// without reading the call site. Raw values are the module names
-    /// verbatim, which is what `Tests/TalosCoreTests/LogTests.swift` checks
-    /// against that file.
+    /// verbatim.
     public enum Category: String, CaseIterable, Sendable {
         case core = "TalosCore"
         case persistence = "TalosPersistence"
@@ -30,9 +25,7 @@ public enum Log {
         case talosUI = "TalosUI"
 
         /// This module's own subsystem — `"com.calixtothebughunter.talos.<Module>"` —
-        /// satisfying https://github.com/CalixtoTheBugHunter/talos/issues/39's
-        /// "defined subsystems per module" literally, distinct per module
-        /// rather than shared across all of them.
+        /// distinct per module rather than shared across all of them.
         public var subsystem: String {
             "\(Log.rootIdentifier).\(rawValue)"
         }
@@ -50,9 +43,7 @@ public extension Logger {
     /// Debug-level logging. `#if DEBUG` keeps this call — and the format
     /// string it captures — out of a Release build's binary entirely, rather
     /// than relying on `OSLog`'s own persistence policy for the `.debug`
-    /// level to hide it at runtime. This is the mechanism behind acceptance
-    /// criterion "debug logging compiled out of release builds" on
-    /// https://github.com/CalixtoTheBugHunter/talos/issues/39.
+    /// level to hide it at runtime.
     ///
     /// `.info`, `.notice`, `.error`, and `.fault` need no Talos wrapper:
     /// call them directly for a lifecycle event, a routine milestone, a

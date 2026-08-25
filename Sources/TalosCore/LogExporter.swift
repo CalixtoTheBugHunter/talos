@@ -6,20 +6,17 @@ import OSLog
 ///
 /// Reads only this process's entries via `OSLogStore(scope:
 /// .currentProcessIdentifier)` — never a system-wide log, never a network
-/// call — consistent with
-/// https://github.com/CalixtoTheBugHunter/talos/wiki/Technology-and-Distribution#no-telemetry.
-/// The caller decides the destination `URL`, which is how
-/// https://github.com/CalixtoTheBugHunter/talos/issues/39's "requiring
-/// explicit action" holds: nothing in this type writes anywhere on its own.
+/// call. https://github.com/CalixtoTheBugHunter/talos/wiki/Technology-and-Distribution#no-telemetry
+/// The caller decides the destination `URL`; nothing in this type writes
+/// anywhere on its own.
 ///
 /// `.currentProcessIdentifier` is the only scope a non-entitled macOS app
 /// can read via the public `OSLogStore` API — there is no way to read a
 /// *previous* launch's history without Apple's private log-collection
 /// entitlement. So this can only ever export the currently running
 /// session, never a session that already crashed and relaunched. `export`
-/// states that in the file itself (see `header` below) rather than only in
-/// this comment, since the person reading the exported text is the one who
-/// needs to know it.
+/// states that in the file itself (see `header` below), since the person
+/// reading the exported text is the one who needs to know it.
 public enum LogExporter {
     public enum ExportError: Error, Sendable {
         case storeUnavailable

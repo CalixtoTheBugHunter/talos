@@ -2,14 +2,9 @@ import Foundation
 import Yams
 
 /// Parses and serializes `.talos/project.yaml` against ``ProjectManifest``.
-///
 /// All `Yams` usage is contained to this one file — the rest of Talos sees
 /// only ``ProjectManifest`` and ``TalosYAMLValue``, neither of which imports
-/// `Yams`. This is what keeps the new dependency's surface small per
-/// https://github.com/CalixtoTheBugHunter/talos/wiki/Vision-and-Principles#talos-is-not-complicated.
-///
-/// https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#where-it-lives
-/// https://github.com/CalixtoTheBugHunter/talos/issues/42
+/// `Yams`.
 public enum ProjectManifestParser {
     private static let idKey = "id"
     private static let agentsKey = "agents"
@@ -176,8 +171,7 @@ public enum ProjectManifestParser {
     }
 
     /// The line a composer/parser/scanner `YamlError` points at, when it
-    /// carries one — used so a syntax error still names a line per this
-    /// issue's validation-error acceptance criterion.
+    /// carries one.
     private static func sourceLine(of error: Error) -> Int? {
         guard let yamlError = error as? YamlError else { return nil }
         switch yamlError {

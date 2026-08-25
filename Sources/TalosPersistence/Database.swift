@@ -3,15 +3,12 @@ import SQLite3
 
 /// The local SQLite database.
 ///
-/// An `actor` so every call after construction is off the caller's thread —
-/// including the main thread, per
-/// https://github.com/CalixtoTheBugHunter/talos/issues/38's "Write path is
-/// off the main thread and does not block UI." Construction is off the
-/// caller's thread too, because `init` is `async`: a synchronous actor
-/// `init` runs on the *caller's* thread — actor isolation only takes effect
-/// once the instance exists — so `init` here does the file I/O, the
-/// `sqlite3_open_v2` call, and every pending migration on the actor's own
-/// executor instead.
+/// An `actor` so every call after construction is off the caller's thread,
+/// including the main thread. Construction is off the caller's thread too,
+/// because `init` is `async`: a synchronous actor `init` runs on the
+/// *caller's* thread — actor isolation only takes effect once the instance
+/// exists — so `init` here does the file I/O, the `sqlite3_open_v2` call,
+/// and every pending migration on the actor's own executor instead.
 public actor Database {
     /// `nonisolated(unsafe)` because `deinit` is `nonisolated` on an actor and
     /// `OpaquePointer` is not `Sendable`. Safe here specifically: every other
@@ -23,9 +20,7 @@ public actor Database {
     /// key enforcement, and applies every migration in `migrations` that has
     /// not already run.
     ///
-    /// - `PRAGMA foreign_keys = ON`:
-    ///   https://github.com/CalixtoTheBugHunter/talos/issues/38 —
-    ///   "Foreign keys are enforced."
+    /// - `PRAGMA foreign_keys = ON` — foreign keys are enforced.
     /// - Migrations run in ascending `version` order and only those with a
     ///   `version` greater than the database's current `PRAGMA user_version`
     ///   are applied — forward-only, and a fresh (empty) database starts at
@@ -126,8 +121,7 @@ public actor Database {
         }
     }
 
-    /// https://github.com/CalixtoTheBugHunter/talos/issues/38 — "Every table
-    /// carries a `project_id` column — nothing assumes a single project."
+    /// Every table carries a `project_id` column — nothing assumes a single project.
     private static func rawValidateProjectIDInvariant(_ connection: OpaquePointer?) throws {
         for table in try rawTableNames(connection) {
             var statement: OpaquePointer?

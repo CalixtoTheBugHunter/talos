@@ -4,8 +4,6 @@ import Testing
 
 /// Verifies `.talos/` scaffolding against
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#where-it-lives.
-///
-/// https://github.com/CalixtoTheBugHunter/talos/issues/41
 @Suite("Project Library scaffolder")
 struct ProjectLibraryScaffolderTests {
     /// A fresh temporary directory per test, so parallel tests never share a
@@ -43,11 +41,6 @@ struct ProjectLibraryScaffolderTests {
         return paths
     }
 
-    /// > Scaffolding creates exactly the tree in the SPEC: `project.yaml`,
-    /// > `agents.yaml`, `spec.yaml`, `connectors.yaml`, `board.yaml`,
-    /// > `safeguards.md`,
-    /// > `guidelines/{assistant,advisor,automator,self-improver}.md`,
-    /// > `.gitignore`, `local/`
     @Test("Scaffolding a fresh repository creates exactly the SPEC tree")
     func createsExactlyTheSpecTree() throws {
         let root = Self.temporaryProjectRoot()
@@ -63,7 +56,6 @@ struct ProjectLibraryScaffolderTests {
         #expect(onDisk == Set(ProjectLibraryScaffolder.specifiedRelativePaths + ["guidelines"]))
     }
 
-    /// > `.talos/.gitignore` ignores `local/`
     @Test(".gitignore ignores local/")
     func gitignoreIgnoresLocal() throws {
         let root = Self.temporaryProjectRoot()
@@ -77,9 +69,6 @@ struct ProjectLibraryScaffolderTests {
         #expect(contents.contains("local/"))
     }
 
-    /// > Generated files carry explanatory comments so they are editable
-    /// > without docs
-    ///
     /// Checks the comment marker and the SPEC link specifically, rather than
     /// only non-emptiness — a regression that replaced a header with
     /// arbitrary non-comment text, or dropped the link, would pass a bare
@@ -110,8 +99,6 @@ struct ProjectLibraryScaffolderTests {
         }
     }
 
-    /// > Scaffolding is idempotent — running it on an existing `.talos/`
-    /// > never clobbers user edits and reports what it would add
     @Test("Running scaffold twice never clobbers an edited file and adds nothing new")
     func idempotentAndNeverClobbers() throws {
         let root = Self.temporaryProjectRoot()
@@ -131,8 +118,6 @@ struct ProjectLibraryScaffolderTests {
         #expect(survivingContents == userEdit)
     }
 
-    /// > Scaffolding refuses to run outside a git repository, with a clear
-    /// > reason
     @Test("Scaffolding outside a git repository throws a clear error")
     func refusesOutsideGitRepository() throws {
         let root = Self.temporaryProjectRoot()

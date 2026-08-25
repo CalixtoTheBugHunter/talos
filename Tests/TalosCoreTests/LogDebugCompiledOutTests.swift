@@ -1,8 +1,7 @@
 import Foundation
 import Testing
 
-/// Verifies "debug logging compiled out of release builds" from
-/// https://github.com/CalixtoTheBugHunter/talos/issues/39 structurally,
+/// Verifies debug logging is compiled out of Release builds structurally,
 /// since a call `#if DEBUG` compiles away cannot be observed at runtime in
 /// either configuration — the same reason `MinimumSupportedOSTests` checks
 /// `@available` by reading source rather than by running on an old OS.

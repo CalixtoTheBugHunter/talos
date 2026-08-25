@@ -1,9 +1,7 @@
 @testable import TalosProjectLibrary
 import Testing
 
-/// Verifies `agents.yaml` parsing and validation against this issue's
-/// acceptance criteria:
-/// https://github.com/CalixtoTheBugHunter/talos/issues/43
+/// Verifies `agents.yaml` parsing and validation against ``AgentsManifest``.
 @Suite("Agents manifest")
 struct AgentsManifestTests {
     private static let validYAML = """
@@ -24,8 +22,6 @@ struct AgentsManifestTests {
 
     // MARK: - Typed model
 
-    /// > Typed model for declaring agents, their adapter, MCP servers, and
-    /// > allowed CLIs
     @Test("A valid file parses into the typed model")
     func parsesAValidFile() throws {
         let manifest = try AgentsManifestParser.parse(contents: Self.validYAML, file: "agents.yaml")
@@ -48,10 +44,8 @@ struct AgentsManifestTests {
         #expect(manifest.agents.isEmpty)
     }
 
-    // MARK: - Secret references, never secrets (AC2, AC3)
+    // MARK: - Secret references, never secrets
 
-    /// > Secret fields accept only a Keychain reference, never a literal
-    /// > value
     @Test("A keychain: reference parses as a secret, not a literal")
     func keychainReferenceParsesAsASecret() throws {
         let manifest = try AgentsManifestParser.parse(contents: Self.validYAML, file: "agents.yaml")
@@ -60,8 +54,6 @@ struct AgentsManifestTests {
         #expect(env["GITHUB_TOKEN"] == .secret(SecretReference(keychainName: "github-pat")))
     }
 
-    /// > Secret fields accept only a Keychain reference, never a literal
-    /// > value
     @Test("An ordinary, non-secret literal is accepted")
     func ordinaryLiteralIsAccepted() throws {
         let manifest = try AgentsManifestParser.parse(contents: Self.validYAML, file: "agents.yaml")
@@ -70,9 +62,6 @@ struct AgentsManifestTests {
         #expect(env["NODE_ENV"] == .literal("production"))
     }
 
-    /// > Secret fields accept only a Keychain reference, never a literal
-    /// > value
-    ///
     /// The env key's own name marks it as a credential field, so a literal
     /// there is rejected regardless of what the literal looks like.
     @Test("A credential-named key with a literal value fails validation, however benign the value looks")
@@ -97,18 +86,10 @@ struct AgentsManifestTests {
         }
     }
 
-    /// > A literal-looking secret (long high-entropy string, `sk-`/`ghp_`
-    /// > prefixes) is a validation error, not a warning, naming the
-    /// > offending key
-    ///
-    /// > A test asserts a config containing a literal secret fails
-    /// > validation
-    ///
     /// The value looks like a known credential shape even though the key
     /// name ("CONFIG_VALUE") gives no hint. Assembled from non-contiguous
-    /// parts, per decision 66, so no secret-shaped literal is committed
-    /// whole — the same technique `Tests/TalosCoreTests/LogRedactionTests.swift`
-    /// already uses.
+    /// parts so no secret-shaped literal is committed whole — the same
+    /// technique `Tests/TalosCoreTests/LogRedactionTests.swift` uses.
     @Test("A literal value with a recognized secret prefix fails validation, naming the key and not the value")
     func literalWithRecognizedSecretPrefixFailsValidation() {
         let literalSecret = "sk-" + String(repeating: "A", count: 40)
@@ -132,9 +113,6 @@ struct AgentsManifestTests {
         }
     }
 
-    /// > A literal-looking secret (long high-entropy string, ...) is a
-    /// > validation error
-    ///
     /// No recognized prefix and no credential-shaped key name — this is the
     /// generic high-entropy path. Assembled from short, non-contiguous
     /// parts so the finished value is never a committed literal.
@@ -184,9 +162,8 @@ struct AgentsManifestTests {
         #expect(env["CORRELATION_ID"] == .literal("550e8400-e29b-41d4-a716-446655440000"))
     }
 
-    // MARK: - Multiple agents (AC5)
+    // MARK: - Multiple agents
 
-    /// > More than one agent can be declared per project
     @Test("More than one agent can be declared")
     func moreThanOneAgentCanBeDeclared() throws {
         let yaml = """
@@ -202,10 +179,8 @@ struct AgentsManifestTests {
         #expect(names == ["claude-code", "codex"])
     }
 
-    // MARK: - Adapter registry (AC6)
+    // MARK: - Adapter registry
 
-    /// > Validation rejects an adapter name with no registered adapter,
-    /// > listing valid ones
     @Test("An unrecognized adapter name fails validation, listing the registered ones")
     func unrecognizedAdapterNameFailsValidationListingRegisteredOnes() {
         let yaml = """

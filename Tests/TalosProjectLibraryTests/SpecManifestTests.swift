@@ -1,15 +1,11 @@
 @testable import TalosProjectLibrary
 import Testing
 
-/// Verifies `spec.yaml` parsing and validation against this issue's
-/// acceptance criteria:
-/// https://github.com/CalixtoTheBugHunter/talos/issues/44
+/// Verifies `spec.yaml` parsing and validation against ``SpecManifest``.
 @Suite("Spec manifest")
 struct SpecManifestTests {
-    // MARK: - Absence is a declared state (AC3, AC5)
+    // MARK: - Absence is a declared state
 
-    /// > A declared-absent Spec Drive is valid spec.yaml, not a validation
-    /// > error
     @Test("A declared-absent Spec Drive parses successfully")
     func declaredAbsentSpecDriveParsesSuccessfully() throws {
         let yaml = """
@@ -21,8 +17,6 @@ struct SpecManifestTests {
         #expect(manifest.specDrive == .absent)
     }
 
-    /// > Absence is a declared state — an explicit absent value,
-    /// > distinguishable in the type system from an unparsed or missing key
     @Test("A missing specDrive key fails validation, distinct from a declared absence")
     func missingSpecDriveKeyFailsValidation() {
         #expect {
@@ -33,8 +27,6 @@ struct SpecManifestTests {
         }
     }
 
-    /// > Tests assert ... that absent is not conflated with unresolvable
-    ///
     /// An empty `locations` list under `status: present` is a broken
     /// present declaration, not the same thing as a declared absence — it
     /// must fail rather than silently being read as `.absent`.
@@ -88,13 +80,8 @@ struct SpecManifestTests {
         }
     }
 
-    // MARK: - Typed model for one or more locations and their sync rules (AC1, AC2, AC7)
+    // MARK: - Typed model for one or more locations and their sync rules
 
-    /// > Typed model for one or more Spec Drive locations and their sync
-    /// > rules
-    ///
-    /// > Supported provider at MVP: GitHub Wiki, behind a provider
-    /// > interface
     @Test("A single GitHub Wiki location with a read-only sync rule parses into the typed model")
     func singleLocationParses() throws {
         let yaml = """
@@ -118,7 +105,6 @@ struct SpecManifestTests {
         #expect(location.syncRule == .readOnly)
     }
 
-    /// > Typed model for one or more Spec Drive locations
     @Test("More than one location can be declared")
     func moreThanOneLocationCanBeDeclared() throws {
         let yaml = """
@@ -142,7 +128,6 @@ struct SpecManifestTests {
         #expect(locations.map(\.syncRule) == [.readOnly, .talosMayEdit])
     }
 
-    /// > Sync rules express at minimum: read-only vs. Talos-may-edit
     @Test("A talos-may-edit sync rule parses into the typed model")
     func talosMayEditSyncRuleParses() throws {
         let yaml = """
@@ -162,7 +147,7 @@ struct SpecManifestTests {
         #expect(locations.first?.syncRule == .talosMayEdit)
     }
 
-    // MARK: - A declared location that cannot be resolved is a validation error naming it (AC4)
+    // MARK: - A declared location that cannot be resolved is a validation error naming it
 
     @Test("An unrecognized provider fails validation, listing the registered ones")
     func unrecognizedProviderFailsValidation() {
@@ -243,15 +228,12 @@ struct SpecManifestTests {
         }
     }
 
-    // MARK: - DRAFT items are representable (AC6)
+    // MARK: - DRAFT items are representable
 
-    /// > DRAFT items are representable (`SpecItemStatus`, domain vocabulary
-    /// > for the future indexing issue, #82)
-    ///
     /// `SpecItemStatus` carries no content and is not parsed from
-    /// `spec.yaml` — populating it is #82. What this issue owes it is that
-    /// the vocabulary distinguishes a draft item from a published one, since
-    /// that distinction is the entire reason the type exists.
+    /// `spec.yaml` yet — it only needs to distinguish a draft item from a
+    /// published one, since that distinction is the entire reason the type
+    /// exists.
     @Test("SpecItemStatus distinguishes draft from published")
     func specItemStatusDistinguishesDraftFromPublished() {
         #expect(SpecItemStatus.draft != SpecItemStatus.published)

@@ -2,14 +2,9 @@ import Foundation
 import TalosCore
 import Yams
 
-/// Parses `.talos/agents.yaml` against ``AgentsManifest``.
-///
-/// All `Yams` usage is contained to this one file, the same discipline
-/// `ProjectManifestParser` uses for `project.yaml` — the rest of Talos sees
-/// only ``AgentsManifest``.
-///
-/// https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#the-agentsyaml-shape
-/// https://github.com/CalixtoTheBugHunter/talos/issues/43
+/// Parses `.talos/agents.yaml` against ``AgentsManifest``. All `Yams` usage
+/// is contained to this one file, the same discipline `ProjectManifestParser`
+/// uses for `project.yaml` — the rest of Talos sees only ``AgentsManifest``.
 public enum AgentsManifestParser {
     private static let agentsKey = "agents"
     private static let adapterKey = "adapter"
