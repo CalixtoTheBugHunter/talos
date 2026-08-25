@@ -26,11 +26,10 @@ public enum ProjectLibraryScaffolder {
         """
     }
 
-    /// `safeguards.md` deliberately carries no context priority order. Per
-    /// Talos Guidelines § Where the order is declared: "Talos does not write
-    /// the default into the project: `safeguards.md` is the one file nothing
-    /// may modify but the user, and generating a default into it would have
-    /// Talos performing the write the taxonomy refuses."
+    /// `safeguards.md` deliberately carries no context priority order — the
+    /// generated header quotes Talos Guidelines § Where the order is
+    /// declared verbatim rather than paraphrasing it, so this file is never
+    /// a second source of truth for that rule.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Talos-Guidelines#where-the-order-is-declared
     private static let safeguardsContents = """
     <!--
@@ -38,18 +37,23 @@ public enum ProjectLibraryScaffolder {
     Never editable by AI. See:
     https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#safeguards
 
-    This file also declares the project's context priority order — the order
-    assembled context is dropped in when it exceeds a sub-function's token
-    ceiling. Talos never writes a default order here; leave this section
-    unset until you decide one:
+    This file also declares the project's context priority order. Per Talos
+    Guidelines § Where the order is declared:
     https://github.com/CalixtoTheBugHunter/talos/wiki/Talos-Guidelines#where-the-order-is-declared
+
+      "Talos does not write the default into the project: `safeguards.md`
+      is the one file nothing may modify but the user, and generating a
+      default into it would have Talos performing the write the taxonomy
+      refuses."
+
+    Leave this section unset until you decide an order.
     -->
 
     """
 
-    /// Shared header for a `guidelines/*.md` file. Each Editable Talos
-    /// Guideline "declares" these four things per Talos Guidelines §
-    /// Editable Talos Guidelines:
+    /// Shared header for a `guidelines/*.md` file. Quotes, rather than
+    /// paraphrases, what Talos Guidelines § Editable Talos Guidelines says
+    /// each file declares:
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Talos-Guidelines#editable-talos-guidelines
     private static func guidelineContents(subFunction: String, status: String) -> String {
         """
@@ -57,11 +61,12 @@ public enum ProjectLibraryScaffolder {
         \(subFunction) guideline — \(status).
         https://github.com/CalixtoTheBugHunter/talos/wiki/Talos-Guidelines#editable-talos-guidelines
 
-        Declare, below, this sub-function's:
-        - purpose
-        - the context it wants assembled
-        - its token ceiling
-        - its output expectations
+        Per Talos Guidelines § Editable Talos Guidelines, each file declares:
+
+          - its purpose
+          - the context it wants assembled
+          - its token ceiling
+          - its output expectations
         -->
 
         """

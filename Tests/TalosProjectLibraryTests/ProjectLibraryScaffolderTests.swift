@@ -79,8 +79,13 @@ struct ProjectLibraryScaffolderTests {
 
     /// > Generated files carry explanatory comments so they are editable
     /// > without docs
-    @Test("Every generated file is non-empty")
-    func generatedFilesCarryContent() throws {
+    ///
+    /// Checks the comment marker and the SPEC link specifically, rather than
+    /// only non-emptiness — a regression that replaced a header with
+    /// arbitrary non-comment text, or dropped the link, would pass a bare
+    /// "is not empty" assertion.
+    @Test("Every generated file opens with an explanatory comment linking the SPEC")
+    func generatedFilesCarryExplanatoryComments() throws {
         let root = Self.temporaryProjectRoot()
         try Self.makeGitRepository(at: root)
         _ = try ProjectLibraryScaffolder.scaffold(projectRoot: root)
@@ -90,10 +95,18 @@ struct ProjectLibraryScaffolderTests {
             let url = talosRoot.appendingPathComponent(path)
             var isDirectory: ObjCBool = false
             #expect(FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory))
-            if !isDirectory.boolValue {
-                let contents = try String(contentsOf: url, encoding: .utf8)
-                #expect(!contents.isEmpty, "\(path) has no explanatory content")
-            }
+            guard !isDirectory.boolValue else { continue }
+
+            let contents = try String(contentsOf: url, encoding: .utf8)
+            let commentMarker = path.hasSuffix(".md") ? "<!--" : "#"
+            #expect(
+                contents.hasPrefix(commentMarker),
+                "\(path) does not open with an explanatory comment (\(commentMarker))"
+            )
+            #expect(
+                contents.contains("https://github.com/CalixtoTheBugHunter/talos/wiki/"),
+                "\(path) has no SPEC link a reader can follow without docs"
+            )
         }
     }
 
