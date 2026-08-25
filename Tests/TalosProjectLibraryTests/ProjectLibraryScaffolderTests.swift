@@ -87,7 +87,11 @@ struct ProjectLibraryScaffolderTests {
             guard !isDirectory.boolValue else { continue }
 
             let contents = try String(contentsOf: url, encoding: .utf8)
-            let commentMarker = path.hasSuffix(".md") ? "<!--" : "#"
+            // guidelines/*.md opens with `---` YAML front matter (its
+            // explanatory header is `#` comments inside that block, read by
+            // GuidelineDocumentParser) — safeguards.md stays an HTML comment
+            // since it is never structurally parsed.
+            let commentMarker = path.hasPrefix("guidelines/") ? "---" : (path.hasSuffix(".md") ? "<!--" : "#")
             #expect(
                 contents.hasPrefix(commentMarker),
                 "\(path) does not open with an explanatory comment (\(commentMarker))"
@@ -116,6 +120,30 @@ struct ProjectLibraryScaffolderTests {
 
         let survivingContents = try String(contentsOf: projectYAMLURL, encoding: .utf8)
         #expect(survivingContents == userEdit)
+    }
+
+    /// Ties AC1 ("sensible, documented defaults") to AC2 ("parses its four
+    /// declared elements") against the scaffolder's real output, rather than
+    /// against a hand-authored fixture that happens to also parse.
+    @Test("Every generated guideline file parses, and advisor/self-improver are marked inert")
+    func generatedGuidelinesParseAndInertOnesAreMarked() throws {
+        let root = Self.temporaryProjectRoot()
+        try Self.makeGitRepository(at: root)
+        _ = try ProjectLibraryScaffolder.scaffold(projectRoot: root)
+        let guidelinesRoot = root.appendingPathComponent(".talos/guidelines", isDirectory: true)
+
+        for subFunction in SubFunction.allCases {
+            let url = guidelinesRoot.appendingPathComponent(subFunction.guidelineFileName)
+            let contents = try String(contentsOf: url, encoding: .utf8)
+            let document = try GuidelineDocumentParser.parse(
+                contents: contents, subFunction: subFunction, file: url.path
+            )
+
+            #expect(document.tokenCeiling > 0)
+            #expect(!document.purpose.isEmpty)
+            #expect(!document.outputExpectations.isEmpty)
+            #expect(document.subFunction.isActiveAtMVP == (subFunction == .assistant || subFunction == .automator))
+        }
     }
 
     @Test("Scaffolding outside a git repository throws a clear error")
