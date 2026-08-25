@@ -1,11 +1,14 @@
 import Foundation
 
 /// Loads `.talos/safeguards.md`. This is the only way any part of Talos may
-/// access the file's contents, and it is deliberately read-only: no type in
-/// this module offers a way to write, edit, or delete `safeguards.md` —
+/// access the file's contents, and it is deliberately read-only: no type
+/// here offers a way to write, edit, or delete `safeguards.md` —
 /// `config.safeguards.write` is refused outright rather than gated, per
 /// Safeguards & Autonomy § Refused — not a tier, so there is no write path
-/// here to gate in the first place.
+/// here to gate in the first place. `ProjectLibraryScaffolder` still creates
+/// this file once, only when absent, as part of generating `.talos/` on
+/// project add — that single, idempotent, non-overwriting entry is the one
+/// sanctioned exception to "read-only" here, and it is covered separately.
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#refused--not-a-tier
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#safeguards
 public enum SafeguardsLoader {

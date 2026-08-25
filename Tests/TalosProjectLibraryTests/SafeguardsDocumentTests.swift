@@ -89,29 +89,59 @@ struct SafeguardsDocumentTests {
         #expect(onDiskAfterLoad == contents)
     }
 
-    /// Source-scans ``SafeguardsLoader``'s own file for a write-capable
-    /// `FileManager` call — the same technique
-    /// `BoardManifestNoProviderLeakTests` uses to assert a structural
-    /// property by reading source text rather than by running the code.
-    /// Asserts no code path in the loader can write `safeguards.md`, rather
-    /// than only observing that this test's one call did not.
-    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#safeguards
-    @Test("SafeguardsLoader's source contains no write-capable FileManager call")
-    func loaderSourceContainsNoWriteCapableCall() throws {
+    /// `ProjectLibraryScaffolder` creates `safeguards.md` once, only when
+    /// absent, and never overwrites it —
+    /// `ProjectLibraryScaffolderTests.idempotentAndNeverClobbers` asserts
+    /// that directly. That is the one sanctioned write path this file's own
+    /// test excludes; no other file earns a place on this list without the
+    /// same discipline.
+    private static let filesSanctionedToWriteSafeguards = ["ProjectLibraryScaffolder.swift"]
+
+    private static var repositoryRoot: URL {
         var url = URL(fileURLWithPath: #filePath)
         while url.pathComponents.count > 1 {
             url.deleteLastPathComponent()
             if FileManager.default.fileExists(atPath: url.appendingPathComponent("Package.swift").path) {
-                break
+                return url
             }
         }
-        let loaderFile = url
-            .appendingPathComponent("Sources/TalosProjectLibrary/SafeguardsLoader.swift")
-        let text = try String(contentsOf: loaderFile, encoding: .utf8)
+        fatalError("Could not locate repository root above \(#filePath)")
+    }
 
+    private static var swiftFilesUnderSources: [URL] {
+        let sourcesRoot = Self.repositoryRoot.appendingPathComponent("Sources")
+        guard let enumerator = FileManager.default.enumerator(at: sourcesRoot, includingPropertiesForKeys: nil)
+        else { return [] }
+
+        var files: [URL] = []
+        for case let url as URL in enumerator where url.pathExtension == "swift" {
+            files.append(url)
+        }
+        return files
+    }
+
+    /// Source-scans every `.swift` file under `Sources/` — the same
+    /// technique `BoardManifestNoProviderLeakTests` uses to make a
+    /// repository-wide claim by reading source text rather than by running
+    /// the code. A file that only greps itself cannot support "no code path
+    /// in Talos can write this file"; this one can, because it checks every
+    /// file the claim is actually about.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#safeguards
+    @Test("No file outside the sanctioned scaffold entry can write safeguards.md")
+    func noWriteCapableCallToSafeguardsOutsideTheSanctionedScaffoldEntry() throws {
         let writeCapableCalls = ["createFile", "removeItem", ".write(", "setAttributes", "moveItem", "copyItem"]
-        for call in writeCapableCalls {
-            #expect(!text.contains(call), "SafeguardsLoader.swift references '\(call)'")
+
+        for url in Self.swiftFilesUnderSources {
+            guard !Self.filesSanctionedToWriteSafeguards.contains(url.lastPathComponent) else { continue }
+            let text = try String(contentsOf: url, encoding: .utf8)
+            guard text.contains("safeguards.md") else { continue }
+
+            for call in writeCapableCalls {
+                #expect(
+                    !text.contains(call),
+                    "\(url.lastPathComponent) references 'safeguards.md' and a write-capable call '\(call)'"
+                )
+            }
         }
     }
 }
