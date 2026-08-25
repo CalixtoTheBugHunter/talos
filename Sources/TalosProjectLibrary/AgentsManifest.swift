@@ -15,8 +15,10 @@ public enum AdapterKind: String, CaseIterable, Equatable, Hashable, Sendable {
 }
 
 /// A reference to a secret held in the macOS Keychain — `keychain:<name>` in
-/// `agents.yaml`. `name` is resolved against a fixed Keychain convention
-/// (service `"Talos"`, account `name`); it never carries the secret itself.
+/// `agents.yaml`. `name` is resolved by ``KeychainSecretAccessor`` against a
+/// fixed Keychain convention, service `"Talos"`, account
+/// `<ProjectIdentifier>:<name>` — scoped per project so one project cannot
+/// read another's; it never carries the secret itself.
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions
 public struct SecretReference: Equatable, Hashable, Sendable {
     public let keychainName: String
