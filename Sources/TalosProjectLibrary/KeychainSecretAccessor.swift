@@ -162,10 +162,14 @@ public struct KeychainSecretAccessor: Sendable {
         logAccess(action)
     }
 
-    /// Deletes the secret `reference` names, scoped to `project`. Present so
-    /// a test can clean up what it wrote; not itself part of the read/write
-    /// path a manifest's `env` entries exercise.
+    /// Deletes the secret `reference` names, scoped to `project`. Classified
+    /// as ``SecretAccessKind/write``: the taxonomy has no separate delete
+    /// type, and "write or rotate a secret" already covers removing the
+    /// value a rotation would otherwise overwrite.
     public func delete(_ reference: SecretReference, project: ProjectIdentifier) throws {
+        let action = SecretAccessAction(kind: .write, project: project, keychainName: reference.keychainName)
+        try authorize(action)
+
         let account = Self.account(project: project, keychainName: reference.keychainName)
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -176,6 +180,8 @@ public struct KeychainSecretAccessor: Sendable {
         guard status == errSecSuccess || status == errSecItemNotFound else {
             throw SecretAccessError(status: status)
         }
+
+        logAccess(action)
     }
 
     private func authorize(_ action: SecretAccessAction) throws {

@@ -155,6 +155,26 @@ struct KeychainSecretAccessorTests {
         } throws: { $0 is MissingSecretError }
     }
 
+    @Test("A denied authorization prevents the delete from ever reaching the Keychain")
+    func deniedAuthorizationPreventsTheDelete() throws {
+        let denying = DenyingAuthorizer()
+        let allowing = KeychainSecretAccessor(authorizer: AllowingAuthorizer())
+        let reference = Self.freshReference()
+        let project = Self.freshProject()
+        defer { Self.cleanUp(reference, project: project) }
+
+        try allowing.write(reference, project: project, value: "should-survive-the-denied-delete")
+
+        #expect(throws: SecretAccessDenied.self) {
+            try KeychainSecretAccessor(authorizer: denying).delete(reference, project: project)
+        }
+        #expect(denying.lastAction == SecretAccessAction(
+            kind: .write, project: project, keychainName: reference.keychainName
+        ))
+
+        #expect(try allowing.read(reference, project: project) == "should-survive-the-denied-delete")
+    }
+
     // MARK: - No thrown error ever carries the secret value
 
     @Test("A denial error's description never contains the secret value")
