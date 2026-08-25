@@ -18,7 +18,7 @@ subprocess.
 | --- | --- | --- |
 | `TalosCore` | — | Shared types and cross-cutting foundations with no dependency of their own. |
 | `TalosPersistence` | `TalosCore` | SQLite + plain-text persistence under `.talos/`. |
-| `TalosProjectLibrary` | `TalosCore`, `TalosPersistence` | The five [Project Library](https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library) parts — AI Agent, Spec Drive, Connectors, Board, Safeguards config — read from and written to `.talos/`. |
+| `TalosProjectLibrary` | `TalosCore`, `TalosPersistence`, `Yams` | The five [Project Library](https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library) parts — AI Agent, Spec Drive, Connectors, Board, Safeguards config — read from and written to `.talos/`. `Yams` (MIT, no dependencies of its own) parses and serializes the `.yaml` files under `.talos/`. |
 | `TalosSafeguards` | `TalosCore` | The tiered, deny-by-default [Safeguards gate](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy). |
 | `TalosAdapters` | `TalosCore` | The [agent adapter layer](https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary#agent-adapters). **This is the only module permitted to spawn a subprocess.** |
 | `TalosOrchestration` | `TalosCore`, `TalosProjectLibrary`, `TalosSafeguards`, `TalosAdapters`, `TalosPersistence` | The [shared session pipeline](https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary#the-shared-session-model) that assembles context, runs the gate, and drives an adapter. |

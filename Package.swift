@@ -17,6 +17,15 @@ let package = Package(
         .library(name: "TalosOrchestration", targets: ["TalosOrchestration"]),
         .library(name: "TalosUI", targets: ["TalosUI"])
     ],
+    dependencies: [
+        // YAML parsing for `.talos/*.yaml` — MIT, zero dependencies of its own,
+        // wraps a vendored libyaml. Chosen over a hand-rolled parser because
+        // `.talos/` is spec'd as human-editable plain text and a bespoke
+        // parser would mis-handle legitimate hand-written YAML, which is the
+        // exact thing "a human edit is not silently discarded" forbids:
+        // https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#where-it-lives
+        .package(url: "https://github.com/jpsim/Yams.git", from: "6.2.2")
+    ],
     targets: [
         .target(name: "TalosCore"),
         .testTarget(name: "TalosCoreTests", dependencies: ["TalosCore"]),
@@ -30,7 +39,7 @@ let package = Package(
 
         .target(
             name: "TalosProjectLibrary",
-            dependencies: ["TalosCore", "TalosPersistence"]
+            dependencies: ["TalosCore", "TalosPersistence", .product(name: "Yams", package: "Yams")]
         ),
         .testTarget(name: "TalosProjectLibraryTests", dependencies: ["TalosProjectLibrary"]),
 

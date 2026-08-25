@@ -36,15 +36,26 @@ struct ModuleDependencyGraphTests {
         let trailingArgumentsPart = #"(?:,\s*\w+:\s*\[[^\]]*\])*\s*\)"#
         let regex = try Regex(namePart + dependenciesPart + trailingArgumentsPart)
 
+        // Either a bare module-name dependency ("TalosCore") or an external
+        // package product (.product(name: "Yams", package: "Yams")),
+        // normalized to its name — so an external dependency is an edge in
+        // this graph exactly the way a module one is, and can't reach a
+        // networking or model-SDK dependency unnoticed just by arriving as
+        // a product() reference instead of a bare module name. The
+        // .product(...) alternative consumes the whole call, including its
+        // own `package:` argument, so that argument is never independently
+        // matched by the bare-string alternative.
+        let dependencyNamePattern =
+            #"\.product\(name:\s*"([A-Za-z]+)"(?:,\s*package:\s*"[A-Za-z]+")?\)|"([A-Za-z]+)""#
+        let dependencyNameRegex = try Regex(dependencyNamePattern)
+
         var graph: [String: Set<String>] = [:]
         for match in text.matches(of: regex) {
             guard let name = match.output[1].substring.map(String.init) else { continue }
             let depsRaw = match.output[2].substring.map(String.init) ?? ""
-            let deps = depsRaw
-                .split(separator: ",")
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "\"")) }
-                .filter { !$0.isEmpty }
+            let deps = depsRaw.matches(of: dependencyNameRegex).compactMap { depMatch in
+                (depMatch.output[1].substring ?? depMatch.output[2].substring).map(String.init)
+            }
             graph[name] = Set(deps)
         }
         return graph
