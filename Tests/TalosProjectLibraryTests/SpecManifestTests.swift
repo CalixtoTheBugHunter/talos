@@ -218,7 +218,7 @@ struct SpecManifestTests {
             try SpecManifestParser.parse(contents: yaml, file: "spec.yaml")
         } throws: { error in
             guard let error = error as? SpecManifestError else { return false }
-            return error.file == "spec.yaml" && !error.fix.isEmpty
+            return error.file == "spec.yaml" && error.line != nil && error.fix.contains("url")
         }
     }
 
@@ -241,6 +241,21 @@ struct SpecManifestTests {
                 error.fix.contains(SpecDriveSyncRule.readOnly.rawValue) &&
                 error.fix.contains(SpecDriveSyncRule.talosMayEdit.rawValue)
         }
+    }
+
+    // MARK: - DRAFT items are representable (AC6)
+
+    /// > DRAFT items are representable (`SpecItemStatus`, domain vocabulary
+    /// > for the future indexing issue, #82)
+    ///
+    /// `SpecItemStatus` carries no content and is not parsed from
+    /// `spec.yaml` — populating it is #82. What this issue owes it is that
+    /// the vocabulary distinguishes a draft item from a published one, since
+    /// that distinction is the entire reason the type exists.
+    @Test("SpecItemStatus distinguishes draft from published")
+    func specItemStatusDistinguishesDraftFromPublished() {
+        #expect(SpecItemStatus.draft != SpecItemStatus.published)
+        #expect(Set([SpecItemStatus.draft, .published]).count == 2)
     }
 
     @Test("Malformed YAML syntax names the file and the offending line")
