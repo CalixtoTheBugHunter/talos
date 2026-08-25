@@ -3,8 +3,6 @@ import Foundation
 /// Creates the `.talos/` directory tree Project Library § Where it lives
 /// specifies file-by-file, when a project is added.
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#where-it-lives
-///
-/// https://github.com/CalixtoTheBugHunter/talos/issues/41
 public enum ProjectLibraryScaffolder {
     /// One `.talos/` entry the SPEC names, in the order
     /// [§ Where it lives](https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#where-it-lives)
@@ -16,8 +14,8 @@ public enum ProjectLibraryScaffolder {
     }
 
     /// The explanatory comment a generated YAML file carries, so it is
-    /// "editable without docs" per issue #41's acceptance criteria — the
-    /// exact one-line purpose the SPEC tree already gives that file.
+    /// editable without docs — the exact one-line purpose the SPEC tree
+    /// already gives that file.
     private static func yamlHeader(purpose: String) -> String {
         """
         # \(purpose)

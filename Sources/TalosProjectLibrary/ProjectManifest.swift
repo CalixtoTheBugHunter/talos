@@ -1,18 +1,11 @@
 import Foundation
 
-// The typed model for `.talos/project.yaml` — project identity, which agents
-// are configured, and which sub-functions are enabled.
+// The typed model for `.talos/project.yaml`.
 // https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#where-it-lives
-//
-// https://github.com/CalixtoTheBugHunter/talos/issues/42
 
 /// A stable, immutable project identifier. Never derived from a mutable path
 /// or repo name — ``generate()`` is the only constructor for a fresh one, so
 /// nothing in Talos can accidentally compute one from something that moves.
-///
-/// Talos Hub needs a project identifier "from day one, even while there is
-/// only ever one":
-/// https://github.com/CalixtoTheBugHunter/talos/wiki/Roadmap-Post-MVP#why-these-constraints-matter
 public struct ProjectIdentifier: RawRepresentable, Equatable, Hashable, Sendable, Codable {
     public let rawValue: String
 
@@ -26,12 +19,9 @@ public struct ProjectIdentifier: RawRepresentable, Equatable, Hashable, Sendable
     }
 }
 
-/// The four sub-functions `project.yaml` may enable, named exactly as
-/// [Roadmap: Post-MVP](https://github.com/CalixtoTheBugHunter/talos/wiki/Roadmap-Post-MVP)
-/// and the scaffolded `guidelines/*.md` files name them. `.advisor` and
-/// `.selfImprover` are recognized here even though both sub-functions are
-/// "visible as 'Coming soon'" per
-/// [Decision 3](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#foundational-decisions) —
+/// The four sub-functions `project.yaml` may enable, named exactly as the
+/// scaffolded `guidelines/*.md` files name them. `.advisor` and
+/// `.selfImprover` are recognized here even though both are "Coming soon" —
 /// this model only parses the declaration; it does not act on it.
 public enum SubFunction: String, CaseIterable, Equatable, Hashable, Sendable {
     case assistant
@@ -80,8 +70,8 @@ public struct ProjectManifest: Equatable, Sendable {
     }
 }
 
-/// A validation failure that names the file, the line, and the fix — per
-/// this issue's acceptance criterion — rather than a bare parser message.
+/// A validation failure that names the file, the line, and the fix, rather
+/// than a bare parser message.
 public struct ProjectManifestError: Error, Equatable, Sendable {
     /// The path of the file that failed to parse or validate.
     public let file: String

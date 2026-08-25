@@ -1,21 +1,12 @@
 import Foundation
 
-// The typed model for `.talos/spec.yaml` — the Spec Drive location(s) and
-// their sync rules. Absence of a Spec Drive is a declared state, never an
-// empty or missing key.
+// The typed model for `.talos/spec.yaml`. Absence of a Spec Drive is a
+// declared state, never an empty or missing key.
 // https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#spec-drive
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#when-a-project-has-no-spec-drive
-//
-// https://github.com/CalixtoTheBugHunter/talos/issues/44
 
-/// The registered Spec Drive providers. GitHub Wikis is the only one at MVP,
-/// per [decision 36](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#foundational-decisions) —
-/// a local-directory kind is explicitly ruled out, because a spec location
-/// only Talos knows about is a second source of truth nobody outside Talos
-/// maintains. `SpecManifestParser` validates a `provider:` name against this
-/// set; a second provider (Confluence, per
-/// [Project Library § Spec Drive](https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#spec-drive))
-/// is added here without touching any other part of Talos.
+/// The registered Spec Drive providers. Only `github-wiki` is valid at
+/// MVP — a local directory is not, since a spec location only Talos knows
+/// about is a second source of truth nobody else maintains.
 public enum SpecDriveProviderKind: String, CaseIterable, Equatable, Hashable, Sendable {
     case githubWiki = "github-wiki"
 }
@@ -41,15 +32,9 @@ public struct SpecDriveLocation: Equatable, Sendable {
     }
 }
 
-/// Whether a Spec Drive item is DRAFT — work planned for the future — or
-/// published, per
-/// [Project Library § Spec Drive](https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#spec-drive):
-/// "Specs also contain DRAFT items... so Talos can proactively scale the
-/// application toward them." Declared here as the domain vocabulary a Spec
-/// Drive item carries; it is not parsed from `spec.yaml` and holds no
-/// content — populating it is
-/// [Spec Drive indexing and retrieval](https://github.com/CalixtoTheBugHunter/talos/issues/82),
-/// which this issue explicitly does not do.
+/// Whether a Spec Drive item is planned (`draft`) or `published`. Declared
+/// here as domain vocabulary only — not yet parsed from `spec.yaml` or
+/// populated from indexed content.
 public enum SpecItemStatus: Equatable, Hashable, Sendable {
     case draft
     case published

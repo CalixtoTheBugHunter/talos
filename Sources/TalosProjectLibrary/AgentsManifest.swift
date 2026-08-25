@@ -1,20 +1,12 @@
 import Foundation
 
-// The typed model for `.talos/agents.yaml` — agent adapters, their MCP
-// servers, and their allowed CLIs. Secret fields hold only a reference to a
-// Keychain entry, never a secret.
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#the-agentsyaml-shape
+// The typed model for `.talos/agents.yaml`. Secret fields hold only a
+// reference to a Keychain entry, never a secret.
 // https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#secret-references-never-secrets
-//
-// https://github.com/CalixtoTheBugHunter/talos/issues/43
 
-/// The registered agent adapters, per
-/// [Architecture: The Orchestration Boundary § Agent
-/// adapters](https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary#agent-adapters).
-/// This is the set `AgentsManifestParser` validates an `adapter:` name
-/// against — an adapter is a thin layer under `TalosAdapters`, but the name
-/// a project's `agents.yaml` may reference is fixed regardless of whether
-/// that adapter has landed yet.
+/// The registered agent adapters `AgentsManifestParser` validates an
+/// `adapter:` name against. Fixed regardless of whether that adapter has
+/// landed under `TalosAdapters` yet.
 public enum AdapterKind: String, CaseIterable, Equatable, Hashable, Sendable {
     case claudeCode = "claude-code"
     case geminiCLI = "gemini-cli"

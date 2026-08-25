@@ -1,14 +1,10 @@
 import Foundation
 import Yams
 
-/// Parses `.talos/spec.yaml` against ``SpecManifest``.
-///
-/// All `Yams` usage is contained to this one file, the same discipline
-/// `ProjectManifestParser` and `AgentsManifestParser` use — the rest of
-/// Talos sees only ``SpecManifest``.
-///
-/// https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#spec-drive
-/// https://github.com/CalixtoTheBugHunter/talos/issues/44
+/// Parses `.talos/spec.yaml` against ``SpecManifest``. All `Yams` usage is
+/// contained to this one file, the same discipline `ProjectManifestParser`
+/// and `AgentsManifestParser` use — the rest of Talos sees only
+/// ``SpecManifest``.
 public enum SpecManifestParser {
     private static let specDriveKey = "specDrive"
     private static let statusKey = "status"

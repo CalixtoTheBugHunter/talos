@@ -1,9 +1,7 @@
 @testable import TalosProjectLibrary
 import Testing
 
-/// Verifies `project.yaml` parsing and validation against this issue's
-/// acceptance criteria:
-/// https://github.com/CalixtoTheBugHunter/talos/issues/42
+/// Verifies `project.yaml` parsing and validation against ``ProjectManifest``.
 @Suite("Project manifest")
 struct ProjectManifestTests {
     private static let validYAML = """
@@ -17,10 +15,6 @@ struct ProjectManifestTests {
       self-improver: false
     """
 
-    /// > Typed model for `project.yaml` with a stable, immutable project
-    /// > identifier
-    /// > Declares which agents are configured and which sub-functions are
-    /// > enabled
     @Test("A valid file parses into the typed model")
     func parsesAValidFile() throws {
         let manifest = try ProjectManifestParser.parse(contents: Self.validYAML, file: "project.yaml")
@@ -31,8 +25,6 @@ struct ProjectManifestTests {
         #expect(manifest.subFunctions[.automator] == true)
     }
 
-    /// > Advisor and Self-improver parse as recognized-but-inert without
-    /// > error
     @Test("Advisor and Self-improver parse without error, enabled or not")
     func advisorAndSelfImproverAreRecognizedButInert() throws {
         let manifest = try ProjectManifestParser.parse(contents: Self.validYAML, file: "project.yaml")
@@ -41,8 +33,6 @@ struct ProjectManifestTests {
         #expect(manifest.subFunctions[.selfImprover] == false)
     }
 
-    /// > Identifier is generated once and never derived from a mutable path
-    /// > or repo name
     @Test("A generated identifier is never empty, and two generated ids differ")
     func generatedIdentifierIsFreshEachTime() {
         let first = ProjectIdentifier.generate()
@@ -52,8 +42,6 @@ struct ProjectManifestTests {
         #expect(first != second)
     }
 
-    /// > Unknown keys are preserved on rewrite so a newer Talos or a human
-    /// > edit is not silently discarded
     @Test("An unrecognized top-level key survives parse, serialize, and reparse")
     func unrecognizedTopLevelKeySurvivesRewrite() throws {
         let yamlWithUnknownKey = Self.validYAML + "\nhubMembership: talos-hub-42\n"
@@ -67,9 +55,6 @@ struct ProjectManifestTests {
         #expect(reparsed.unknownTopLevelKeys["hubMembership"] == .string("talos-hub-42"))
     }
 
-    /// > Unknown keys are preserved on rewrite so a newer Talos or a human
-    /// > edit is not silently discarded
-    ///
     /// A quoted string that reads as another YAML type unquoted (`"true"`,
     /// `"null"`, `"42"`) is the case a naive re-emit gets wrong: writing it
     /// back as a bare, untagged scalar lets the next parse resolve it as a
@@ -87,8 +72,6 @@ struct ProjectManifestTests {
         #expect(reparsed.unknownTopLevelKeys["weird"] == .string("true"))
     }
 
-    /// > Round-trip test: parse → serialize → parse yields an identical
-    /// > model
     @Test("Parse, serialize, and reparse yields an identical model")
     func roundTripYieldsAnIdenticalModel() throws {
         let parsed = try ProjectManifestParser.parse(contents: Self.validYAML, file: "project.yaml")
@@ -100,7 +83,6 @@ struct ProjectManifestTests {
 
     // MARK: - Validation errors name the file, the line, and the fix
 
-    /// > Validation errors name the file, the line, and the fix
     @Test("A missing id names the file, the line, and a fix")
     func missingIDNamesFileLineAndFix() {
         let yaml = "agents: []\n"
