@@ -18,6 +18,7 @@ and this is the only point at which *how* the work happens is still decidable.
 · [§ Git conventions](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#git-conventions)
 · [§ Toolchain](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#toolchain)
 · [§ Configuration is backlog work](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#configuration-is-backlog-work)
+· [§ Code comments explain the non-obvious, not the history](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#code-comments-explain-the-non-obvious-not-the-history)
 · [Contributing § Before you write code](https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing#before-you-write-code-read-the-constraints)
 · [Contributing § If you contribute with an AI agent](https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing#if-you-contribute-with-an-ai-agent-use-the-skills)
 · [Decision Log § Process decisions](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#process-decisions)
@@ -175,6 +176,11 @@ Approval is a human act. Where a session has granted standing approval for an it
 approval — recorded, and scoped to the item it was given for. An agent does not approve its own plan by
 finding it reasonable, for the same reason
 [an agent's review is not the approval](#rule-8--review-verifies-and-does-not-fix).
+
+**A comment written during Execute follows [§ Code comments explain the non-obvious, not the
+history](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#code-comments-explain-the-non-obvious-not-the-history):**
+it states a hidden constraint or an invariant, never the issue it closes, the thread that produced it,
+or a TODO pointing at a later PR — that belongs in the commit and the PR body, not the file.
 
 ---
 
@@ -483,6 +489,8 @@ Execute:
 - [ ] No adjacent bug was fixed and no improvement was added unrequested.
 - [ ] Any deviation stopped the work and returned to Plan, with the revised plan stated.
 - [ ] No SPEC rule was paraphrased into code, a comment, a README, or a repo doc — it is a link.
+- [ ] No comment narrates a thread, an issue/PR reference, or superseded history instead of a
+      hidden constraint or invariant.
 
 Review:
 
