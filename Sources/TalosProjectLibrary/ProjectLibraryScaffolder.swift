@@ -49,23 +49,57 @@ public enum ProjectLibraryScaffolder {
 
     """
 
-    /// Shared header for a `guidelines/*.md` file. Quotes, rather than
-    /// paraphrases, what Talos Guidelines § Editable Talos Guidelines says
-    /// each file declares:
+    /// The default value for each of the four elements Talos Guidelines §
+    /// Editable Talos Guidelines says a `guidelines/*.md` file declares —
+    /// bundled together so ``guidelineContents(subFunction:status:defaults:)``
+    /// takes one value per concern rather than one parameter per field.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Talos-Guidelines#editable-talos-guidelines
-    private static func guidelineContents(subFunction: String, status: String) -> String {
-        """
-        <!--
-        \(subFunction) guideline — \(status).
-        https://github.com/CalixtoTheBugHunter/talos/wiki/Talos-Guidelines#editable-talos-guidelines
+    private struct GuidelineDefaults {
+        let purpose: String
+        let context: [String]
+        let tokenCeiling: Int
+        let outputExpectations: String
+    }
 
-        Per Talos Guidelines § Editable Talos Guidelines, each file declares:
+    /// Token ceiling defaults for a sub-function active at MVP versus one
+    /// present but inert — starting points a user or Self-improver may tune,
+    /// per Talos Guidelines § Editable Talos Guidelines: "The user, and
+    /// Self-improver may propose tuning it."
+    private static let activeTokenCeilingDefault = 4000
+    private static let inertTokenCeilingDefault = 2000
 
-          - its purpose
-          - the context it wants assembled
-          - its token ceiling
-          - its output expectations
-        -->
+    /// A `guidelines/*.md` file's YAML front matter, carrying `defaults`.
+    /// The `#` lines are the explanatory header — YAML comments, so
+    /// `GuidelineDocumentParser` reads past them to the declared fields
+    /// below, and a human reads them without needing docs. Free-form notes
+    /// belong after the closing `---`, which this scaffolder never touches
+    /// again once the file exists.
+    private static func guidelineContents(
+        subFunction: String,
+        status: String,
+        defaults: GuidelineDefaults
+    ) -> String {
+        let contextYAML = defaults.context.isEmpty
+            ? " []"
+            : "\n" + defaults.context.map { "  - \($0)" }.joined(separator: "\n")
+        return """
+        ---
+        # \(subFunction) guideline — \(status).
+        # https://github.com/CalixtoTheBugHunter/talos/wiki/Talos-Guidelines#editable-talos-guidelines
+        #
+        # Per Talos Guidelines § Editable Talos Guidelines, each file declares
+        # its purpose, the context it wants assembled, its token ceiling, and
+        # its output expectations. Edit any value below — Talos never
+        # overwrites this file once it exists.
+        purpose: >-
+          \(defaults.purpose)
+        context:\(contextYAML)
+        tokenCeiling: \(defaults.tokenCeiling)
+        outputExpectations: >-
+          \(defaults.outputExpectations)
+        ---
+
+        Notes are yours to add below this line.
 
         """
     }
@@ -87,14 +121,52 @@ public enum ProjectLibraryScaffolder {
               contents: yamlHeader(purpose: "board provider + column/state mapping")),
         Entry(relativePath: "safeguards.md", isDirectory: false, contents: safeguardsContents),
         Entry(relativePath: "guidelines", isDirectory: true, contents: nil),
-        Entry(relativePath: "guidelines/assistant.md", isDirectory: false,
-              contents: guidelineContents(subFunction: "Assistant", status: "active at MVP")),
-        Entry(relativePath: "guidelines/automator.md", isDirectory: false,
-              contents: guidelineContents(subFunction: "Automator", status: "active at MVP")),
-        Entry(relativePath: "guidelines/advisor.md", isDirectory: false,
-              contents: guidelineContents(subFunction: "Advisor", status: "present but inert")),
-        Entry(relativePath: "guidelines/self-improver.md", isDirectory: false,
-              contents: guidelineContents(subFunction: "Self-improver", status: "present but inert")),
+        Entry(relativePath: "guidelines/assistant.md", isDirectory: false, contents: guidelineContents(
+            subFunction: "Assistant",
+            status: "active at MVP",
+            defaults: GuidelineDefaults(
+                purpose: "Answer questions about this project accurately, grounded in what the " +
+                    "project's own sources say rather than a guess.",
+                context: ["spec-drive", "memories"],
+                tokenCeiling: activeTokenCeilingDefault,
+                outputExpectations: "Concise answers with every claim traceable to a cited source; a " +
+                    "missing source is labeled rather than guessed at."
+            )
+        )),
+        Entry(relativePath: "guidelines/automator.md", isDirectory: false, contents: guidelineContents(
+            subFunction: "Automator",
+            status: "active at MVP",
+            defaults: GuidelineDefaults(
+                purpose: "Carry out a requested change to the project — move a board item, open a " +
+                    "pull request — under the Safeguards gate.",
+                context: ["board", "connectors", "memories"],
+                tokenCeiling: activeTokenCeilingDefault,
+                outputExpectations: "A short account of what changed and why, plus the board item " +
+                    "and PR it touched."
+            )
+        )),
+        Entry(relativePath: "guidelines/advisor.md", isDirectory: false, contents: guidelineContents(
+            subFunction: "Advisor",
+            status: "present but inert",
+            defaults: GuidelineDefaults(
+                purpose: "Present but inert — Advisor does not run at MVP. " +
+                    "https://github.com/CalixtoTheBugHunter/talos/wiki/Sub-function-Advisor",
+                context: [],
+                tokenCeiling: inertTokenCeilingDefault,
+                outputExpectations: "Present but inert — Advisor does not run at MVP."
+            )
+        )),
+        Entry(relativePath: "guidelines/self-improver.md", isDirectory: false, contents: guidelineContents(
+            subFunction: "Self-improver",
+            status: "present but inert",
+            defaults: GuidelineDefaults(
+                purpose: "Present but inert — Self-improver does not run at MVP. " +
+                    "https://github.com/CalixtoTheBugHunter/talos/wiki/Sub-function-Self-improver",
+                context: [],
+                tokenCeiling: inertTokenCeilingDefault,
+                outputExpectations: "Present but inert — Self-improver does not run at MVP."
+            )
+        )),
         Entry(relativePath: ".gitignore", isDirectory: false, contents: """
         # `local/` holds durable local memories and derived, rebuildable
         # indexes/caches. Never committed:
