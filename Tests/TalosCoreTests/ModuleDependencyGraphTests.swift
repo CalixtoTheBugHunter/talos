@@ -9,8 +9,6 @@ import Testing
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/MVP-Definition-of-Done#notes-on-the-harder-criteria
 @Suite("Module dependency graph")
 struct ModuleDependencyGraphTests {
-    /// The seven modules named in
-    /// https://github.com/CalixtoTheBugHunter/talos/issues/36.
     static let expectedModuleNames: Set<String> = [
         "TalosCore",
         "TalosOrchestration",

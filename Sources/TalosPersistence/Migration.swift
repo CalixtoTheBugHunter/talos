@@ -1,7 +1,4 @@
 /// One forward-only schema step, applied at most once and never reordered.
-///
-/// https://github.com/CalixtoTheBugHunter/talos/issues/38 — "A forward-only
-/// migration runner applies versioned migrations at launch."
 public struct Migration: Sendable {
     /// Matches SQLite's `PRAGMA user_version`, which the runner uses to track
     /// which migrations have already been applied.
@@ -22,11 +19,9 @@ public enum DatabaseError: Error, Equatable {
     case openFailed(message: String)
     /// A statement failed; `message` is SQLite's own error text.
     case execFailed(message: String)
-    /// A migration created or left a table with no `project_id` column.
-    ///
-    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Roadmap-Post-MVP#why-these-constraints-matter
-    /// — "Every session record, memory, and board reference needs a project
-    /// identifier from day one, even while there is only ever one."
+    /// A migration created or left a table with no `project_id` column —
+    /// every table needs one from day one, even while there is only ever
+    /// one project.
     case missingProjectID(table: String)
     /// The supplied migrations were not in strictly increasing version order.
     case versionsNotStrictlyIncreasing

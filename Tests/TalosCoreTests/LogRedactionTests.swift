@@ -1,9 +1,7 @@
 @testable import TalosCore
 import Testing
 
-/// Verifies "Secrets, tokens, and prompt contents are never logged; a
-/// redaction helper exists" from
-/// https://github.com/CalixtoTheBugHunter/talos/issues/39.
+/// Verifies secrets and tokens are redacted before reaching a logger.
 @Suite("LogRedaction")
 struct LogRedactionTests {
     @Test(

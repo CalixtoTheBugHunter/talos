@@ -2,18 +2,10 @@ import AppKit
 import SwiftUI
 import TalosCore
 
-/// The Talos app shell.
-///
-/// Otherwise deliberately empty: this target exists so the project builds,
-/// and the app shell is its own board item. Liquid Glass is inherited from
-/// standard SwiftUI chrome and never applied by hand, per
-/// https://github.com/CalixtoTheBugHunter/talos/wiki/Design-System#liquid-glass-is-inherited-never-applied
-///
-/// The one real capability wired in here is log export — a File-menu
-/// command rather than a bespoke control, so VoiceOver, keyboard reach, and
-/// contrast come from `NSSavePanel`/`NSAlert` rather than from a Talos-authored
-/// surface. It requires the explicit action of opening the menu and choosing
-/// a destination, per https://github.com/CalixtoTheBugHunter/talos/issues/39.
+/// The Talos app shell. Otherwise deliberately empty — the one real
+/// capability wired in here is log export as a File-menu command rather
+/// than a bespoke control, so VoiceOver, keyboard reach, and contrast come
+/// from `NSSavePanel`/`NSAlert` rather than from a Talos-authored surface.
 @main
 struct TalosApp: App {
     var body: some Scene {

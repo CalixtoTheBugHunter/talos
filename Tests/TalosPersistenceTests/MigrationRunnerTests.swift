@@ -3,8 +3,6 @@ import Foundation
 import Testing
 
 /// Verifies the migration runner and the invariants it enforces.
-///
-/// https://github.com/CalixtoTheBugHunter/talos/issues/38
 @Suite("Migration runner")
 struct MigrationRunnerTests {
     /// A fresh temporary directory per test, so parallel tests never share a

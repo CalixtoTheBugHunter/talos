@@ -1,17 +1,11 @@
 import XCTest
 
-/// The `a11y` CI stage's structural audit, per
+/// The `a11y` CI stage's structural audit:
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Verification
 ///
-/// > `a11y` asserts labels, hints, and roles. Whether the *spoken result* is
-/// > comprehensible is a judgement...
-///
 /// `performAccessibilityAudit()` is Apple's own structural audit — labels,
-/// traits, contrast, hit-target size — and is what this stage claims. It
-/// does not claim comprehensibility, streaming-output announcements, the
-/// approval prompt, or coverage of surfaces that do not exist yet; that
-/// deeper audit is https://github.com/CalixtoTheBugHunter/talos/issues/97,
-/// which grows this file surface by surface as they are built.
+/// traits, contrast, hit-target size. It does not claim comprehensibility,
+/// streaming-output announcements, or the approval prompt.
 final class TalosUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -30,23 +24,13 @@ final class TalosUITests: XCTestCase {
         // regression from 1 issue to 3 is visible, not just "failing".
         var talosOwnIssues: [XCUIAccessibilityAuditIssue] = []
         try app.performAccessibilityAudit { issue in
-            // `performAccessibilityAudit(.all)` walks every accessibility
-            // node AppKit generates for a window, not only the ones Talos's
-            // own SwiftUI code produces — a bare `WindowGroup` app surfaced
-            // three distinct, unfixable-from-view-code issues in a row
-            // (the window's own anonymous root Group, twice, then a
-            // TouchBar), none of them buildable away by placing a label
-            // anywhere in ContentView or the App scene.
-            //
-            // ContentView currently authors exactly one accessibility-
-            // relevant element: the `Text`, which maps to `.staticText`.
-            // An issue with no element reference at all is framework-level
-            // noise the same way — there is nothing in Talos's view code to
-            // attach a label to — so it is excused by the same `guard`,
-            // explicitly, rather than by an unrelated type mismatch. As
-            // real controls are added, their element types join this
-            // check; that growth is
-            // https://github.com/CalixtoTheBugHunter/talos/issues/97.
+            // The audit walks every accessibility node AppKit generates for
+            // a window, including framework-level ones (the window's own
+            // root Group, a TouchBar) that no label in Talos's view code
+            // can fix. Only `.staticText` — the type ContentView's `Text`
+            // maps to — is a Talos-authored element; anything else,
+            // including an issue with no element reference at all, is
+            // excused here rather than flagged as a false regression.
             guard let elementType = issue.element?.elementType, elementType == .staticText else {
                 return true
             }

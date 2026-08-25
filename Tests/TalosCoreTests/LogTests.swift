@@ -2,13 +2,10 @@ import Foundation
 @testable import TalosCore
 import Testing
 
-/// Verifies the logging facade's subsystem and per-module categories, per
-/// https://github.com/CalixtoTheBugHunter/talos/issues/39's "A logging
-/// facade over OSLog with defined subsystems per module."
+/// Verifies the logging facade's subsystem and per-module categories.
 @Suite("Log")
 struct LogTests {
-    /// The identifier is decision 51's, the same one
-    /// `DatabaseLocationTests.bundleIdentifierMatchesDecision51` checks for
+    /// The same identifier `DatabaseLocationTests` checks for
     /// `TalosPersistence`.
     @Test("The root identifier matches decision 51's bundle identifier")
     func rootIdentifierMatchesDecision51() {

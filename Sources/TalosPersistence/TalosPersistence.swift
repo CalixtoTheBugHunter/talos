@@ -1,5 +1,3 @@
-// SQLite + plain-text persistence under `.talos/`.
-//
-// Deliberately empty: this target exists so the module graph in
-// `ARCHITECTURE.md` builds, and the persistence layer is its own board item.
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary
+// SQLite + plain-text persistence under `.talos/`. Deliberately empty: the
+// actual types live in this target's other files; this one exists only so
+// the module graph in `ARCHITECTURE.md` builds.

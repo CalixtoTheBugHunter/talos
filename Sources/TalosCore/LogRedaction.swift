@@ -4,12 +4,10 @@ import Foundation
 ///
 /// Every call site that logs content Talos did not author itself — an
 /// agent's output, a connector response, anything read rather than
-/// constructed — routes it through `LogRedaction.redacted(_:)` first. This is
-/// the enforcement for
-/// https://github.com/CalixtoTheBugHunter/talos/issues/39's "Secrets, tokens,
-/// and prompt contents are never logged," and its patterns deliberately
-/// mirror the key shapes `tools/spec-guard/spec-guard.sh` already treats as
-/// secrets, so the two checks agree on what a secret looks like.
+/// constructed — routes it through `LogRedaction.redacted(_:)` first. Its
+/// patterns deliberately mirror the key shapes
+/// `tools/spec-guard/spec-guard.sh` treats as secrets, so the two checks
+/// agree on what a secret looks like.
 public enum LogRedaction {
     /// Provider API-key shapes. Deliberately **not** a blanket "any long
     /// alphanumeric run" catch-all: that shape also matches a UUID or a hex
