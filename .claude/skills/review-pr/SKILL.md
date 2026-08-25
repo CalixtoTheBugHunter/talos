@@ -16,6 +16,7 @@ wiki does not say reaches `main` with nothing else positioned to stop it.
 · [§ CI pipeline order](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#ci-pipeline-order)
 · [§ RIPER-5](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#riper-5-how-an-agent-executes-an-issue)
 · [§ Closing an item](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#closing-an-item-is-the-authoring-gate-run-backwards)
+· [§ Code comments explain the non-obvious, not the history](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#code-comments-explain-the-non-obvious-not-the-history)
 · [Contributing § Before you write code](https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing#before-you-write-code-read-the-constraints)
 · [Contributing § If you contribute with an AI agent](https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing#if-you-contribute-with-an-ai-agent-use-the-skills)
 · [Decision Log § Process decisions](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#process-decisions)
@@ -324,6 +325,13 @@ was opened is a paraphrase if the page changed since. Per
 The same standard applies to the diff itself: a wiki rule paraphrased into a code comment, a README,
 or a repo doc is a second source of truth and is reported as one.
 
+**A comment narrating history is a separate finding, not a variant of this one.** Per
+[§ Code comments explain the non-obvious, not the history](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#code-comments-explain-the-non-obvious-not-the-history),
+a comment in the diff earns its place only by stating a hidden constraint or an invariant a reader
+could not get from the code. An issue number, a PR reference, a "TODO: revisit after X", or a comment
+recounting the discussion behind the change is a finding — that context belongs in the commit and the
+PR body, which already carry it.
+
 ---
 
 ## Rule 6 — The mechanical conventions, by link
@@ -568,6 +576,8 @@ meet is in [`references/verification.md`](references/verification.md).
 - [ ] Required checks, title scope, branch prefix, signing, and linear history were confirmed on the
       PR, not taken from the description.
 - [ ] Every finding is reported with openable evidence, and nothing was fixed on the branch.
+- [ ] No comment in the diff narrates a thread, an issue/PR reference, or superseded history instead
+      of a hidden constraint or invariant.
 - [ ] Any SPEC gap went to a human and the Decision Log, and nothing gap-dependent was approved.
 - [ ] The verdict states what was attempted, and an approval names a refutation that failed.
 - [ ] The review says it is **not** the required approval.
