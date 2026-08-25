@@ -67,6 +67,26 @@ struct ProjectManifestTests {
         #expect(reparsed.unknownTopLevelKeys["hubMembership"] == .string("talos-hub-42"))
     }
 
+    /// > Unknown keys are preserved on rewrite so a newer Talos or a human
+    /// > edit is not silently discarded
+    ///
+    /// A quoted string that reads as another YAML type unquoted (`"true"`,
+    /// `"null"`, `"42"`) is the case a naive re-emit gets wrong: writing it
+    /// back as a bare, untagged scalar lets the next parse resolve it as a
+    /// bool, null, or int instead of the string a human wrote.
+    @Test("An unrecognized key whose value reads as another YAML type stays a string on rewrite")
+    func unrecognizedKeyThatLooksLikeAnotherTypeSurvivesRewriteAsAString() throws {
+        let yamlWithAmbiguousValue = Self.validYAML + "\nweird: \"true\"\n"
+
+        let parsed = try ProjectManifestParser.parse(contents: yamlWithAmbiguousValue, file: "project.yaml")
+        #expect(parsed.unknownTopLevelKeys["weird"] == .string("true"))
+
+        let rewritten = try ProjectManifestParser.serialize(parsed)
+        let reparsed = try ProjectManifestParser.parse(contents: rewritten, file: "project.yaml")
+
+        #expect(reparsed.unknownTopLevelKeys["weird"] == .string("true"))
+    }
+
     /// > Round-trip test: parse → serialize → parse yields an identical
     /// > model
     @Test("Parse, serialize, and reparse yields an identical model")
@@ -81,15 +101,15 @@ struct ProjectManifestTests {
     // MARK: - Validation errors name the file, the line, and the fix
 
     /// > Validation errors name the file, the line, and the fix
-    @Test("A missing id names the file and a fix, with no line to blame")
-    func missingIDNamesFileAndFix() {
+    @Test("A missing id names the file, the line, and a fix")
+    func missingIDNamesFileLineAndFix() {
         let yaml = "agents: []\n"
 
         #expect {
             try ProjectManifestParser.parse(contents: yaml, file: "project.yaml")
         } throws: { error in
             guard let error = error as? ProjectManifestError else { return false }
-            return error.file == "project.yaml" && !error.fix.isEmpty
+            return error.file == "project.yaml" && error.line != nil && !error.fix.isEmpty
         }
     }
 

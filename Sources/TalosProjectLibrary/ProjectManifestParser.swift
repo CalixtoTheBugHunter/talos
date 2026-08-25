@@ -222,11 +222,19 @@ public enum ProjectManifestParser {
     }
 
     /// The inverse of ``talosValue(from:)``, used when re-emitting an
-    /// unrecognized key on rewrite.
+    /// unrecognized key on rewrite. A string is always emitted double-quoted
+    /// rather than left to Yams's default plain style: `Yams.Emitter` always
+    /// marks a scalar event's tag as implicit regardless of the `Node`'s own
+    /// tag (both `plain_implicit` and `quoted_implicit` are hard-coded to
+    /// `1`), so tagging the node `.str` alone does not stop a value like
+    /// `"true"` or `"null"` from being re-read as a bool or null on the next
+    /// parse. Forcing the quoted style is what actually stops it — the exact
+    /// silent discard ``ProjectManifest``'s doc comment says unknown keys
+    /// must survive.
     private static func node(from value: TalosYAMLValue) -> Node {
         switch value {
         case let .string(string):
-            Node(string)
+            Node(string, Tag(.str), .doubleQuoted)
         case let .bool(bool):
             Node(bool ? "true" : "false")
         case let .int(int):
@@ -238,7 +246,9 @@ public enum ProjectManifestParser {
         case let .array(array):
             Node(array.map(node(from:)))
         case let .map(map):
-            Node(map.sorted(by: { $0.key < $1.key }).map { (Node($0.key), node(from: $0.value)) })
+            Node(map.sorted(by: { $0.key < $1.key }).map {
+                (Node($0.key, Tag(.str), .doubleQuoted), node(from: $0.value))
+            })
         }
     }
 }
