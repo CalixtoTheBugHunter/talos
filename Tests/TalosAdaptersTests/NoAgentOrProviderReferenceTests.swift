@@ -12,13 +12,17 @@ import Testing
 /// for whoever writes the second adapter, so it is checked by reading the source
 /// rather than remembered by a reviewer.
 ///
-/// Scoped to the contract itself. Once a concrete adapter lands under
-/// `Sources/TalosAdapters/`, that adapter names its own agent legitimately and
-/// this suite's file list is what keeps the distinction — the contract files
-/// below, not the whole module.
+/// Scoped to the contract itself, and the scope is a **directory rule** rather
+/// than a list to maintain: the contract is every `.swift` file at the root of
+/// `Sources/TalosAdapters/`, and a concrete adapter lives in a subdirectory of
+/// its own, where it names its own agent legitimately. Stated as a rule because
+/// a list would have to be edited by every adapter author, and the edit that
+/// makes the list pass is the edit that stops it checking anything.
 @Suite("The adapter contract names no agent and no provider")
 struct NoAgentOrProviderReferenceTests {
-    /// The files that make up the contract every adapter implements.
+    /// The files that make up the contract every adapter implements — every
+    /// `.swift` file at the module root, asserted to be exactly these by
+    /// ``everyRootFileIsAListedContractFile()``.
     static let contractFiles = [
         "AgentAdapter.swift",
         "AgentEvent.swift",
@@ -31,13 +35,19 @@ struct NoAgentOrProviderReferenceTests {
     /// provider-specific. Matched case-insensitively against the whole file,
     /// comments included: a doc comment shaped around one agent is the same leak
     /// as a field, and it is the one that ships first.
+    /// The first five are the providers § Consequences that must hold at all
+    /// times names one by one — "Talos ships **no** API client for Anthropic,
+    /// Google, Amazon Bedrock, OpenAI, or Ollama" — so a list missing one of
+    /// them was green on the exact case the SPEC line enumerates.
     static let forbiddenFragments = [
-        "claude",
         "anthropic",
+        "google",
+        "amazon",
+        "openai",
+        "ollama",
+        "claude",
         "gemini",
         "codex",
-        "ollama",
-        "openai",
         "bedrock",
         "vertex",
         "mistral"
@@ -68,18 +78,47 @@ struct NoAgentOrProviderReferenceTests {
         return try String(contentsOf: url, encoding: .utf8)
     }
 
-    /// The file list is only meaningful if it matches what is actually there —
-    /// a contract file added and not listed would go unchecked.
-    @Test("Every file in the adapter module is a listed contract file")
-    func everyFileInTheModuleIsListed() throws {
-        let moduleURL = Self.repositoryRoot
+    static var moduleURL: URL {
+        repositoryRoot
             .appendingPathComponent("Sources")
             .appendingPathComponent("TalosAdapters")
+    }
+
+    /// The file list is only meaningful if it matches what is actually there —
+    /// a contract file added and not listed would go unchecked. Scoped to the
+    /// module root, so landing a concrete adapter does not require relaxing
+    /// this assertion.
+    @Test("Every file at the module root is a listed contract file")
+    func everyRootFileIsAListedContractFile() throws {
         let present = try FileManager.default
-            .contentsOfDirectory(atPath: moduleURL.path)
-            .filter { $0.hasSuffix(".swift") }
+            .contentsOfDirectory(at: Self.moduleURL, includingPropertiesForKeys: [.isDirectoryKey])
+            .filter { $0.pathExtension == "swift" }
+            .map(\.lastPathComponent)
 
         #expect(Set(present) == Set(Self.contractFiles))
+    }
+
+    /// A contract file in a subdirectory would be read by neither assertion
+    /// above, so the directory rule is checked rather than assumed: the only
+    /// thing a subdirectory may hold is a concrete adapter, and a concrete
+    /// adapter is not the contract.
+    ///
+    /// The regression this asserts: moving a contract type into
+    /// `Sources/TalosAdapters/<anything>/` would silently exempt it from the
+    /// fragment check, which a non-recursive listing could not see.
+    @Test("No subdirectory of the module holds a file named like the contract")
+    func noSubdirectoryHoldsAContractFile() {
+        let enumerated = FileManager.default.enumerator(atPath: Self.moduleURL.path)
+        let nested = (enumerated?.allObjects as? [String] ?? [])
+            .filter { $0.hasSuffix(".swift") && $0.contains("/") }
+
+        for path in nested {
+            let fileName = (path as NSString).lastPathComponent
+            #expect(
+                !Self.contractFiles.contains(fileName),
+                "\(path) shadows contract file \(fileName) outside the checked root"
+            )
+        }
     }
 
     @Test("No contract file names a specific agent or model provider", arguments: Self.contractFiles)

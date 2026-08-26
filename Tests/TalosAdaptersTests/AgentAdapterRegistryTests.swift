@@ -101,4 +101,23 @@ struct AgentAdapterRegistryTests {
             try registry.makeAdapter(named: "some-agent-cli")
         }
     }
+
+    /// The failure with nothing registered still names a fix. Interpolating an
+    /// empty list into the ordinary message yields "to one of: ." — a sentence
+    /// that reads like a fix and names none, which is the one thing every
+    /// `.talos/` validation failure owes.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Content-and-Voice
+    @Test("A fresh registry's failure names a fix rather than an empty list")
+    func aFreshRegistryFailureNamesAFix() throws {
+        let registry = AgentAdapterRegistry()
+
+        let error = try #require(throws: UnknownAdapterError.self) {
+            try registry.makeAdapter(named: "some-agent-cli")
+        }
+        #expect(error.registeredNames.isEmpty)
+        #expect(!error.fix.contains("one of: ."))
+        #expect(!error.fix.hasSuffix(": ."))
+        #expect(error.fix.contains("some-agent-cli"))
+        #expect(error.fix.contains("no adapter is registered at all"))
+    }
 }

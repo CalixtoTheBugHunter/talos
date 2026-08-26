@@ -19,8 +19,16 @@ public struct UnknownAdapterError: Error, Equatable, Sendable {
     public init(name: String, registeredNames: [String]) {
         self.name = name
         self.registeredNames = registeredNames.sorted()
-        fix = "No adapter named '\(name)' is registered. Set 'adapter:' in .talos/agents.yaml to one of: " +
-            self.registeredNames.joined(separator: ", ") + "."
+        // With nothing registered there is no list to choose from, and
+        // "one of: ." is a fix naming no fix. The remedy is a different one,
+        // so it is stated instead of interpolated into an empty sentence.
+        if self.registeredNames.isEmpty {
+            fix = "No adapter named '\(name)' is registered, and no adapter is registered at all. " +
+                "This build resolved no adapters — reinstall Talos, or register one before starting a session."
+        } else {
+            fix = "No adapter named '\(name)' is registered. Set 'adapter:' in .talos/agents.yaml to one of: " +
+                self.registeredNames.joined(separator: ", ") + "."
+        }
     }
 }
 

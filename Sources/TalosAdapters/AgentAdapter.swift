@@ -49,6 +49,19 @@ public struct AgentPrompt: Equatable, Hashable, Sendable {
 /// ``AgentEvent/terminated(_:)`` event, because a crash is not an error Talos
 /// may paraphrase and is not a denial.
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#nothing-polls
+///
+/// **No event on this stream may be dropped, and none is buffered without a
+/// bound.** `AsyncThrowingStream.Continuation.yield` never suspends, so an
+/// adapter outrunning its consumer has to choose, and both obvious choices are
+/// defects here: a dropped ``AgentEvent/toolCall(_:)`` is an action that never
+/// reached the gate, a dropped ``AgentEvent/output(_:)`` truncates a word the
+/// agent streamed back, and unbounded buffering spends the active-memory
+/// budget on a fast agent. So the backpressure belongs at the adapter's own
+/// source — it reads the child's pipe at the rate it can yield, rather than
+/// draining it into a queue. Asserted against a real process by
+/// https://github.com/CalixtoTheBugHunter/talos/issues/52
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Vision-and-Principles#budgets-that-make-the-above-testable
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Tone
 public typealias AgentEventStream = AsyncThrowingStream<AgentEvent, any Error>
 
 /// Thrown when an adapter is asked to act on a run that is not in progress —

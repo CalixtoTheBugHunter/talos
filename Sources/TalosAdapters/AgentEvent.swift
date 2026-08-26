@@ -39,16 +39,28 @@ public struct AgentToolCall: Equatable, Hashable, Sendable, Identifiable {
     /// tied back to this call without core learning a log format.
     public let id: String
     /// The tool the agent named, as the agent named it.
+    ///
+    /// Not an action type: mapping this onto the
+    /// [taxonomy](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#the-action-type-taxonomy)
+    /// the gate classifies against is the adapter's own work, for the same
+    /// reason parsing its log format is — and the field that carries the
+    /// result arrives with the classifier. Until then no core reader may
+    /// switch on this string.
     public let name: String
-    /// What the call acts against — a path, a URL, a command — when the
-    /// agent stated one. `nil` rather than an empty string, because the
-    /// gate's classification of an unstated target is not "no target".
-    public let target: String?
+    /// What the call acts against — paths, URLs, or a command — as the agent
+    /// stated them. Empty when it stated none, which the gate classifies as
+    /// an unstated target rather than as no target.
+    ///
+    /// A list because an approval prompt "names the operation and the target,
+    /// with counts and paths rather than a category", and one string cannot
+    /// carry four files without core parsing it back apart.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Content-and-Voice
+    public let targets: [String]
 
-    public init(id: String, name: String, target: String? = nil) {
+    public init(id: String, name: String, targets: [String] = []) {
         self.id = id
         self.name = name
-        self.target = target
+        self.targets = targets
     }
 }
 
