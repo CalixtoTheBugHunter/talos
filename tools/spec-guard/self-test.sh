@@ -35,7 +35,8 @@ fail() {
 
 # ── case 1: a tree with one deliberate violation per check ──────────────────
 bad="$work/violating"
-mkdir -p "$bad/Sources/TalosCore" "$bad/Sources/TalosAdapters" "$bad/Talos" "$bad/docs"
+mkdir -p "$bad/Sources/TalosCore" "$bad/Sources/TalosAdapters" "$bad/Talos" "$bad/docs" \
+    "$bad/Tests/TalosAdaptersTests" "$bad/Tests/TalosCoreTests"
 
 # check 1 — a model provider hostname, and check 2 — a vendored SDK import.
 cat >"$bad/Sources/TalosCore/ProviderClient.swift" <<'SWIFT'
@@ -73,6 +74,20 @@ let task = Process()
 task.executableURL = URL(fileURLWithPath: "/usr/bin/env")
 SWIFT
 
+# NOT a violation — the adapter module's own test target, where "nothing
+# survives" is asserted against a real process tree.
+# https://github.com/CalixtoTheBugHunter/talos/issues/52
+cat >"$bad/Tests/TalosAdaptersTests/RealProcessTests.swift" <<'SWIFT'
+let process = AgentProcess(executablePath: "/bin/sh", arguments: ["-c", "sleep 300 & echo $!; wait"])
+SWIFT
+
+# check 4 — still a violation. The exemption above is one test target, not
+# every test target, and this case is what stops it widening silently.
+cat >"$bad/Tests/TalosCoreTests/SpawnerTests.swift" <<'SWIFT'
+var pid: pid_t = 0
+posix_spawn(&pid, "/bin/bash", nil, nil, nil, nil)
+SWIFT
+
 # NOT a violation — prose naming a hostname is not a client.
 cat >"$bad/docs/note.md" <<'MD'
 Talos never calls api.anthropic.com; the agent CLI does.
@@ -84,7 +99,7 @@ printf 'A deliberate violation fails the check\n'
 if [ "$status" -ne 0 ]; then
     pass "exits non-zero (exit $status)"
 else
-    fail "exits non-zero" "the guard passed a tree with seven planted violations"
+    fail "exits non-zero" "the guard passed a tree with eight planted violations"
 fi
 
 expect_reported() { # expect_reported <check name>
@@ -111,7 +126,22 @@ expect_silent() { # expect_silent <path> <why it is legitimate>
     fi
 }
 
+expect_flagged() { # expect_flagged <path> <the rule it breaks>
+    if printf '%s' "$out" | grep -qF "$1"; then
+        pass "flags $1 — $2"
+    else
+        fail "flags $1" "$2"
+    fi
+}
+
+# The exemption is one test target wide. Without this case, widening it to
+# `Tests/` would still pass every assertion above.
+expect_flagged 'Tests/TalosCoreTests/SpawnerTests.swift' \
+    'only the adapter layer may spawn, and this is not it'
+
 expect_silent 'Sources/TalosAdapters/Launcher.swift' 'the adapter layer may spawn'
+expect_silent 'Tests/TalosAdaptersTests/RealProcessTests.swift' \
+    "the adapter module's own tests assert that nothing survives a stop"
 expect_silent 'docs/note.md' 'Markdown naming a hostname is prose, not a client'
 
 # ── case 2: a clean tree passes ─────────────────────────────────────────────
