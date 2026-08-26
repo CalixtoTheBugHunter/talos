@@ -61,7 +61,7 @@ struct AgentProcessStopTests {
         return false
     }
 
-    /// > Stop terminates the agent process **and every descendant it started.**
+    /// > Stop means the agent process **and every process it started** is dead.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#stop-kills-the-tree
     ///
     /// Catches the regression that looks correct in every manual test: killing
@@ -128,6 +128,53 @@ struct AgentProcessStopTests {
             }
         }
         #expect(reason == .stopped)
+    }
+
+    /// Enough stops that the losing side of the race below is reached: whether a
+    /// read source has already seen the end of output when the stop tears it
+    /// down is the monitor queue's timing, and one stop can miss it.
+    static let stopsToRepeat = 20
+
+    /// A stop that leaks the pipes it opened costs the user a session, not a
+    /// descriptor: once the process limit is reached, `pipe(2)` fails and the
+    /// next launch reports a spawn failure telling them to check
+    /// `.talos/agents.yaml` — a fault of Talos's, named as theirs.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#errors
+    ///
+    /// Asserted on the descriptors this process opened rather than on a count of
+    /// the whole table, which every other test in this suite is concurrently
+    /// changing. `fstat` after the fact is what distinguishes a closed
+    /// descriptor from one the cancel handler never reached.
+    @Test("Stopping closes the pipes it opened")
+    func stoppingClosesThePipesItOpened() async throws {
+        for _ in 0 ..< Self.stopsToRepeat {
+            let process = AgentProcessTests.makeProcess(Self.spawnsAGrandchild)
+            var stream = try await process.start().makeAsyncIterator()
+            _ = try await stream.next()
+            let descriptors = await process.openDescriptors
+            #expect(descriptors.count == 2, "expected a read end for each of the child's two channels")
+
+            await process.stop()
+
+            for descriptor in descriptors {
+                let closed = await Self.waitUntilClosed(descriptor)
+                #expect(closed, "descriptor \(descriptor) is still an open pipe after the stop")
+            }
+        }
+    }
+
+    /// The cancel handler closes the descriptor on the monitor queue, so the
+    /// close lands just after `stop()` returns rather than inside it. Same
+    /// deadline as ``waitUntilGone(_:)`` and for the same reason.
+    static func waitUntilClosed(_ descriptor: Int32) async -> Bool {
+        for _ in 0 ..< attemptsAllowed {
+            var information = stat()
+            if fstat(descriptor, &information) != 0 || information.st_mode & S_IFMT != S_IFIFO {
+                return true
+            }
+            try? await Task.sleep(for: intervalBetweenAttempts)
+        }
+        return false
     }
 
     /// Not an error, and it does not rewrite what happened: a `stop()` that

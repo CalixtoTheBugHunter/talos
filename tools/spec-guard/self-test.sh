@@ -74,11 +74,19 @@ let task = Process()
 task.executableURL = URL(fileURLWithPath: "/usr/bin/env")
 SWIFT
 
-# NOT a violation — the adapter module's own test target, where "nothing
-# survives" is asserted against a real process tree.
-# https://github.com/CalixtoTheBugHunter/talos/issues/52
+# NOT a violation — the adapter module's own test target naming the shell the
+# module spawns, which is how "nothing survives" is asserted against a real
+# process tree. https://github.com/CalixtoTheBugHunter/talos/issues/52
 cat >"$bad/Tests/TalosAdaptersTests/RealProcessTests.swift" <<'SWIFT'
 let process = AgentProcess(executablePath: "/bin/sh", arguments: ["-c", "sleep 300 & echo $!; wait"])
+SWIFT
+
+# check 4 — a violation, in the one test target exempted above. Its exemption is
+# the shell path it hands the module, not a licence to start a process itself,
+# and this case is what holds that line.
+cat >"$bad/Tests/TalosAdaptersTests/DirectSpawnTests.swift" <<'SWIFT'
+let task = Process()
+task.arguments = ["-c", "true"]
 SWIFT
 
 # check 4 — still a violation. The exemption above is one test target, not
@@ -99,7 +107,7 @@ printf 'A deliberate violation fails the check\n'
 if [ "$status" -ne 0 ]; then
     pass "exits non-zero (exit $status)"
 else
-    fail "exits non-zero" "the guard passed a tree with eight planted violations"
+    fail "exits non-zero" "the guard passed a tree with nine planted violations"
 fi
 
 expect_reported() { # expect_reported <check name>
@@ -116,7 +124,8 @@ expect_reported 'model SDK or MCP client import'
 expect_reported 'API-key-shaped literal'
 expect_reported 'model API key handling'
 expect_reported 'PTY allocation outside the adapter layer'
-expect_reported 'subprocess spawn outside the adapter layer'
+expect_reported 'subprocess spawn outside the adapter module'
+expect_reported 'shell path outside the adapter layer'
 
 expect_silent() { # expect_silent <path> <why it is legitimate>
     if printf '%s' "$out" | grep -qF "$1"; then
@@ -138,6 +147,8 @@ expect_flagged() { # expect_flagged <path> <the rule it breaks>
 # `Tests/` would still pass every assertion above.
 expect_flagged 'Tests/TalosCoreTests/SpawnerTests.swift' \
     'only the adapter layer may spawn, and this is not it'
+expect_flagged 'Tests/TalosAdaptersTests/DirectSpawnTests.swift' \
+    'the adapter tests may name a shell, not start a process themselves'
 
 expect_silent 'Sources/TalosAdapters/Launcher.swift' 'the adapter layer may spawn'
 expect_silent 'Tests/TalosAdaptersTests/RealProcessTests.swift' \

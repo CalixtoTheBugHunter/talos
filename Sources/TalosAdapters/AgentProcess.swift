@@ -24,35 +24,16 @@ import Foundation
 /// cannot ask for and which cannot be set afterwards without losing the race
 /// against a child that forks immediately.
 actor AgentProcess {
-    /// Bytes per readable event, and so the ceiling on one
-    /// ``AgentOutputChunk``. Internal, so the test asserting the bound reads it
-    /// rather than restating a literal that could drift.
+    /// Bytes per readable event, and so the ceiling on one ``AgentOutputChunk``.
+    /// Internal, so the test asserting the bound reads it rather than a literal.
     static let readBufferSize = 16384
     /// Chunks that may wait for the consumer before the read sources are
     /// suspended, the pipe fills, and the child blocks in `write`. Nothing is
-    /// dropped, which is what keeps a large stream inside the active-memory
-    /// budget — "< 400 MB excluding the agent process".
+    /// dropped — the active-memory budget, "< 400 MB excluding the agent process".
     static let maximumQueuedChunks = 64
-    /// 128 + the signal is the POSIX shell's spelling for a signal death, so
-    /// 137 reads as `SIGKILL` rather than as a number Talos invented.
-    private static let signalExitCodeBase: Int32 = 128
-    /// A `waitpid` status decoded by hand: `WIFSIGNALED` and friends are C
-    /// macros and do not import into Swift.
-    private static let signalMask: Int32 = 0x7F
-    private static let exitCodeShift: Int32 = 8
-    private static let exitCodeMask: Int32 = 0xFF
-
-    private struct Channel {
-        let descriptor: Int32
-        let source: DispatchSourceRead
-        /// Bytes read but not yet decodable — the tail of a multi-byte scalar
-        /// split across two reads.
-        var carryOver: [UInt8] = []
-        /// Suspended because the consumer is behind, not because it is done.
-        var isSuspended = false
-        /// End of output seen; the pipe is closed by the source's cancel handler.
-        var isClosed = false
-    }
+    /// One channel's descriptor, asked without waiting — see ``isReadable(_:)``.
+    private static let oneDescriptor: nfds_t = 1
+    private static let withoutWaiting: Int32 = 0
 
     private let executablePath: String
     private let arguments: [String]
@@ -60,15 +41,18 @@ actor AgentProcess {
     /// Serial, so a channel's events arrive in the order the child produced them.
     private let monitorQueue: DispatchQueue
 
-    private var channels: [AgentOutputChannel: Channel] = [:]
+    private var channels: [AgentOutputChannel: ChannelState] = [:]
     private var exitSource: DispatchSourceProcess?
     private var stream: AsyncThrowingStream<AgentProcessEvent, any Error>?
 
-    private var pendingEvents: [AgentProcessEvent] = []
-    private var waitingConsumer: CheckedContinuation<AgentProcessEvent?, Never>?
+    private var queue = ProcessEventQueue()
     private var exitStatus: Int32?
     private var lastOutput = ""
     private var hasFinished = false
+    /// A Talos-side read failure, waiting to be thrown from the stream — the one
+    /// thing the stream throws for.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing
+    private var readFailure: AgentReadFailure?
 
     /// The child's pid, which is also its process group id: the spawn makes it
     /// the group leader, so one number identifies the process and the tree under
@@ -77,12 +61,19 @@ actor AgentProcess {
 
     /// The deepest the queue ever got, so the bound above is asserted by a test
     /// rather than trusted.
-    private(set) var highWaterMark = 0
+    var highWaterMark: Int {
+        queue.highWaterMark
+    }
+
+    /// The pipe read ends still open, so a test can assert a stop closed them
+    /// rather than trusting that the cancel handler ran.
+    var openDescriptors: [Int32] {
+        channels.values.filter { !$0.isClosed }.map(\.descriptor)
+    }
 
     /// - Parameters:
     ///   - executablePath: An absolute path. Nothing here searches `PATH` —
-    ///     resolving a name is the adapter's work, and the environment below is
-    ///     the only one the child gets.
+    ///     resolving a name is the adapter's work.
     ///   - arguments: Passed through unchanged.
     ///   - configuration: The working directory and the *complete* environment.
     init(executablePath: String, arguments: [String] = [], configuration: AgentLaunchConfiguration) {
@@ -109,7 +100,7 @@ actor AgentProcess {
             return stream
         }
         try spawn()
-        let stream = AsyncThrowingStream<AgentProcessEvent, any Error>(unfolding: { await self.next() })
+        let stream = AsyncThrowingStream<AgentProcessEvent, any Error>(unfolding: { try await self.next() })
         self.stream = stream
         return stream
     }
@@ -169,14 +160,18 @@ actor AgentProcess {
     /// isolated method is inferred isolated to this actor, and Dispatch calls it
     /// on `monitorQueue` regardless — which traps at runtime as an incorrect
     /// executor assumption.
-    private nonisolated func makeChannel(_ channel: AgentOutputChannel, descriptor: Int32) -> Channel {
+    private nonisolated func makeChannel(_ channel: AgentOutputChannel, descriptor: Int32) -> ChannelState {
+        // Non-blocking, so a read after the child exited answers rather than
+        // parking this actor on a pipe a descendant is holding open.
+        _ = fcntl(descriptor, F_SETFL, O_NONBLOCK)
         let source = DispatchSource.makeReadSource(fileDescriptor: descriptor, queue: monitorQueue)
+        let reads = ReadSource(source)
         source.setEventHandler { [self] in
-            channelBecameReadable(channel, on: source)
+            channelBecameReadable(channel, on: reads)
         }
         source.setCancelHandler { close(descriptor) }
-        source.resume()
-        return Channel(descriptor: descriptor, source: source)
+        reads.resume()
+        return ChannelState(descriptor: descriptor, reads: reads)
     }
 
     private nonisolated func makeExitSource(for identifier: pid_t) -> DispatchSourceProcess {
@@ -195,11 +190,11 @@ actor AgentProcess {
     /// The two source handlers, and the only code here that runs off the actor.
     /// `nonisolated` rather than inferred: an isolation the compiler assumed but
     /// Dispatch does not honour is a data race that type-checks.
-    private nonisolated func channelBecameReadable(_ channel: AgentOutputChannel, on source: DispatchSourceRead) {
+    private nonisolated func channelBecameReadable(_ channel: AgentOutputChannel, on reads: ReadSource) {
         // Synchronously, before the hop: one read in flight per channel, so
         // chunks cannot overtake each other and a stalled consumer stops the
         // reads instead of growing the queue.
-        source.suspend()
+        reads.suspend()
         Task { await readAvailable(channel) }
     }
 
@@ -216,8 +211,7 @@ actor AgentProcess {
     /// `SIGKILL` to the whole group rather than `SIGTERM` to the child: a
     /// terminated parent leaves its children running, and an orphan "keeps
     /// writing files, spending money, and holding locks after the user has been
-    /// told the session is over". Ending the run before the pipes drain is
-    /// deliberate for the same reason — nothing is delivered after a stop.
+    /// told the session is over".
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#stop-kills-the-tree
     ///
     /// Calling it twice ends the run once. Calling it after the child exited on
@@ -234,7 +228,37 @@ actor AgentProcess {
         reap(identifier)
         // Not finished here: the pipes may still hold output the child wrote
         // before exiting, which is what a failed run is diagnosed from.
+        for channel in channels.keys {
+            closeIfDrained(channel)
+        }
         finishIfDrained()
+    }
+
+    /// Ends a channel once the child is gone and its pipe holds nothing more:
+    /// everything the agent wrote is in the pipe already, because it exited.
+    ///
+    /// Waiting for end of output instead hangs on a descendant that inherited the
+    /// write end and outlived the agent — the normal case, since "an agent CLI
+    /// runs build tools, test runners, package managers, and language servers".
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#stop-kills-the-tree
+    private func closeIfDrained(_ channel: AgentOutputChannel) {
+        guard exitStatus != nil, var state = channels[channel], !state.isClosed,
+              !isReadable(state.descriptor) else { return }
+        emit(AgentOutputDecoder.flush(&state.carryOver), on: channel)
+        state.isSuspended = false
+        state.isClosed = true
+        state.reads.cancel()
+        channels[channel] = state
+    }
+
+    /// Whether a read would answer immediately, end of output included.
+    ///
+    /// Not a poll in the § Nothing polls sense and no timer: asked once when a
+    /// read completes or the child exits, with a zero timeout, never on a clock.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#nothing-polls
+    private func isReadable(_ descriptor: Int32) -> Bool {
+        var query = pollfd(fd: descriptor, events: Int16(POLLIN), revents: 0)
+        return poll(&query, Self.oneDescriptor, Self.withoutWaiting) > 0
     }
 
     private func reap(_ identifier: pid_t) {
@@ -249,38 +273,23 @@ actor AgentProcess {
 
     private func finishIfDrained() {
         guard let status = exitStatus, channels.values.allSatisfy(\.isClosed) else { return }
-        finish(AgentTermination(reason: Self.reason(forWaitStatus: status), lastOutput: lastOutput))
-    }
-
-    /// A code of any value is the agent's own outcome: this layer never decides
-    /// that a non-zero code is a failure, because only the adapter reading the
-    /// output can tell a denial from a crash.
-    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#denial-is-not-failure
-    private static func reason(forWaitStatus status: Int32) -> AgentTerminationReason {
-        let signalNumber = status & signalMask
-        if signalNumber != 0 {
-            return .exited(code: signalExitCodeBase + signalNumber)
-        }
-        return .exited(code: (status >> exitCodeShift) & exitCodeMask)
+        finish(AgentTermination(reason: WaitStatus.reason(for: status), lastOutput: lastOutput))
     }
 
     private func finish(_ termination: AgentTermination) {
         guard !hasFinished else { return }
         hasFinished = true
-        enqueue(.terminated(termination))
+        queue.enqueue(.terminated(termination))
         teardown()
     }
 
     private func teardown() {
         for key in Array(channels.keys) {
             guard var channel = channels[key] else { continue }
-            channel.source.cancel()
-            // A cancel on a suspended source is delivered only once it runs
-            // again, and the cancel handler is what closes the descriptor.
-            if channel.isSuspended {
-                channel.isSuspended = false
-                channel.source.resume()
-            }
+            // ``ReadSource/cancel()`` resumes if it has to: a cancel reaches a
+            // suspended source only once it runs, and its handler is the close.
+            channel.reads.cancel()
+            channel.isSuspended = false
             channel.isClosed = true
             channels[key] = channel
         }
@@ -306,9 +315,10 @@ actor AgentProcess {
         } else if count == 0 {
             state.isClosed = true
         } else if errno != EINTR, errno != EAGAIN {
-            // An unreadable pipe is an end of output, not an error to surface:
-            // the exit status is the outcome, and a second failure report would
-            // name a cause the agent never gave.
+            // "The stream throws only for a Talos-side read failure", so the
+            // errno is carried out rather than folded into an end of output.
+            // https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing
+            recordReadFailure(AgentReadFailure(channel: channel, code: errno))
             state.isClosed = true
         }
 
@@ -316,17 +326,25 @@ actor AgentProcess {
             // What is left cannot become a complete scalar now, and bytes
             // discarded here are the last thing the agent said going missing.
             emit(AgentOutputDecoder.flush(&state.carryOver), on: channel)
-            state.source.cancel()
             state.isSuspended = false
-            state.source.resume()
-        } else if pendingEvents.count >= Self.maximumQueuedChunks {
+            state.reads.cancel()
+        } else if queue.count >= Self.maximumQueuedChunks {
             state.isSuspended = true
         } else {
-            state.source.resume()
+            state.reads.resume()
         }
 
         channels[channel] = state
+        closeIfDrained(channel)
         finishIfDrained()
+    }
+
+    /// The consumer may already be suspended with nothing more coming, so it is
+    /// woken to take the throw.
+    private func recordReadFailure(_ failure: AgentReadFailure) {
+        guard readFailure == nil else { return }
+        readFailure = failure
+        queue.wake()
     }
 
     private func emit(_ text: String, on channel: AgentOutputChannel) {
@@ -334,47 +352,44 @@ actor AgentProcess {
         // The *last* chunk, not an accumulation: retaining the whole stream to
         // answer `AgentTermination.lastOutput` is how the memory budget is lost.
         lastOutput = text
-        enqueue(.output(AgentOutputChunk(channel: channel, text: text)))
+        queue.enqueue(.output(AgentOutputChunk(channel: channel, text: text)))
     }
 
     // MARK: - The queue between the child and the consumer
 
-    private func next() async -> AgentProcessEvent? {
-        if let event = dequeue() {
+    private func next() async throws -> AgentProcessEvent? {
+        if let event = queue.dequeue() {
+            resumeReadingIfDrained()
             return event
         }
+        try throwPendingReadFailure()
         if hasFinished {
             return nil
         }
-        return await withCheckedContinuation { continuation in
-            waitingConsumer = continuation
+        let event = await withCheckedContinuation { queue.park($0) }
+        if event == nil {
+            try throwPendingReadFailure()
         }
-    }
-
-    private func dequeue() -> AgentProcessEvent? {
-        guard !pendingEvents.isEmpty else { return nil }
-        let event = pendingEvents.removeFirst()
-        resumeReadingIfDrained()
         return event
     }
 
-    private func enqueue(_ event: AgentProcessEvent) {
-        if let consumer = waitingConsumer {
-            waitingConsumer = nil
-            consumer.resume(returning: event)
-            return
-        }
-        pendingEvents.append(event)
-        highWaterMark = max(highWaterMark, pendingEvents.count)
+    /// Queued events first, then the throw: the exit status is still the agent's
+    /// outcome, and only the read failure is Talos's.
+    private func throwPendingReadFailure() throws {
+        guard let failure = readFailure else { return }
+        readFailure = nil
+        throw failure
     }
 
+    /// Reads suspended by the bound are resumed as the consumer takes events, so
+    /// backpressure lets go by itself rather than on a later read completing.
     private func resumeReadingIfDrained() {
-        guard pendingEvents.count < Self.maximumQueuedChunks else { return }
+        guard queue.count < Self.maximumQueuedChunks else { return }
         for key in Array(channels.keys) {
             guard var channel = channels[key], channel.isSuspended else { continue }
             channel.isSuspended = false
             channels[key] = channel
-            channel.source.resume()
+            channel.reads.resume()
         }
     }
 }

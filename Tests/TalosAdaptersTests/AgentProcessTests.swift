@@ -90,11 +90,9 @@ struct AgentProcessTests {
 
     // MARK: - Streaming, incrementally and without blocking (AC2)
 
-    /// > Incrementally, as it arrives, event-driven
-    ///
-    /// The console shows output "as it happens", so an adapter that waits for
-    /// the process to finish has removed streaming from it.
-    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is
+    /// > Never a buffered whole: the console shows output as it happens and
+    /// > cannot be fed by an adapter that waits for completion.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing
     ///
     /// Catches reading both pipes to the end before yielding anything, which is
     /// indistinguishable from correct on a child that exits immediately — so
@@ -118,9 +116,12 @@ struct AgentProcessTests {
         await process.stop()
     }
 
-    /// The two channels are "different things to a reader, and merging them
-    /// makes the second unattributable", so each chunk carries the channel it
-    /// arrived on and order is preserved within a channel.
+    /// > one incremental piece, on `standardOutput` or `standardError`, as it
+    /// > arrived
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing
+    ///
+    /// The channel is part of the chunk, so merging the two cannot happen by
+    /// accident and order holds within each.
     @Test("Standard output and standard error stay on their own channels")
     func outputAndErrorStayOnTheirOwnChannels() async throws {
         let process = Self.makeProcess("echo one; echo problem 1>&2; echo two")
@@ -147,8 +148,8 @@ struct AgentProcessTests {
 
     // MARK: - Abnormal exit, typed, with the code and the last output (AC4)
 
-    /// Both the code and the agent's own last words: "a summary of someone
-    /// else's failure is a guess presented as a diagnosis".
+    /// Both the code and the agent's own last words: "a Talos-authored summary
+    /// of an agent crash is a guess presented as a diagnosis".
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#errors
     @Test("An abnormal exit carries its code and the last output")
     func anAbnormalExitCarriesItsCodeAndLastOutput() async throws {
@@ -181,6 +182,38 @@ struct AgentProcessTests {
         let termination = try await Self.termination(Self.collect(process.start()))
 
         #expect(termination.reason == .exited(code: 137))
+    }
+
+    /// The exit is the agent's, so nothing else may hold the run open.
+    ///
+    /// "An agent CLI runs build tools, test runners, package managers, and
+    /// language servers", and one left running in the background inherits the
+    /// write end of stdout — so end of output never arrives. Waiting for it
+    /// leaves a finished session with no termination event, which is the exit
+    /// code going missing rather than arriving late.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#stop-kills-the-tree
+    ///
+    /// The time limit is the assertion's other half: the regression this catches
+    /// hangs rather than fails.
+    @Test("A run ends when the agent exits, even with a descendant holding its output open", .timeLimit(.minutes(1)))
+    func aRunEndsWhenTheAgentExitsDespiteASurvivingDescendant() async throws {
+        // The pid first, so the grandchild can be cleaned up: this run ends
+        // without a stop, so nothing here kills the tree. `sleep 120` outlasts
+        // the time limit, because a grandchild that exits inside it releases the
+        // pipe and lets the regression pass late instead of failing.
+        let process = Self.makeProcess("sleep 120 & echo $!; echo done; exit 7")
+
+        let events = try await Self.collect(process.start())
+        let termination = try Self.termination(events)
+        let grandchild = pid_t(Self.text(events, on: .standardOutput)
+            .split(separator: "\n", omittingEmptySubsequences: true)
+            .first
+            .map(String.init) ?? "")
+        if let grandchild {
+            kill(grandchild, SIGKILL)
+        }
+
+        #expect(termination.reason == .exited(code: 7))
     }
 
     /// A process that never started is a thrown failure, not a run that produced
@@ -258,7 +291,15 @@ struct AgentProcessTests {
         }
 
         #expect(received == blockSize * blocks)
-        #expect(await process.highWaterMark == AgentProcess.maximumQueuedChunks)
+        // Otherwise the bound below would hold on a run small enough to fit
+        // inside it, which asserts nothing.
+        #expect(received / AgentProcess.readBufferSize > AgentProcess.maximumQueuedChunks)
+        // The bound, not an exact depth: how full the queue gets before the
+        // consumer starts is the runner's timing, and asserting equality on it
+        // was green locally and red in CI. `+ 2` because the final flush and the
+        // terminated event are enqueued past the point where reading stops — the
+        // bound suspends the reads, it does not refuse an enqueue.
+        #expect(await process.highWaterMark <= AgentProcess.maximumQueuedChunks + 2)
         // The last chunk, not the whole run.
         #expect(try #require(lastOutput).utf8.count <= AgentProcess.readBufferSize)
     }

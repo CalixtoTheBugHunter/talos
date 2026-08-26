@@ -46,3 +46,29 @@ struct AgentSpawnFailure: Error, Equatable, Sendable {
             "Check that the agent CLI is installed and that 'command:' in .talos/agents.yaml names its path."
     }
 }
+
+/// Thrown from the stream when reading one of the child's pipes failed inside
+/// Talos.
+///
+/// > The stream throws only for a Talos-side read failure. The agent's own
+/// > abnormal exit is a `terminated` event carrying `.exited(code:)` and the
+/// > agent's own last output
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing
+///
+/// So this is the one thing that throws, and it is Talos's own failure rather
+/// than a diagnosis of the agent's.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#errors
+struct AgentReadFailure: Error, Equatable, Sendable {
+    /// Which of the child's two pipes could not be read.
+    let channel: AgentOutputChannel
+    /// The number the system gave, so `message` is a translation of it.
+    let code: Int32
+    /// Names Talos as the party that failed, because it is.
+    let message: String
+
+    init(channel: AgentOutputChannel, code: Int32) {
+        self.channel = channel
+        self.code = code
+        message = "Talos could not read the agent's \(channel) stream: \(String(cString: strerror(code)))."
+    }
+}

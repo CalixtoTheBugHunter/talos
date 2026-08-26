@@ -33,6 +33,10 @@ struct NoAgentOrProviderReferenceTests {
         "AgentProcessEvent.swift",
         "AgentOutputDecoder.swift",
         "ProcessSpawn.swift",
+        "ChannelState.swift",
+        "ProcessEventQueue.swift",
+        "ReadSource.swift",
+        "WaitStatus.swift",
         "TokenReport.swift",
         "AgentAdapterRegistry.swift",
         "TalosAdapters.swift"
