@@ -87,23 +87,20 @@ public enum AgentsManifestParser {
         )
     }
 
-    private static func parseAdapter(agentName: String, mapping: Node.Mapping, file: String) throws -> AdapterKind {
-        guard let adapterNode = mapping[adapterKey], let rawValue = adapterNode.string else {
+    /// Reads the `adapter:` name and checks only that one is present. Whether
+    /// the name is *known* is `AgentAdapterRegistry`'s question, asked at
+    /// resolution against what is actually registered — a second list of
+    /// names here would reject an adapter that exists and accept one that
+    /// does not.
+    private static func parseAdapter(agentName: String, mapping: Node.Mapping, file: String) throws -> String {
+        guard let adapterNode = mapping[adapterKey], let rawValue = adapterNode.string, !rawValue.isEmpty else {
             throw AgentsManifestError(
                 file: file,
                 line: mapping.mark?.line,
                 fix: "'\(agentsKey).\(agentName)' is missing a required '\(adapterKey)' string."
             )
         }
-        guard let adapter = AdapterKind(rawValue: rawValue) else {
-            let registered = AdapterKind.allCases.map(\.rawValue).joined(separator: ", ")
-            throw AgentsManifestError(
-                file: file,
-                line: adapterNode.mark?.line,
-                fix: "'\(rawValue)' is not a registered adapter. Use one of: \(registered)."
-            )
-        }
-        return adapter
+        return rawValue
     }
 
     private static func parseMCPServers(

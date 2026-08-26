@@ -4,16 +4,6 @@ import Foundation
 // reference to a Keychain entry, never a secret.
 // https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#secret-references-never-secrets
 
-/// The registered agent adapters `AgentsManifestParser` validates an
-/// `adapter:` name against. Fixed regardless of whether that adapter has
-/// landed under `TalosAdapters` yet.
-public enum AdapterKind: String, CaseIterable, Equatable, Hashable, Sendable {
-    case claudeCode = "claude-code"
-    case geminiCLI = "gemini-cli"
-    case codexCLI = "codex-cli"
-    case ollama
-}
-
 /// A reference to a secret held in the macOS Keychain — `keychain:<name>` in
 /// `agents.yaml`. `name` is resolved by ``KeychainSecretAccessor`` against a
 /// fixed Keychain convention, service `"Talos"`, account
@@ -56,13 +46,17 @@ public struct MCPServerDeclaration: Equatable, Sendable {
 /// same name `project.yaml`'s own `agents:` list references.
 public struct AgentDeclaration: Equatable, Sendable {
     public let name: String
-    public let adapter: AdapterKind
+    /// The `adapter:` value exactly as written. Not checked against a set of
+    /// known names here: `AgentAdapterRegistry` is the one validator, so a
+    /// name it resolves is never rejected by the parser first and adding an
+    /// adapter needs no edit to this module.
+    public let adapter: String
     public let mcpServers: [MCPServerDeclaration]
     public let allowedCLIs: [String]
 
     public init(
         name: String,
-        adapter: AdapterKind,
+        adapter: String,
         mcpServers: [MCPServerDeclaration] = [],
         allowedCLIs: [String] = []
     ) {

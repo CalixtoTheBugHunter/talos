@@ -29,7 +29,7 @@ struct AgentsManifestTests {
         #expect(manifest.agents.count == 1)
         let agent = try #require(manifest.agents.first)
         #expect(agent.name == "claude-code")
-        #expect(agent.adapter == .claudeCode)
+        #expect(agent.adapter == "claude-code")
         #expect(agent.allowedCLIs == ["git", "gh"])
 
         let server = try #require(agent.mcpServers.first)
@@ -179,22 +179,63 @@ struct AgentsManifestTests {
         #expect(names == ["claude-code", "codex"])
     }
 
-    // MARK: - Adapter registry
+    // MARK: - The adapter name is carried, not judged
 
-    @Test("An unrecognized adapter name fails validation, listing the registered ones")
-    func unrecognizedAdapterNameFailsValidationListingRegisteredOnes() {
+    /// The parser holds no list of adapter names. `AgentAdapterRegistry` is the
+    /// one validator, so a name is carried through to resolution and fails
+    /// there against what is actually registered — never here, against a
+    /// second list that can disagree with it.
+    /// § The contract you implement —
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing#the-contract-you-implement
+    ///
+    /// > **Adding an agent means writing one adapter, never touching Talos core.**
+    ///
+    /// The regression this asserts: reintroducing a known-names check here
+    /// would reject a registered third-party adapter before the registry is
+    /// ever asked, which is the core edit the SPEC line above forbids.
+    @Test("An adapter name the parser has never heard of is carried through verbatim")
+    func anUnknownAdapterNameIsCarriedThroughVerbatim() throws {
         let yaml = """
         agents:
-          claude-code:
-            adapter: made-up-adapter
+          some-agent:
+            adapter: third-party-cli
+        """
+
+        let manifest = try AgentsManifestParser.parse(contents: yaml, file: "agents.yaml")
+
+        #expect(manifest.agents.first?.adapter == "third-party-cli")
+    }
+
+    /// Exact, so a near-miss reaches the registry as written and fails there
+    /// naming the value the user typed rather than a normalized one.
+    @Test("The adapter name is not lowercased, trimmed, or otherwise normalized")
+    func theAdapterNameIsNotNormalized() throws {
+        let yaml = """
+        agents:
+          some-agent:
+            adapter: Third_Party-CLI
+        """
+
+        let manifest = try AgentsManifestParser.parse(contents: yaml, file: "agents.yaml")
+
+        #expect(manifest.agents.first?.adapter == "Third_Party-CLI")
+    }
+
+    /// An empty value is a missing one: `adapter: ""` would otherwise reach the
+    /// registry as a name nobody could have registered.
+    @Test("An empty adapter name fails as a missing one")
+    func anEmptyAdapterNameFailsAsMissing() {
+        let yaml = """
+        agents:
+          some-agent:
+            adapter: ""
         """
 
         #expect {
             try AgentsManifestParser.parse(contents: yaml, file: "agents.yaml")
         } throws: { error in
             guard let error = error as? AgentsManifestError else { return false }
-            return error.file == "agents.yaml" && error.line != nil &&
-                AdapterKind.allCases.allSatisfy { error.fix.contains($0.rawValue) }
+            return error.file == "agents.yaml" && error.fix.contains("adapter")
         }
     }
 
