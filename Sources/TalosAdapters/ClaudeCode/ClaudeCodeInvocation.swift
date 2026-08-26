@@ -1,9 +1,8 @@
 import Foundation
 
-// The argv the Claude Code CLI is started or resumed with. Never a launch flag
-// that suppresses or pre-approves its own prompts — the CLI's own permission
-// system stays in charge of showing them, and the ``ClaudeCodeHookConfiguration``
-// hook is how Talos intervenes on it.
+// The argv Claude Code is started or resumed with. Never a flag that
+// suppresses or pre-approves its own prompts — that's
+// ``ClaudeCodeHookConfiguration``'s job.
 // § An agent CLI's own permission prompt is never a Talos approval —
 // https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary
 

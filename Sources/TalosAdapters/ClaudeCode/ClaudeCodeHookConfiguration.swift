@@ -1,13 +1,10 @@
 import Foundation
 
 // The `--settings` file and gate script a session's `claude` processes run
-// with, and the decision files a `PreToolUse` hook reads. Written once per
-// session, into a directory this adapter owns — never `~/.claude/` or the
-// project's own `.claude/`, which are a user's, not Talos's.
+// with, written once per session into a directory this adapter owns — never
+// `~/.claude/` or the project's own `.claude/`, which are a user's, not Talos's.
 // § An agent CLI's own permission prompt is never a Talos approval —
 // https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary
-// § A pending prompt has no timer / the gate fails closed —
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy
 
 /// One session's `PreToolUse` gate: a hook that answers a tool call with the
 /// decision recorded for its id, or defers when none has been recorded yet.
@@ -58,9 +55,8 @@ struct ClaudeCodeHookConfiguration: Equatable, Hashable, Sendable {
     private static let deferJSON =
         #"{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"defer"}}"#
 
-    /// Reads `tool_use_id` out of the hook's JSON input by pattern rather than
-    /// a JSON parser, so the gate has no dependency beyond `/bin/sh`, `cat`,
-    /// `tr`, and `sed` — all present on the macOS this ships to.
+    /// Reads `tool_use_id` by pattern rather than a JSON parser, so the gate
+    /// depends on nothing but `/bin/sh`, `cat`, `tr`, and `sed`.
     private static func gateScript(deferPath: String, decisionsDirectory: String) -> String {
         """
         #!/bin/sh

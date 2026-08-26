@@ -2,18 +2,17 @@ import Foundation
 
 // `--output-format stream-json` is one JSON object per line, on stdout only —
 // stderr is Claude Code's own plain-text diagnostics and is never parsed.
-// This turns arbitrary-sized text chunks into complete lines, then complete
-// lines into ``ClaudeCodeStreamValue``, tolerating both a line split across
-// chunks and a line that never becomes valid JSON.
+// Turns arbitrary-sized text chunks into complete lines, then lines into
+// ``ClaudeCodeStreamValue``, tolerating a line split across chunks or one
+// that never becomes valid JSON.
 
 /// What one decoded stdout line means, stripped to the flat, `Equatable`
 /// values ``ClaudeCodeEventMapper`` turns into zero or more ``AgentEvent``.
 ///
 /// `.ignored` covers every line that decoded fine but carries nothing Talos
-/// surfaces — hook lifecycle bookkeeping, `thinking_tokens`, and any `type`
-/// this adapter does not yet know, including a future one. A stream that threw
-/// on an unrecognized `type` would break on the CLI's next release rather than
-/// on a change to a shape this adapter actually reads.
+/// surfaces — hook bookkeeping, `thinking_tokens`, and any unrecognized
+/// `type`, so an unknown `type` on a future CLI release is silently skipped
+/// rather than thrown.
 enum ClaudeCodeStreamValue: Equatable, Sendable {
     case initialized(sessionID: String, model: String, version: String, hasCapabilities: Bool)
     case assistantText(String)
@@ -21,14 +20,12 @@ enum ClaudeCodeStreamValue: Equatable, Sendable {
     /// The CLI auto-denied because it could not show a prompt — the parallel
     /// tool-call batch case `defer` does not cover.
     case permissionDenied(message: String)
-    /// `inputTokens`/`outputTokens` are `nil` when the line carried no `usage` —
-    /// Claude Code's deferred result usually still reports the turn's usage
-    /// alongside `deferred_tool_use`, but a turn is never treated as failed for
-    /// lacking it.
+    /// `inputTokens`/`outputTokens` are `nil` when the line carried no `usage`
+    /// — never treated as a failed turn.
     case deferred(toolUseID: String, toolName: String, targets: [String], inputTokens: Int?, outputTokens: Int?)
     case usage(input: Int, output: Int)
-    /// A `result` line was present but its `usage` did not decode as counts —
-    /// the drift case, distinct from a line that never arrived at all.
+    /// A `result` line's `usage` did not decode as counts — a drift, distinct
+    /// from a line that never arrived.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#when-the-log-format-changes
     case unrecognizedUsage
     case ignored
@@ -98,10 +95,9 @@ struct ClaudeCodeStreamDecoder {
     private static func decodeAssistant(_ object: [String: Any]) -> ClaudeCodeStreamValue {
         guard let message = object["message"] as? [String: Any] else { return .ignored }
         guard let content = message["content"] as? [[String: Any]] else { return .ignored }
-        // A turn's text and its tool call arrive as separate blocks in one
-        // message; only the first of either survives here because a `result`
-        // line always follows before the next assistant message, so one block
-        // of each kind per decoded line matches how Claude Code actually emits.
+        // A turn's text and tool call arrive as separate blocks in one
+        // message; only the first of each survives, matching how Claude Code
+        // emits one block of each kind per line.
         for block in content {
             switch block["type"] as? String {
             case "text":
@@ -134,8 +130,8 @@ struct ClaudeCodeStreamDecoder {
                 outputTokens: output
             )
         }
-        // No `usage` key at all is nothing to report yet, not a drift; a
-        // `usage` key present but not the counts this parse expects is.
+        // No `usage` key is nothing to report yet; a `usage` key without the
+        // expected counts is the drift case.
         guard usage != nil else { return .ignored }
         guard let input, let output else { return .unrecognizedUsage }
         return .usage(input: input, output: output)
@@ -158,12 +154,10 @@ struct ClaudeCodeStreamDecoder {
         return DeferredToolUse(id: id, name: name, input: input)
     }
 
-    /// What a tool call acts against, read from its own stated input rather
-    /// than known per tool name — Talos does not maintain a schema per tool.
-    /// Every top-level string value is a target candidate: `file_path`,
-    /// `path`, `url`, `command`, and `pattern` cover Claude Code's own built-in
-    /// tools, and a future tool's own field spelling still surfaces as a
-    /// string rather than being silently dropped.
+    /// What a tool call acts against, read from its own input rather than a
+    /// per-tool schema Talos does not maintain. Every top-level string value
+    /// is a target candidate, so a future tool's own field spelling still
+    /// surfaces instead of being silently dropped.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Content-and-Voice
     private static func targets(from input: [String: Any]) -> [String] {
         input.keys.sorted().compactMap { input[$0] as? String }

@@ -1,10 +1,9 @@
 import Foundation
 
-// Turning what Claude Code itself reported into a ``TokenReport``. The two
-// numbers come from one `result` line's own `usage.input_tokens` and
-// `usage.output_tokens` — never summed from the sub-fields cache reads and
-// cache writes are broken into, which would be Talos doing arithmetic the
-// agent did not report.
+// Turns what Claude Code itself reported into a ``TokenReport``. The two
+// numbers are `result`'s own `usage.input_tokens`/`usage.output_tokens` —
+// never summed from cache-read/cache-write sub-fields, which would be Talos
+// doing arithmetic the agent didn't report.
 // § Token counts — Accurate — reported by the agent itself —
 // https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#how-cost-is-measured
 

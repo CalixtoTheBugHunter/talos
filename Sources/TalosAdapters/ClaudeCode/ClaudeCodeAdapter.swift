@@ -1,10 +1,7 @@
 import Foundation
 
-// The Claude Code conformance: one ``AgentEventStream`` spanning every
-// `claude` process the session runs — one per turn, since `-p` is headless and
-// exits after each. `launch` prepares the session; the first process is not
-// spawned until the first `send` or `resolve`, because there is nothing to
-// pass it before then.
+// One ``AgentEventStream`` spanning every `claude` process the session runs —
+// one per turn, since `-p` is headless and exits after each.
 // § Agent adapters —
 // https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary#agent-adapters
 
@@ -65,9 +62,7 @@ actor ClaudeCodeAdapter: AgentAdapter {
         guard openRequestIDs.contains(requestID) else {
             throw AgentNotRunningError(fix: "No permission request '\(requestID)' is waiting for a decision.")
         }
-        // The protocol carries only allowed/denied, not a reason — this text is
-        // shown to the CLI's own hook, which is the only place a reason for its
-        // permission decision can go.
+        // The protocol carries no reason; this text is only for the CLI's own hook.
         let reason = decision == .allowed
             ? "Approved at the Talos Safeguards gate."
             : "Denied at the Talos Safeguards gate."
@@ -90,14 +85,12 @@ actor ClaudeCodeAdapter: AgentAdapter {
 
     // MARK: - Running one turn
 
-    /// Spawns one `claude` process — a fresh launch if this session has no
-    /// `session_id` yet, a `--resume` otherwise — and drains it into the
-    /// session's stream until it exits.
+    /// Spawns one `claude` process — a fresh launch, or `--resume` if this
+    /// session already has a `session_id` — and drains it into the session's
+    /// stream until it exits.
     ///
-    /// A clean exit (code 0) is absorbed rather than ending the stream: it is
-    /// how both an ordinary turn and a deferred permission request end, and
-    /// neither is the end of the session. Anything else — a crash, or
-    /// ``stop()`` reaching the same process concurrently — is.
+    /// A clean exit (code 0) does not end the stream: both an ordinary turn
+    /// and a deferred permission request end that way. Anything else does.
     private func runTurn(prompt: AgentPrompt) async throws {
         guard let configuration, let hooks, let executablePath, !hasFinished else {
             throw AgentNotRunningError(fix: "Launch the adapter before sending a prompt.")

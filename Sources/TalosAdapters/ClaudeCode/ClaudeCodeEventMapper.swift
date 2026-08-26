@@ -1,9 +1,8 @@
 import Foundation
 
 // A decoded stdout line to the ``AgentEvent`` it is, if it is one. Session
-// bookkeeping — the current session id, model, and token counts — is not this
-// file's concern; ``ClaudeCodeAdapter`` reads the same ``ClaudeCodeStreamValue``
-// for that, so this stays a pure translation with nothing to hold state in.
+// bookkeeping (session id, model, token counts) stays in ``ClaudeCodeAdapter``,
+// so this is a pure translation with no state of its own.
 // § A tool call and a permission request are two events —
 // https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary
 
@@ -30,11 +29,8 @@ enum ClaudeCodeEventMapper {
         }
     }
 
-    /// A factual restatement built from the same fields ``AgentToolCall``
-    /// already carries. The deferred-tool-call protocol this adapter uses
-    /// carries no rendered prompt text of its own to preserve, and an approval
-    /// prompt "names the operation and the target, with counts and paths
-    /// rather than a category" regardless of where the words came from.
+    /// Built from ``AgentToolCall``'s own fields — the deferred-tool-call
+    /// protocol carries no rendered prompt text to preserve.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Content-and-Voice
     private static func prompt(toolName: String, targets: [String]) -> String {
         guard !targets.isEmpty else { return toolName }
