@@ -58,8 +58,8 @@ public struct AgentPrompt: Equatable, Hashable, Sendable {
 /// agent streamed back, and unbounded buffering spends the active-memory
 /// budget on a fast agent. So the backpressure belongs at the adapter's own
 /// source — it reads the child's pipe at the rate it can yield, rather than
-/// draining it into a queue. Asserted against a real process by
-/// https://github.com/CalixtoTheBugHunter/talos/issues/52
+/// draining it into a queue. Asserted against a real process, not only a
+/// fixture.
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Vision-and-Principles#budgets-that-make-the-above-testable
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Tone
 public typealias AgentEventStream = AsyncThrowingStream<AgentEvent, any Error>

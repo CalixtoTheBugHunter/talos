@@ -22,6 +22,10 @@
 #     `design-guard` is a STEP, not a stage, so it adds no seventh required
 #     context. Two residues are review-enforced and a green `lint` claims nothing
 #     about them: tools/design-guard/README.md § What is NOT covered.
+#   - Decisions 70 and 76's mechanically-checkable comment rules are also a
+#     STEP inside `lint`, by `comment-guard` — for the same reason
+#     `design-guard` is one, above. Redundancy, restated identifiers, and
+#     narrated history stay review-enforced; see tools/comment-guard/README.md.
 #   - The PR title's Conventional Commits format is also checked inside `lint`,
 #     by `pr-title-guard` — a STEP, not a stage, for the same reason
 #     `design-guard` and `codeowners-guard` are: it adds no required context of
@@ -188,6 +192,15 @@ jobs:
 
       - name: design-guard
         run: tools/design-guard/design-guard.sh
+
+      # Decisions 70 and 76: a TODO, an issue/PR reference, and a doc
+      # comment's abstract length, on every tracked Swift file. A step, not a
+      # stage, for the same reason design-guard is one, above.
+      - name: Self-test the comment guard
+        run: tools/comment-guard/self-test.sh
+
+      - name: comment-guard
+        run: tools/comment-guard/comment-guard.sh
 
       # Asserts .github/CODEOWNERS still parses and still covers the six
       # categories in § Protection rules on `main`. A step inside `lint`, not
