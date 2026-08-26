@@ -20,12 +20,23 @@ import Testing
 /// makes the list pass is the edit that stops it checking anything.
 @Suite("The adapter contract names no agent and no provider")
 struct NoAgentOrProviderReferenceTests {
-    /// The files that make up the contract every adapter implements — every
-    /// `.swift` file at the module root, asserted to be exactly these by
-    /// ``everyRootFileIsAListedContractFile()``.
+    /// The contract every adapter implements, plus the machinery every adapter
+    /// shares — every `.swift` file at the module root, asserted to be exactly
+    /// these by ``everyRootFileIsAListedContractFile()``. Shared machinery is
+    /// held to the same rule as the protocol: an agent named inside the one
+    /// type that spawns a process is agent knowledge in the layer every adapter
+    /// depends on.
     static let contractFiles = [
         "AgentAdapter.swift",
         "AgentEvent.swift",
+        "AgentProcess.swift",
+        "AgentProcessEvent.swift",
+        "AgentOutputDecoder.swift",
+        "ProcessSpawn.swift",
+        "ChannelState.swift",
+        "ProcessEventQueue.swift",
+        "ReadSource.swift",
+        "WaitStatus.swift",
         "TokenReport.swift",
         "AgentAdapterRegistry.swift",
         "TalosAdapters.swift"

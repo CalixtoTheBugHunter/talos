@@ -40,6 +40,12 @@
 #     here says nothing about it.
 #   - It does not check for PTY allocation *inside* the adapter module. The
 #     criterion it implements is scoped outside it.
+#   - It does not check for a subprocess spawn inside the adapter module, nor for
+#     a shell path inside the adapter *layer* — the module and its own test
+#     target, where § Stop kills the tree is asserted against a real process
+#     tree, per https://github.com/CalixtoTheBugHunter/talos/issues/52. The test
+#     target's exemption stops at the shell path it hands the module: a spawn
+#     primitive there is still a violation. See ADAPTER_TEST_PREFIX below.
 #   - Markdown is prose, so it is scanned for key-shaped literals and for
 #     nothing else. A page that names a forbidden hostname in order to forbid
 #     it is not a violation of the rule it states.
@@ -78,6 +84,18 @@ CONSOLE='https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console'
 # § Only the adapter layer spawns a process — the module that implements it is
 # fixed by https://github.com/CalixtoTheBugHunter/talos/issues/36.
 ADAPTER_PREFIX='Sources/TalosAdapters/'
+
+# That module's own test target, exempt from the shell-path check alone. § Stop
+# kills the tree states its guarantee as "nothing survives", and
+# https://github.com/CalixtoTheBugHunter/talos/issues/52 is where it is asserted
+# against a real process tree — an assertion that names `/bin/sh` as the
+# executable the module spawns. Forbidding that path would forbid the test the
+# SPEC requires, which makes the scan surface the bug rather than the test.
+#
+# Narrow by mechanism, not by promise: the spawn primitives are scanned over the
+# module alone, so this prefix exempts a path literal and nothing that starts a
+# process. No other test target is exempt from either scan.
+ADAPTER_TEST_PREFIX='Tests/TalosAdaptersTests/'
 
 hits=0
 
@@ -137,6 +155,7 @@ allowlisted() { # allowlisted <path>
 all_files=()
 code_files=()
 swift_outside_adapter=()
+swift_outside_adapter_layer=()
 swift_files=()
 manifest_files=()
 
@@ -155,6 +174,10 @@ while IFS= read -r -d '' path; do
             case "$path" in
                 "$ADAPTER_PREFIX"*) ;;
                 *) swift_outside_adapter+=("$path") ;;
+            esac
+            case "$path" in
+                "$ADAPTER_PREFIX"* | "$ADAPTER_TEST_PREFIX"*) ;;
+                *) swift_outside_adapter_layer+=("$path") ;;
             esac
             ;;
     esac
@@ -221,11 +244,25 @@ scan -nHIE 'PTY allocation outside the adapter layer' \
 # "Only the agent adapter layer may spawn a subprocess. No other part of Talos
 # may. ... A spawn anywhere outside the adapter layer is a defect, whatever it
 # is for." — § Only the adapter layer spawns a process
-scan -nHIE 'subprocess spawn outside the adapter layer' \
-    'NSTask|(^|[^A-Za-z0-9_])(Foundation\.)?Process\(|posix_spawn|execv[pe]?\(|execl[ep]?\(|popen\(|/bin/sh|/bin/bash|/usr/bin/env' \
+#
+# Two scans over two surfaces, because the sanctioned exemption is narrower than
+# the rule. A spawn *primitive* is exempt in the module alone: the adapter's own
+# tests drive the module's spawn and call none of these themselves, so a
+# `Process(` in that test target is the same defect it is anywhere else.
+scan -nHIE 'subprocess spawn outside the adapter module' \
+    'NSTask|(^|[^A-Za-z0-9_])(Foundation\.)?Process\(|posix_spawn|execv[pe]?\(|execl[ep]?\(|popen\(' \
     'Only the agent adapter layer may spawn a subprocess. No other part of Talos may' \
     "$SPAWN" \
     ${swift_outside_adapter[@]+"${swift_outside_adapter[@]}"}
+
+# A shell path is the half the adapter's tests do need: they name `/bin/sh` as
+# the executable the module spawns, which is how "nothing survives" is asserted
+# against a real process tree. See ADAPTER_TEST_PREFIX above.
+scan -nHIE 'shell path outside the adapter layer' \
+    '/bin/sh|/bin/bash|/usr/bin/env' \
+    'Only the agent adapter layer may spawn a subprocess. No other part of Talos may' \
+    "$SPAWN" \
+    ${swift_outside_adapter_layer[@]+"${swift_outside_adapter_layer[@]}"}
 
 # ── 5. The adapter layer is the *only* exemption, and it exists ─────────────
 # The check above exempts one prefix. If that prefix named nothing, the
