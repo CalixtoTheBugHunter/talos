@@ -1,14 +1,10 @@
 import Foundation
 
-// What a spawned agent CLI reports as a process, below the parse that turns it
-// into an ``AgentEvent``. A tool call and a permission request are absent on
-// purpose: they come from reading the output, and a process that emitted them
-// would put log-format knowledge in the layer that owns file descriptors.
-// § Only the adapter layer spawns a process —
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#errors
-
-/// One event from a running agent process, in the order it happened.
+/// One event from a running agent process, in the order it happened. A tool
+/// call and a permission request are absent on purpose: they come from
+/// reading the output, and a process that emitted them would put log-format
+/// knowledge in the layer that owns file descriptors.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary
 ///
 /// The payloads are ``AgentOutputChunk`` and ``AgentTermination`` rather than
 /// types of their own, so an adapter maps a process event onto an ``AgentEvent``

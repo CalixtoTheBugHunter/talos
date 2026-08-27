@@ -1,13 +1,5 @@
 import Foundation
 
-// What an adapter reports while an agent runs. A tool call and a permission
-// request are separately typed here rather than distinguished by a field,
-// because the gate's interception depends on the distinction being structural.
-// § A tool call and a permission request are two events —
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#streaming-is-three-states-not-one
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#errors
-
 /// Which of the agent's two output channels a chunk arrived on. Kept apart
 /// because an agent CLI's diagnostics and its answer are different things to
 /// a reader, and merging them makes the second unattributable.
@@ -125,7 +117,11 @@ public struct AgentTermination: Equatable, Hashable, Sendable {
     }
 }
 
-/// One event on an ``AgentEventStream``, in the order it happened.
+/// One event on an ``AgentEventStream``, in the order it happened. A tool call
+/// and a permission request are separately typed here rather than
+/// distinguished by a field, because the gate's interception depends on the
+/// distinction being structural.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary
 ///
 /// One ordered stream rather than one per concern: a tool call and a
 /// permission request "arrive on the same stream in a similar shape", and the

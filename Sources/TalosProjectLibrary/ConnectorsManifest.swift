@@ -1,11 +1,5 @@
 import Foundation
 
-// The typed model for `.talos/connectors.yaml` — the allowlist of systems
-// that may be touched at all. Secret fields hold only a reference to a
-// Keychain entry, never a secret, same rule as `agents.yaml`.
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#connectors
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#what-is-never-allowlistable
-
 /// The four kinds of connection Project Library § Connectors names by
 /// example: "GitHub repo, monitoring tools, deployment tools, testing
 /// tools."
@@ -50,8 +44,9 @@ public struct ConnectorDeclaration: Equatable, Sendable {
     }
 }
 
-/// The parsed, validated contents of `.talos/connectors.yaml` — the
-/// declared-systems registry the Safeguards gate reads on every action.
+/// The parsed, validated contents of `.talos/connectors.yaml` — the allowlist
+/// of systems that may be touched at all, and the declared-systems registry
+/// the Safeguards gate reads on every action.
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#what-is-never-allowlistable
 public struct ConnectorsManifest: Equatable, Sendable {
     public let connectors: [ConnectorDeclaration]

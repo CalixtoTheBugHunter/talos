@@ -1,9 +1,5 @@
 import Foundation
 
-// Resolving an adapter by the name a user wrote in `.talos/agents.yaml`.
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#ai-agent
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#where-it-lives
-
 /// Thrown when no adapter is registered under a name. Names the file, the
 /// value, and the fix, because the name came from a file a user wrote by
 /// hand.
@@ -45,6 +41,7 @@ public struct UnknownAdapterError: Error, Equatable, Sendable {
 ///
 /// Empty until something registers, and it knows no agent by name of its own —
 /// a default would make one agent the answer to a name a user did not write.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#ai-agent
 public struct AgentAdapterRegistry: Sendable {
     private var factories: [String: @Sendable () -> any AgentAdapter] = [:]
 

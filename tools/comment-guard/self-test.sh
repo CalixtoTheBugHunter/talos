@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Confirms `comment-guard.sh` actually fails on a deliberate violation of each
-# of its three checks, and passes on the legitimate spelling. A guard nobody
+# of its four checks, and passes on the legitimate spelling. A guard nobody
 # tested is indistinguishable from a guard that matches nothing, and both are
 # green.
 #
@@ -92,6 +92,37 @@ run_case 'a long Discussion paragraph after a short abstract passes' pass "impor
 ///
 /// $(printf 'a%.0s' $(seq 1 200))
 struct Thing {}"
+
+printf '\na plain `//` block directly adjacent to a `///` doc comment\n'
+run_case 'a banner immediately before a doc comment fails' fail 'import Foundation
+
+// Some rationale that belongs inside the doc comment below.
+/// The abstract.
+struct Thing {}'
+run_case 'a banner separated by a blank line still fails' fail 'import Foundation
+
+// Some rationale that belongs inside the doc comment below.
+
+/// The abstract.
+struct Thing {}'
+run_case 'a MARK-only block before a doc comment passes' pass 'import Foundation
+
+struct Container {
+    // MARK: - Some section
+
+    /// The abstract.
+    func thing() {}
+}'
+run_case 'a banner with no doc comment beneath it passes' pass 'import Foundation
+
+// A plain comment on its own, nothing documented right after it.
+struct Thing {
+    let value: Int
+}'
+run_case 'a doc comment with no banner above it passes' pass 'import Foundation
+
+/// The abstract, nothing above it.
+struct Thing {}'
 
 printf '\nclean fixture over the whole check passes\n'
 run_case 'a normal doc comment passes' pass 'import Foundation

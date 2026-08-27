@@ -2,9 +2,12 @@
 #
 # comment-guard — the two enumerable bans decision 70 named but left
 # unenforced (a TODO/FIXME/XXX marker and an issue or PR reference, each on a
-# full-line code comment), plus the DocC abstract-length convention decision
-# 76 adds: a `///` doc comment's first line is a plain-text summary, at most
-# 150 characters, per DocC's own writing guidance.
+# full-line code comment), the DocC abstract-length convention decision 76
+# adds (a `///` doc comment's first line is a plain-text summary, at most 150
+# characters, per DocC's own writing guidance), and the structural ban
+# decision 77 adds: a plain `//` comment block directly adjacent to a `///`
+# doc comment — DocC never renders the former, so it only ever duplicates or
+# should be folded into the latter.
 #
 #   https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#code-comments-explain-the-non-obvious-not-the-history
 #   https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions
@@ -29,6 +32,12 @@
 #     free prose, or restates an identifier's own name — decision 70's general
 #     test ("would a reader lose anything if this were deleted") is not
 #     mechanically checkable and stays enforced by `review-pr`.
+#   - Check 4 is purely structural: adjacency, not content. It does not read
+#     whether the `//` block and the `///` block actually say the same thing —
+#     only that DocC will never render the former, so it belongs folded into
+#     the latter or deleted regardless of what it says.
+#   - Check 4 exempts a `// MARK:` block, which is Xcode navigation, not
+#     documentation, and is expected right before a documented declaration.
 #   - It does not cap a doc comment's total length, only its first line.
 #     `AgentAdapter.swift`'s own protocol documentation legitimately runs past
 #     20 lines with `- Parameters:`/`- Returns:`/`- Throws:` sections; a
@@ -159,6 +168,52 @@ if [ -n "$abstract_hits" ]; then
 $DECISION
 
 $abstract_hits"
+fi
+
+# ── 4. A plain `//` comment block directly adjacent to a `///` doc comment
+banner_hits=''
+for path in ${swift_files[@]+"${swift_files[@]}"}; do
+    found="$(awk '
+        {
+            line = $0
+            trimmed = line
+            sub(/^[ \t]*/, "", trimmed)
+            isPlain = (trimmed ~ /^\/\// && trimmed !~ /^\/\/\//)
+            isDoc = (trimmed ~ /^\/\/\//)
+            isBlank = (trimmed == "")
+
+            if (isPlain) {
+                if (trimmed !~ /^\/\/[ \t]*MARK:/) plainNonMark = 1
+                sawPlain = 1
+                blanksSincePlain = 0
+                next
+            }
+            if (isBlank) {
+                if (sawPlain) blanksSincePlain++
+                next
+            }
+            if (isDoc) {
+                if (sawPlain && plainNonMark && blanksSincePlain <= 1) {
+                    printf "%s:%d: a `//` comment block ends here, immediately before this `///` doc comment\n", FILENAME, FNR
+                }
+                sawPlain = 0
+                plainNonMark = 0
+                next
+            }
+            sawPlain = 0
+            plainNonMark = 0
+        }
+    ' "$path")"
+    [ -n "$found" ] && banner_hits="${banner_hits}${found}"$'\n'
+done
+banner_hits="$(printf '%s' "$banner_hits" | sed '/^$/d')"
+if [ -n "$banner_hits" ]; then
+    report 'a plain `//` comment block directly precedes a `///` doc comment — fold it in or delete it' \
+        "Decision 77: DocC never renders a plain \`//\` comment, so one placed right beside a \`///\` doc comment only duplicates it or should have been written inside it.
+$STANDARDS
+$DECISION
+
+$banner_hits"
 fi
 
 if [ "$hits" -eq 0 ]; then

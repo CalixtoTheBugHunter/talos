@@ -1,11 +1,5 @@
 import Foundation
 
-// The adapter contract: the six capabilities every supported agent declares,
-// and nothing else. A seventh would be agent-specific knowledge entering a
-// contract every future adapter must then satisfy.
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary#agent-adapters
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing#the-easiest-high-value-contribution-an-agent-adapter
-
 /// Where and in what environment an agent runs. Both are explicit because a
 /// child that inherits an ambient working directory or environment is a child
 /// whose inputs nobody declared.
@@ -87,6 +81,7 @@ public struct AgentNotRunningError: Error, Equatable, Sendable {
 /// would have made agent knowledge core knowledge, which is the cost
 /// "adding an agent means writing one adapter, never touching Talos core"
 /// exists to prevent.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Contributing#the-easiest-high-value-contribution-an-agent-adapter
 public protocol AgentAdapter: Sendable {
     /// **How to launch it**, and the stream **how to stream its output**
     /// delivers on.
