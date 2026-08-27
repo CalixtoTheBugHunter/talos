@@ -91,6 +91,11 @@ struct ClaudeCodeMCPConfigurationTests {
         let second = try ClaudeCodeMCPConfiguration(servers: servers)
         defer { second.cleanUp() }
 
+        // Pinned to a literal, not only compared to `second`: two dict keys give a same-process
+        // unsorted encode a coin-flip chance of matching anyway, which would let this regress silently.
+        let expected = "{\"mcpServers\":{\"github\":{\"args\":[\"-y\",\"@modelcontextprotocol\\/server-github\"]," +
+            "\"command\":\"npx\",\"env\":{\"GITHUB_TOKEN\":\"${GITHUB_TOKEN}\",\"NODE_ENV\":\"production\"}}}}"
+        #expect(try Self.fileContents(first.configPath) == expected)
         #expect(try Self.fileContents(first.configPath) == Self.fileContents(second.configPath))
     }
 
