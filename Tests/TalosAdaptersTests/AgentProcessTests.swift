@@ -258,8 +258,7 @@ struct AgentProcessTests {
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Vision-and-Principles#budgets-that-make-the-above-testable
     ///
     /// **This does not measure Talos's memory.** That budget is a release gate
-    /// under Instruments `Allocations`, in `Scripts/verify-local.sh` —
-    /// https://github.com/CalixtoTheBugHunter/talos/issues/154.
+    /// under Instruments `Allocations`, in `Scripts/verify-local.sh`.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Verification
     ///
     /// It asserts the property the budget rests on: however much the agent

@@ -17,10 +17,9 @@ import Testing
 /// under Instruments rather than something a unit test can claim. This asserts
 /// the design that gate depends on: there is no poll to measure.
 ///
-/// **It reads the module root only** — the scope set by
-/// https://github.com/CalixtoTheBugHunter/talos/issues/52, and where every file
-/// in the module lives today. A concrete adapter in a subdirectory of its own is
-/// not covered, and this suite would be green if one polled.
+/// **It reads the module root only**, where every file in the module lives
+/// today. A concrete adapter in a subdirectory of its own is not covered, and
+/// this suite would be green if one polled.
 @Suite("Nothing in the adapter layer polls")
 struct NoPollingTimerTests {
     /// Spellings that only appear in code that waits on a clock. Matched
