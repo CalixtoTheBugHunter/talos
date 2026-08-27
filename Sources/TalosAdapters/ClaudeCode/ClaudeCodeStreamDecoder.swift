@@ -94,9 +94,6 @@ struct ClaudeCodeStreamDecoder {
     private static func decodeAssistant(_ object: [String: Any]) -> ClaudeCodeStreamValue {
         guard let message = object["message"] as? [String: Any] else { return .ignored }
         guard let content = message["content"] as? [[String: Any]] else { return .ignored }
-        // A turn's text and tool call arrive as separate blocks in one
-        // message; only the first of each survives, matching how Claude Code
-        // emits one block of each kind per line.
         for block in content {
             switch block["type"] as? String {
             case "text":
@@ -129,8 +126,6 @@ struct ClaudeCodeStreamDecoder {
                 outputTokens: output
             )
         }
-        // No `usage` key is nothing to report yet; a `usage` key without the
-        // expected counts is the drift case.
         guard usage != nil else { return .ignored }
         guard let input, let output else { return .unrecognizedUsage }
         return .usage(input: input, output: output)

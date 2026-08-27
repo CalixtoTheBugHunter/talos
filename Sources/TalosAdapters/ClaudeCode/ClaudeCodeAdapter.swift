@@ -61,7 +61,6 @@ actor ClaudeCodeAdapter: AgentAdapter {
         guard openRequestIDs.contains(requestID) else {
             throw AgentNotRunningError(fix: "No permission request '\(requestID)' is waiting for a decision.")
         }
-        // The protocol carries no reason; this text is only for the CLI's own hook.
         let reason = decision == .allowed
             ? "Approved at the Talos Safeguards gate."
             : "Denied at the Talos Safeguards gate."

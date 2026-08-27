@@ -72,15 +72,11 @@ struct ClaudeCodeDenialPathTests {
             return
         }
 
-        // Nothing half-applied: resolving carries the decision back exactly
-        // once, so the same request cannot be resolved a second time.
         try await adapter.resolve(call.id, with: .denied)
         await #expect(throws: AgentNotRunningError.self) {
             try await adapter.resolve(call.id, with: .denied)
         }
 
-        // Recorded as denied, not failed: the run did not silently end, and
-        // the session still accepts work afterward.
         try await adapter.send(AgentPrompt(text: "Continue."))
 
         await adapter.stop()

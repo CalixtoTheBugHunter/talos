@@ -20,8 +20,6 @@ struct ClaudeCodePendingRequestTests {
 
         try await adapter.send(AgentPrompt(text: "Write a file."))
 
-        // No resolve() call at all — the request just waits, with nothing here
-        // on a clock that would deny or drop it for staying unanswered.
         let usage = await adapter.tokenUsage()
         #expect(usage == .measured(TokenCounts(input: 2, output: 89), model: "global.anthropic.claude-opus-5"))
 
