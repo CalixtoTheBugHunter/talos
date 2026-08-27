@@ -64,6 +64,7 @@ let package = Package(
                 "TalosPersistence"
             ]
         ),
+        .testTarget(name: "TalosOrchestrationTests", dependencies: ["TalosOrchestration"]),
 
         .target(name: "TalosUI", dependencies: ["TalosOrchestration"])
     ]
