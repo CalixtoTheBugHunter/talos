@@ -2,7 +2,7 @@ import Foundation
 @testable import TalosAdapters
 import Testing
 
-/// Verifies the claim [#55](https://github.com/CalixtoTheBugHunter/talos/issues/55) exists to check:
+/// Verifies the SPEC's claim:
 /// "**Adding an agent means writing one adapter, never touching Talos core.**"
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary#agent-adapters
 ///
