@@ -2,7 +2,6 @@ import Foundation
 @testable import TalosCore
 import Testing
 
-/// Verifies the logging facade's subsystem and per-module categories.
 @Suite("Log")
 struct LogTests {
     /// The same identifier `DatabaseLocationTests` checks for

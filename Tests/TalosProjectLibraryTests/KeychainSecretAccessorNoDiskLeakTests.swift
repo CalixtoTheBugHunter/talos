@@ -10,9 +10,8 @@ import Testing
 @Suite("A secret never reaches disk under .talos/")
 struct KeychainSecretAccessorNoDiskLeakTests {
     private struct AllowingAuthorizer: SecretAccessAuthorizing {
-        func authorize(_: SecretAccessAction) throws {
-            // Always authorizes.
-        }
+        // swiftlint:disable:next no_empty_block
+        func authorize(_: SecretAccessAction) throws {}
     }
 
     private static func temporaryProjectRoot() -> URL {

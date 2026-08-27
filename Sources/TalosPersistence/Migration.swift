@@ -23,6 +23,5 @@ public enum DatabaseError: Error, Equatable {
     /// every table needs one from day one, even while there is only ever
     /// one project.
     case missingProjectID(table: String)
-    /// The supplied migrations were not in strictly increasing version order.
     case versionsNotStrictlyIncreasing
 }

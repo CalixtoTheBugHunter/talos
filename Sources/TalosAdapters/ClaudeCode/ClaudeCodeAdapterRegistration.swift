@@ -11,7 +11,7 @@ public enum ClaudeCodeAdapterRegistration {
     /// "Talos ships `claude-code`", per the page above.
     public static let name = "claude-code"
 
-    /// Registers a fresh ``ClaudeCodeAdapter`` factory under ``name``.
+    /// Called once at startup, before any project resolves `adapter: claude-code`.
     public static func register(into registry: inout AgentAdapterRegistry) {
         registry.register(name) { ClaudeCodeAdapter() }
     }

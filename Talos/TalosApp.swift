@@ -2,10 +2,10 @@ import AppKit
 import SwiftUI
 import TalosCore
 
-/// The Talos app shell. Otherwise deliberately empty — the one real
-/// capability wired in here is log export as a File-menu command rather
-/// than a bespoke control, so VoiceOver, keyboard reach, and contrast come
-/// from `NSSavePanel`/`NSAlert` rather than from a Talos-authored surface.
+/// Otherwise deliberately empty — the one real capability wired in here
+/// is log export as a File-menu command rather than a bespoke control, so
+/// VoiceOver, keyboard reach, and contrast come from `NSSavePanel`/`NSAlert`
+/// rather than from a Talos-authored surface.
 @main
 struct TalosApp: App {
     var body: some Scene {

@@ -2,7 +2,6 @@ import Foundation
 @testable import TalosPersistence
 import Testing
 
-/// Verifies the database's on-disk location.
 @Suite("Database location")
 struct DatabaseLocationTests {
     @Test("The default database URL is under Application Support, keyed by the bundle identifier")

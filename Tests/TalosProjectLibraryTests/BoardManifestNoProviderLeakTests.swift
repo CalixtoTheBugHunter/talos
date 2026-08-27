@@ -31,8 +31,6 @@ struct BoardManifestNoProviderLeakTests {
         fatalError("Could not locate repository root above \(#filePath)")
     }
 
-    /// Every `.swift` file under `Sources/`, excluding `TalosProjectLibrary`
-    /// — the connector layer these strings are allowed to name.
     private static var sourceFilesOutsideTheConnectorLayer: [URL] {
         let sourcesRoot = repositoryRoot.appendingPathComponent("Sources")
         guard let enumerator = FileManager.default.enumerator(at: sourcesRoot, includingPropertiesForKeys: nil)

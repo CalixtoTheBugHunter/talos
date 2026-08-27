@@ -22,7 +22,6 @@ struct ClaudeCodeTokenReporter: Equatable, Sendable {
         agentVersion = version
     }
 
-    /// Adds one turn's counts to the running total.
     mutating func recordUsage(input: Int, output: Int) {
         hasMeasuredAnyTurn = true
         counts = TokenCounts(input: counts.input + input, output: counts.output + output)

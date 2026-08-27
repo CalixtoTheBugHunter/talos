@@ -2,7 +2,6 @@ import Foundation
 @testable import TalosPersistence
 import Testing
 
-/// Verifies the migration runner and the invariants it enforces.
 @Suite("Migration runner")
 struct MigrationRunnerTests {
     /// A fresh temporary directory per test, so parallel tests never share a
@@ -49,13 +48,10 @@ struct MigrationRunnerTests {
         let url = Self.temporaryDatabaseURL()
         _ = try await Database(url: url, migrations: [Self.exampleSchema])
 
-        // Reopening with the same migration list must not re-run version 1's
-        // CREATE TABLE, which would throw on a duplicate table name.
         let reopened = try await Database(url: url, migrations: [Self.exampleSchema])
         #expect(try await reopened.userVersion() == 1)
     }
 
-    /// A later launch with a newer migration list applies only what is new.
     @Test("Only migrations newer than the current version are applied")
     func onlyNewerMigrationsApply() async throws {
         let url = Self.temporaryDatabaseURL()
@@ -97,7 +93,6 @@ struct MigrationRunnerTests {
         #expect(try await Set(recovered.tableNames()) == ["exampleSessions", "exampleTokenRecords"])
     }
 
-    /// Migrations must be supplied in strictly increasing version order.
     @Test("Out-of-order migration versions are rejected")
     func outOfOrderVersionsAreRejected() async throws {
         let url = Self.temporaryDatabaseURL()

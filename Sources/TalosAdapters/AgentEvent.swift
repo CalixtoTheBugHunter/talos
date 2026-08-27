@@ -97,7 +97,6 @@ public enum AgentTerminationReason: Equatable, Hashable, Sendable {
     /// The session ended because the gate denied and the work could not
     /// continue.
     case denied
-    /// The agent never started.
     case failedToLaunch
 }
 
@@ -129,11 +128,8 @@ public struct AgentTermination: Equatable, Hashable, Sendable {
 /// waiting from streaming from running a tool.
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#streaming-is-three-states-not-one
 public enum AgentEvent: Equatable, Hashable, Sendable {
-    /// The agent is producing output now.
     case output(AgentOutputChunk)
-    /// The agent is acting. Reaches the gate before the action runs.
     case toolCall(AgentToolCall)
-    /// The agent's CLI is asking Talos a question.
     case permissionRequest(AgentPermissionRequest)
     /// The last event of a run. The stream finishes after it.
     case terminated(AgentTermination)

@@ -15,7 +15,7 @@ public enum SpecDriveSyncRule: String, Equatable, Hashable, Sendable {
     case talosMayEdit = "talos-may-edit"
 }
 
-/// One declared Spec Drive location.
+/// One Spec Drive location declared in spec.yaml; a project may declare several, each with its own sync rule.
 public struct SpecDriveLocation: Equatable, Sendable {
     public let provider: SpecDriveProviderKind
     public let url: String

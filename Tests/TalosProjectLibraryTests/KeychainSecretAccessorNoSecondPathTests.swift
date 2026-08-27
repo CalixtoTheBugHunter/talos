@@ -27,8 +27,6 @@ struct KeychainSecretAccessorNoSecondPathTests {
         fatalError("Could not locate repository root above \(#filePath)")
     }
 
-    /// Every `.swift` file under `Sources/`, excluding
-    /// `KeychainSecretAccessor.swift` itself.
     private static var sourceFilesOutsideTheAccessor: [URL] {
         let sourcesRoot = repositoryRoot.appendingPathComponent("Sources")
         guard let enumerator = FileManager.default.enumerator(at: sourcesRoot, includingPropertiesForKeys: nil)
