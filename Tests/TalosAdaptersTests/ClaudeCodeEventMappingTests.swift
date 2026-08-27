@@ -44,6 +44,21 @@ struct ClaudeCodeEventMappingTests {
         #expect(call.targets == ["/private/tmp/fixture/README.md"])
     }
 
+    @Test("Assistant text decodes to an output chunk carrying the agent's own words")
+    func assistantTextDecodesToOutput() throws {
+        let lines = try ClaudeCodeFixture.lines("token-report.jsonl")
+        let value = try #require(ClaudeCodeStreamDecoder.decode(lines[1]))
+        #expect(value == .assistantText("pong"))
+        let event = try #require(ClaudeCodeEventMapper.agentEvent(for: value))
+
+        guard case let .output(chunk) = event else {
+            Issue.record("Expected output, got \(event)")
+            return
+        }
+        #expect(chunk.text == "pong")
+        #expect(chunk.channel == .standardOutput)
+    }
+
     @Test("A deferred result decodes to a permission request, distinct from a tool call")
     func permissionRequestDecodes() throws {
         let lines = try ClaudeCodeFixture.lines("permission-request.jsonl")
