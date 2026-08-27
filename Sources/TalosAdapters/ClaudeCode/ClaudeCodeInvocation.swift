@@ -22,7 +22,6 @@ enum ClaudeCodeInvocation {
         "--include-hook-events"
     ]
 
-    /// argv for the first process of a session.
     static func launch(prompt: AgentPrompt, settingsPath: String) -> [String] {
         sharedFlags + ["--setting-sources", "", "--settings", settingsPath, prompt.text]
     }

@@ -66,7 +66,8 @@ public actor Database {
         }
     }
 
-    /// Runs `sql` with no result, inside the actor's isolation.
+    /// `sql` is sent to SQLite with no parameter binding — trusted,
+    /// schema-controlled text only, never user-supplied input.
     public func execute(_ sql: String) throws {
         try Self.rawExec(connection, sql)
     }

@@ -87,7 +87,6 @@ actor FakeAdapter: AgentAdapter {
         usage = report
     }
 
-    /// Whether the run has ended.
     var isTerminated: Bool {
         hasTerminated
     }

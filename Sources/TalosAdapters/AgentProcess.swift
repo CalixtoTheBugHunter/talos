@@ -314,8 +314,6 @@ actor AgentProcess {
         }
 
         if state.isClosed {
-            // What is left cannot become a complete scalar now, and bytes
-            // discarded here are the last thing the agent said going missing.
             emit(AgentOutputDecoder.flush(&state.carryOver), on: channel)
             state.isSuspended = false
             state.reads.cancel()

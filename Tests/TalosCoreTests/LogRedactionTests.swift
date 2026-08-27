@@ -1,7 +1,6 @@
 @testable import TalosCore
 import Testing
 
-/// Verifies secrets and tokens are redacted before reaching a logger.
 @Suite("LogRedaction")
 struct LogRedactionTests {
     @Test(

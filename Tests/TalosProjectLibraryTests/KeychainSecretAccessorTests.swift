@@ -4,7 +4,6 @@ import OSLog
 @testable import TalosProjectLibrary
 import Testing
 
-/// What `KeychainSecretAccessorTests.DenyingAuthorizer` throws.
 private struct DenyingAuthorizerError: Error {}
 
 /// Verifies ``KeychainSecretAccessor`` against
@@ -17,9 +16,8 @@ struct KeychainSecretAccessorTests {
     /// Always authorizes — used by tests that are not exercising Rule 5's
     /// denial path.
     private struct AllowingAuthorizer: SecretAccessAuthorizing {
-        func authorize(_: SecretAccessAction) throws {
-            // Always authorizes.
-        }
+        // swiftlint:disable:next no_empty_block
+        func authorize(_: SecretAccessAction) throws {}
     }
 
     /// Always denies, and records the last action it was asked to

@@ -1,6 +1,5 @@
-/// The minimum OS Talos supports.
+/// Declared in the SPEC, which the wiki owns.
 ///
-/// Declared in the SPEC, which the wiki owns:
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Technology-and-Distribution
 ///
 /// The `@available` attribute is what makes the minimum enforceable rather than

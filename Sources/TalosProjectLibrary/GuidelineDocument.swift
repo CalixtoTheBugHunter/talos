@@ -1,10 +1,5 @@
 import Foundation
 
-// The typed model for one `.talos/guidelines/*.md` file — an Editable Talos
-// Guideline. Each declares its purpose, the context it wants assembled, its
-// token ceiling, and its output expectations for one sub-function.
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Talos-Guidelines#editable-talos-guidelines
-
 public extension SubFunction {
     /// "Active at MVP" vs "Present but inert", per Talos Guidelines §
     /// Editable Talos Guidelines. `.advisor` and `.selfImprover` are
@@ -31,6 +26,7 @@ public extension SubFunction {
 /// the file's exact, unmodified text, kept alongside the four typed fields
 /// so a hand edit round-trips without loss even though nothing in this
 /// module writes the file back.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Talos-Guidelines#editable-talos-guidelines
 public struct GuidelineDocument: Equatable, Sendable {
     public let subFunction: SubFunction
     public let purpose: String

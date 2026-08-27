@@ -294,10 +294,10 @@ struct AgentProcessTests {
         // inside it, which asserts nothing.
         #expect(received / AgentProcess.readBufferSize > AgentProcess.maximumQueuedChunks)
         // The bound, not an exact depth: how full the queue gets before the
-        // consumer starts is the runner's timing, and asserting equality on it
-        // was green locally and red in CI. `+ 2` because the final flush and the
-        // terminated event are enqueued past the point where reading stops — the
-        // bound suspends the reads, it does not refuse an enqueue.
+        // consumer starts is the runner's timing. `+ 2` because the final
+        // flush and the terminated event are enqueued past the point where
+        // reading stops — the bound suspends the reads, it does not refuse
+        // an enqueue.
         #expect(await process.highWaterMark <= AgentProcess.maximumQueuedChunks + 2)
         // The last chunk, not the whole run.
         #expect(try #require(lastOutput).utf8.count <= AgentProcess.readBufferSize)
