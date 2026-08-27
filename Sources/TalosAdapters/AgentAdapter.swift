@@ -1,5 +1,39 @@
 import Foundation
 
+/// One `env` value for an ``MCPServerLaunchConfiguration`` — a literal to
+/// write verbatim, or a reference to a variable this adapter must find
+/// already set in ``AgentLaunchConfiguration/environment``. Never a resolved
+/// secret value: that would make writing the agent's own config file the
+/// moment a credential gets inlined, which the orchestration boundary forbids.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary
+public enum MCPServerEnvironmentValue: Equatable, Hashable, Sendable {
+    case literal(String)
+    case secretReference(name: String)
+}
+
+/// One MCP server an agent launches with, already filtered against
+/// `connectors.yaml` and resolved against the Keychain by
+/// `TalosProjectLibrary` — this layer only writes it in whatever shape the
+/// agent's own config mechanism expects.
+public struct MCPServerLaunchConfiguration: Equatable, Hashable, Sendable {
+    public let name: String
+    public let command: String
+    public let args: [String]
+    public let env: [String: MCPServerEnvironmentValue]
+
+    public init(
+        name: String,
+        command: String,
+        args: [String] = [],
+        env: [String: MCPServerEnvironmentValue] = [:]
+    ) {
+        self.name = name
+        self.command = command
+        self.args = args
+        self.env = env
+    }
+}
+
 /// Where and in what environment an agent runs. Both are explicit because a
 /// child that inherits an ambient working directory or environment is a child
 /// whose inputs nobody declared.
@@ -11,12 +45,26 @@ public struct AgentLaunchConfiguration: Equatable, Hashable, Sendable {
     /// The directory the agent runs in — the project root.
     public let workingDirectory: URL
     /// The exact environment handed to the child. Nothing is inherited that
-    /// is not named here.
+    /// is not named here. A ``MCPServerEnvironmentValue/secretReference(name:)``
+    /// below must name a key present here — this is where its real value
+    /// lives, never in a file this adapter writes to disk.
     public let environment: [String: String]
+    /// The MCP servers this agent launches with, per § Agent adapters —
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary#agent-adapters
+    /// already filtered to what `connectors.yaml` declares. Empty means the
+    /// agent runs with none, and every adapter must still guarantee that no
+    /// other MCP configuration — the project's own, or the user's — reaches
+    /// it in that case.
+    public let mcpServers: [MCPServerLaunchConfiguration]
 
-    public init(workingDirectory: URL, environment: [String: String] = [:]) {
+    public init(
+        workingDirectory: URL,
+        environment: [String: String] = [:],
+        mcpServers: [MCPServerLaunchConfiguration] = []
+    ) {
         self.workingDirectory = workingDirectory
         self.environment = environment
+        self.mcpServers = mcpServers
     }
 }
 
