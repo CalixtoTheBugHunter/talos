@@ -5,9 +5,9 @@ import Foundation
 // § Agent adapters —
 // https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary#agent-adapters
 
-/// The Claude Code CLI, adapted to ``AgentAdapter``. One instance is one
-/// session's whole life — ``ClaudeCodeAdapterRegistration`` hands out a fresh
-/// one per resolution, matching "each session resolves to its own."
+/// One instance is one session's whole life — ``ClaudeCodeAdapterRegistration``
+/// hands out a fresh one per resolution, matching "each session resolves to
+/// its own."
 actor ClaudeCodeAdapter: AgentAdapter {
     private var configuration: AgentLaunchConfiguration?
     private var executablePath: String?
