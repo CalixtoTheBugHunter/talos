@@ -379,12 +379,12 @@ the new adapter where the registry expects it, and a
 [SPEC change](../spec-driven-change/SKILL.md) that a human decided — which then makes the core change
 sanctioned work with a decision behind it, not an adapter workaround.
 
-The stub adapter is the working reference for all of this: **[#55](https://github.com/CalixtoTheBugHunter/talos/issues/55)**
-proves the abstraction with a compile-only stub, and its acceptance criteria include a test that
-"asserts zero files outside the adapter module were needed" and that "The stub is documented as the
-reference for contributors writing Gemini CLI, Codex CLI, or Ollama adapters." Read the stub before
-writing an adapter, and read it as the executable form of this rule — if the stub needed a core file,
-this skill's own claim is already false. Until #55 lands, the assertion is checked by reading.
+The stub adapter is the working reference for all of this:
+[`Sources/TalosAdapters/Stub/StubAdapter.swift`](../../../Sources/TalosAdapters/Stub/StubAdapter.swift),
+landed by **[#55](https://github.com/CalixtoTheBugHunter/talos/issues/55)**. Read it before writing an
+adapter, and read it as the executable form of this rule — `StubAdapterTests.swift` asserts its source
+imports nothing but `Foundation`, so if the stub ever needed a core file, that test is where it would
+show.
 
 ---
 
