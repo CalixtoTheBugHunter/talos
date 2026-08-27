@@ -1,14 +1,12 @@
 import Foundation
 
-// The argv Claude Code is started or resumed with. Never a flag that
-// suppresses or pre-approves its own prompts — that's
-// ``ClaudeCodeHookConfiguration``'s job.
-// § An agent CLI's own permission prompt is never a Talos approval —
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary
-
-/// Builds the argv for one Claude Code invocation. Every session is one or more
-/// of these `claude` processes in sequence — headless, one prompt per process —
-/// stitched into a single ``AgentEventStream`` by ``ClaudeCodeAdapter``.
+/// Builds the argv for one Claude Code invocation. Every session is one or
+/// more of these `claude` processes in sequence — headless, one prompt per
+/// process — stitched into a single ``AgentEventStream`` by ``ClaudeCodeAdapter``.
+///
+/// Never a flag that suppresses or pre-approves its own prompts — that's
+/// ``ClaudeCodeHookConfiguration``'s job.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary
 enum ClaudeCodeInvocation {
     /// Named rather than searched for here: ``ClaudeCodeInstallCheck`` resolves
     /// it against `PATH`, and `AgentProcess` takes only an absolute path.

@@ -1,11 +1,5 @@
 import Foundation
 
-// `--output-format stream-json` is one JSON object per line, on stdout only —
-// stderr is Claude Code's own plain-text diagnostics and is never parsed.
-// Turns arbitrary-sized text chunks into complete lines, then lines into
-// ``ClaudeCodeStreamValue``, tolerating a line split across chunks or one
-// that never becomes valid JSON.
-
 /// What one decoded stdout line means, stripped to the flat, `Equatable`
 /// values ``ClaudeCodeEventMapper`` turns into zero or more ``AgentEvent``.
 ///
@@ -34,6 +28,11 @@ enum ClaudeCodeStreamValue: Equatable, Sendable {
 /// Buffers stdout text across reads and hands complete lines to
 /// ``decode(_:)``. A struct, not a stream of its own: ``ClaudeCodeAdapter``
 /// owns one per running process and feeds it chunks as they arrive.
+///
+/// `--output-format stream-json` is one JSON object per line, on stdout only
+/// — stderr is Claude Code's own plain-text diagnostics and is never parsed.
+/// Tolerates a line split across chunks, and one that never becomes valid
+/// JSON.
 struct ClaudeCodeStreamDecoder {
     private var buffer = ""
 

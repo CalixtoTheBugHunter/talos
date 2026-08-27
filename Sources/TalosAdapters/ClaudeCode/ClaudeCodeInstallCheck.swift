@@ -1,9 +1,5 @@
 import Foundation
 
-// Detects a missing Claude Code install before spawning, and feature-detects
-// a version gap after via `system/init`'s own `capabilities` list, without
-// stopping the run — no minimum version is hardcoded for either.
-
 /// Thrown from `launch` when no `claude` executable is found on `PATH`.
 /// Distinct from ``AgentSpawnFailure``, which is `AgentProcess`'s own report of
 /// a `posix_spawn` that failed after a path was already found — this is the
@@ -17,6 +13,11 @@ struct ClaudeCodeNotInstalledError: Error, Equatable, Sendable {
     }
 }
 
+/// Detects a missing Claude Code install before spawning, and feature-detects
+/// a version gap after via `system/init`'s own `capabilities` list.
+///
+/// No minimum version is hardcoded for either — a missing install stops the
+/// run, a version gap does not.
 enum ClaudeCodeInstallCheck {
     static let executableName = "claude"
 

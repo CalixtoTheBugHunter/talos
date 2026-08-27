@@ -1,17 +1,14 @@
 import Foundation
 
-// The `--settings` file and gate script a session's `claude` processes run
-// with, written once per session into a directory this adapter owns — never
-// `~/.claude/` or the project's own `.claude/`, which are a user's, not Talos's.
-// § An agent CLI's own permission prompt is never a Talos approval —
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary
-
-/// One session's `PreToolUse` gate: a hook that answers a tool call with the
-/// decision recorded for its id, or defers when none has been recorded yet.
+/// One session's `PreToolUse` gate: writes the `--settings` file and gate
+/// script into a directory this adapter owns — never `~/.claude/` or the
+/// project's own `.claude/` — and answers a tool call with the decision
+/// recorded for its id, deferring when none has been recorded yet.
 ///
 /// Deferring rather than denying by default is what lets a request wait with
 /// "no timeout or retry limit" while ``AgentAdapter/resolve(_:with:)`` is still
 /// unresolved.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary
 struct ClaudeCodeHookConfiguration: Equatable, Hashable, Sendable {
     /// Passed to `--settings` on every `claude` invocation this session runs.
     let settingsPath: String

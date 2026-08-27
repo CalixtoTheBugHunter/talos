@@ -1,13 +1,12 @@
 import Foundation
 
-// One ``AgentEventStream`` spanning every `claude` process the session runs —
-// one per turn, since `-p` is headless and exits after each.
-// § Agent adapters —
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary#agent-adapters
-
 /// One instance is one session's whole life — ``ClaudeCodeAdapterRegistration``
 /// hands out a fresh one per resolution, matching "each session resolves to
 /// its own."
+///
+/// One ``AgentEventStream`` spans every `claude` process the session runs, one
+/// per turn, since `-p` is headless and exits after each.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary#agent-adapters
 actor ClaudeCodeAdapter: AgentAdapter {
     private var configuration: AgentLaunchConfiguration?
     private var executablePath: String?

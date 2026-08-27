@@ -1,15 +1,13 @@
 import Foundation
 
-// Turns what Claude Code itself reported into a ``TokenReport``. The two
-// numbers are `result`'s own `usage.input_tokens`/`usage.output_tokens` —
-// never summed from cache-read/cache-write sub-fields, which would be Talos
-// doing arithmetic the agent didn't report.
-// § Token counts — Accurate — reported by the agent itself —
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#how-cost-is-measured
-
 /// Accumulates ``TokenReport`` across every `claude` process one
 /// ``ClaudeCodeAdapter`` session runs — one per turn, since each is a fresh
 /// headless invocation reporting only its own turn's usage.
+///
+/// The two numbers are `result`'s own `usage.input_tokens`/`usage.output_tokens`
+/// — never summed from cache-read/cache-write sub-fields, which would be Talos
+/// doing arithmetic the agent didn't report.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#how-cost-is-measured
 struct ClaudeCodeTokenReporter: Equatable, Sendable {
     private var counts = TokenCounts(input: 0, output: 0)
     private var model: String?

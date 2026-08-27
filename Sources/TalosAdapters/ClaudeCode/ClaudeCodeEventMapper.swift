@@ -1,11 +1,9 @@
 import Foundation
 
-// A decoded stdout line to the ``AgentEvent`` it is, if it is one. Session
-// bookkeeping (session id, model, token counts) stays in ``ClaudeCodeAdapter``,
-// so this is a pure translation with no state of its own.
-// § A tool call and a permission request are two events —
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary
-
+/// A decoded stdout line to the ``AgentEvent`` it is, if it is one. Session
+/// bookkeeping stays in ``ClaudeCodeAdapter``, so this is a pure translation
+/// with no state of its own.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary
 enum ClaudeCodeEventMapper {
     /// `nil` for a value that updates adapter state but is never itself shown —
     /// `.initialized`, `.usage`, `.unrecognizedUsage`, and `.ignored`.
