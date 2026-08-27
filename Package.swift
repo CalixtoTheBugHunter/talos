@@ -46,7 +46,13 @@ let package = Package(
         .target(name: "TalosSafeguards", dependencies: ["TalosCore"]),
 
         .target(name: "TalosAdapters", dependencies: ["TalosCore"]),
-        .testTarget(name: "TalosAdaptersTests", dependencies: ["TalosAdapters"]),
+        .testTarget(
+            name: "TalosAdaptersTests",
+            dependencies: ["TalosAdapters"],
+            // Real, scrubbed CLI captures a concrete adapter's tests decode —
+            // https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#the-suite-installs-nothing
+            resources: [.copy("Fixtures")]
+        ),
 
         .target(
             name: "TalosOrchestration",
