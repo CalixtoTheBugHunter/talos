@@ -1,11 +1,5 @@
 import Foundation
 
-// The typed model for `.talos/board.yaml` — maps a board provider's real
-// columns onto Talos's six canonical internal states so no provider-specific
-// assumption leaks into Talos core.
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#board
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#the-canonical-internal-states
-
 /// The registered board providers Project Library § Board names by example:
 /// "Jira, GitHub Projects."
 public enum BoardProviderKind: String, CaseIterable, Equatable, Hashable, Sendable {
@@ -50,7 +44,10 @@ public enum BoardColumnResolution: Equatable, Sendable {
     case unmapped
 }
 
-/// The parsed, validated contents of `.talos/board.yaml`.
+/// The parsed, validated contents of `.talos/board.yaml`, which maps a board
+/// provider's real columns onto Talos's six canonical internal states so no
+/// provider-specific assumption leaks into Talos core.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#the-canonical-internal-states
 public struct BoardManifest: Equatable, Sendable {
     public let provider: BoardProviderKind
     public let columns: [BoardColumnMapping]

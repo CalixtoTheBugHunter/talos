@@ -1,16 +1,13 @@
 import Foundation
 
-// The typed model for `.talos/safeguards.md` — the highest-authority
-// project-level document. Never editable by AI.
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#safeguards
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Talos-Guidelines#authority-order
-
-/// The loaded contents of `.talos/safeguards.md`. `rawText` is the file's
+/// The loaded contents of `.talos/safeguards.md`, the highest-authority
+/// project-level document, never editable by AI. `rawText` is the file's
 /// literal text, never parsed into a structure that could let something
 /// written inside it be read as an instruction rather than data — the same
 /// posture the SPEC states for third-party content, applied to this file's
 /// own text.
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#prompt-injection-posture
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Talos-Guidelines#authority-order
 ///
 /// One value, one property: the copy assembled into a prompt (advisory) and
 /// the copy the gate reads (enforcement) are the same `rawText`, never two

@@ -1,9 +1,5 @@
 import Foundation
 
-// The typed model for `.talos/spec.yaml`. Absence of a Spec Drive is a
-// declared state, never an empty or missing key.
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#spec-drive
-
 /// The registered Spec Drive providers. Only `github-wiki` is valid at
 /// MVP — a local directory is not, since a spec location only Talos knows
 /// about is a second source of truth nobody else maintains.
@@ -50,7 +46,9 @@ public enum SpecDrive: Equatable, Sendable {
     case locations([SpecDriveLocation])
 }
 
-/// The parsed, validated contents of `.talos/spec.yaml`.
+/// The parsed, validated contents of `.talos/spec.yaml`. Absence of a Spec
+/// Drive is a declared state, never an empty or missing key.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#spec-drive
 public struct SpecManifest: Equatable, Sendable {
     public let specDrive: SpecDrive
 

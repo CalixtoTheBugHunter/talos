@@ -1,19 +1,10 @@
 import Darwin
 import Foundation
 
-// The spawn, the stream, and the kill — the whole lifetime of one agent CLI
-// process. This is the only file in Talos that starts a process.
-// § Only the adapter layer spawns a process —
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary
-// § Stop kills the tree —
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#stop-kills-the-tree
-// § Nothing polls —
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#nothing-polls
-// § Budgets that make the above testable —
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Vision-and-Principles#budgets-that-make-the-above-testable
-
 /// One agent CLI process: started once, streamed incrementally, and killed
-/// along with everything it started.
+/// along with everything it started — the spawn, the stream, and the kill,
+/// the whole lifetime. This is the only file in Talos that starts a process.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary
 ///
 /// Machinery an adapter uses *inside* its own `launch`, not a seventh
 /// capability — ``AgentAdapter`` is unchanged by it.

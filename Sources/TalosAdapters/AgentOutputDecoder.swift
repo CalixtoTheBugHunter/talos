@@ -1,11 +1,8 @@
 import Foundation
 
-// Turning pipe bytes into text without corrupting either. The rule it protects:
-// the console shows the agent's output as-is.
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is
-
 /// Incremental UTF-8 decoding for output that arrives in arbitrary byte-sized
-/// pieces.
+/// pieces, without corrupting it — the console shows the agent's output as-is.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is
 ///
 /// Reads land on byte boundaries rather than scalar boundaries, so decoding each
 /// buffer as it arrives turns a split character into replacement characters —

@@ -1,8 +1,5 @@
 import Foundation
 
-// The typed model for `.talos/project.yaml`.
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#where-it-lives
-
 /// A stable, immutable project identifier. Never derived from a mutable path
 /// or repo name — ``generate()`` is the only constructor for a fresh one, so
 /// nothing in Talos can accidentally compute one from something that moves.

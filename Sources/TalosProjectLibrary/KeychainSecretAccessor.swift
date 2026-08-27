@@ -3,13 +3,6 @@ import OSLog
 import Security
 import TalosCore
 
-// The single code path that reads or writes a project secret. Everything
-// else in Talos sees a `SecretReference`, never a `SecItem*` call.
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Technology-and-Distribution#decisions
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#where-it-lives
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#irreversible--outward-facing
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions
-
 /// Which taxonomy action type a `KeychainSecretAccessor` call is, spelled
 /// exactly as
 /// [the taxonomy](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#the-action-type-taxonomy)
@@ -74,6 +67,9 @@ public struct SecretAccessError: Error, Equatable, Sendable {
 }
 
 /// The only code path in Talos that reads or writes a project secret.
+/// Everything else in Talos sees a ``SecretReference``, never a `SecItem*`
+/// call.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#irreversible--outward-facing
 ///
 /// Every access is namespaced per project — see
 /// [decision 71](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions),

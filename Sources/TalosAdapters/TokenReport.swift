@@ -1,12 +1,5 @@
 import Foundation
 
-// How token usage crosses the adapter boundary: counts and a model name, as
-// values. The parse that produced them stays inside the adapter, and an
-// unparsable count stays absent rather than becoming a number.
-// § The adapter reports tokens as structured data —
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#when-the-log-format-changes
-
 /// Token counts as the agent itself reported them. Nothing here is derived:
 /// a count Talos reconstructed would be Talos's number wearing the agent's
 /// label, and every figure derived from it inherits the error while still
@@ -61,6 +54,7 @@ public struct TokenUsageUnavailable: Equatable, Hashable, Sendable {
 /// > repaired, inferred, or shown as zero.
 ///
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#when-the-log-format-changes
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary
 public enum TokenReport: Equatable, Hashable, Sendable {
     /// Counts the agent reported, with the model name that selects a price
     /// table. The name comes from the agent's own report — never inferred,

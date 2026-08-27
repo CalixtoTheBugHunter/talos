@@ -1,14 +1,11 @@
 import Darwin
 import Foundation
 
-// The `posix_spawn` call itself, and the C plumbing it needs. Still the adapter
-// layer, which is the only layer permitted to spawn.
-// § Only the adapter layer spawns a process —
-// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary
-
-/// Starts `executablePath` as the leader of a brand-new process group, wired to
-/// the given pipe write ends, with the given working directory and *only* the
-/// given environment.
+/// The `posix_spawn` call itself, and the C plumbing it needs — still the
+/// adapter layer, the only layer permitted to spawn. Starts `executablePath`
+/// as the leader of a brand-new process group, wired to the given pipe write
+/// ends, with the given working directory and *only* the given environment.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary
 ///
 /// - Returns: The child's pid, which is also its process group id.
 /// - Throws: ``AgentSpawnFailure`` carrying the `errno` `posix_spawn` reported.
