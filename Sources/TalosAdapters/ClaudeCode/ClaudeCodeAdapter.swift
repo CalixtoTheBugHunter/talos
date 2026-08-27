@@ -11,6 +11,7 @@ actor ClaudeCodeAdapter: AgentAdapter {
     private var configuration: AgentLaunchConfiguration?
     private var executablePath: String?
     private var hooks: ClaudeCodeHookConfiguration?
+    private var mcpConfig: ClaudeCodeMCPConfiguration?
     private var continuation: AgentEventStream.Continuation?
 
     private var decoder = ClaudeCodeStreamDecoder()
@@ -40,10 +41,12 @@ actor ClaudeCodeAdapter: AgentAdapter {
         let executablePath = try executableOverride
             ?? ClaudeCodeInstallCheck.resolveExecutablePath(environment: configuration.environment)
         let hooks = try ClaudeCodeHookConfiguration()
+        let mcpConfig = try ClaudeCodeMCPConfiguration(servers: configuration.mcpServers)
 
         self.configuration = configuration
         self.executablePath = executablePath
         self.hooks = hooks
+        self.mcpConfig = mcpConfig
 
         let (stream, continuation) = AgentEventStream.makeStream()
         self.continuation = continuation
@@ -90,7 +93,7 @@ actor ClaudeCodeAdapter: AgentAdapter {
     /// A clean exit (code 0) does not end the stream: both an ordinary turn
     /// and a deferred permission request end that way. Anything else does.
     private func runTurn(prompt: AgentPrompt) async throws {
-        guard let configuration, let hooks, let executablePath, !hasFinished else {
+        guard let configuration, let hooks, let mcpConfig, let executablePath, !hasFinished else {
             throw AgentNotRunningError(fix: "Launch the adapter before sending a prompt.")
         }
         guard currentProcess == nil else {
@@ -98,8 +101,12 @@ actor ClaudeCodeAdapter: AgentAdapter {
         }
 
         let arguments = sessionID.map {
-            ClaudeCodeInvocation.resume(sessionID: $0, prompt: prompt, settingsPath: hooks.settingsPath)
-        } ?? ClaudeCodeInvocation.launch(prompt: prompt, settingsPath: hooks.settingsPath)
+            ClaudeCodeInvocation.resume(
+                sessionID: $0, prompt: prompt, settingsPath: hooks.settingsPath, mcpConfigPath: mcpConfig.configPath
+            )
+        } ?? ClaudeCodeInvocation.launch(
+            prompt: prompt, settingsPath: hooks.settingsPath, mcpConfigPath: mcpConfig.configPath
+        )
 
         let process = AgentProcess(executablePath: executablePath, arguments: arguments, configuration: configuration)
         currentProcess = process
@@ -134,6 +141,7 @@ actor ClaudeCodeAdapter: AgentAdapter {
             hasFinished = true
             continuation?.finish(throwing: error)
             hooks.cleanUp()
+            mcpConfig.cleanUp()
         }
     }
 
@@ -197,5 +205,6 @@ actor ClaudeCodeAdapter: AgentAdapter {
         continuation?.yield(.terminated(termination))
         continuation?.finish()
         hooks?.cleanUp()
+        mcpConfig?.cleanUp()
     }
 }

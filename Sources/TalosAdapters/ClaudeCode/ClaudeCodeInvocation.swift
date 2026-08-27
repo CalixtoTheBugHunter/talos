@@ -22,14 +22,28 @@ enum ClaudeCodeInvocation {
         "--include-hook-events"
     ]
 
-    static func launch(prompt: AgentPrompt, settingsPath: String) -> [String] {
-        sharedFlags + ["--setting-sources", "", "--settings", settingsPath, prompt.text]
+    static func launch(prompt: AgentPrompt, settingsPath: String, mcpConfigPath: String) -> [String] {
+        sharedFlags + ["--setting-sources", "", "--settings", settingsPath] + mcpFlags(configPath: mcpConfigPath) +
+            [prompt.text]
     }
 
     /// argv to resume `sessionID` with a new prompt, or with an empty one to
     /// carry a ``AgentAdapter/resolve(_:with:)`` decision back with nothing else
     /// to say.
-    static func resume(sessionID: String, prompt: AgentPrompt, settingsPath: String) -> [String] {
-        sharedFlags + ["--setting-sources", "", "--settings", settingsPath, "--resume", sessionID, prompt.text]
+    static func resume(
+        sessionID: String, prompt: AgentPrompt, settingsPath: String, mcpConfigPath: String
+    ) -> [String] {
+        sharedFlags + ["--setting-sources", "", "--settings", settingsPath] + mcpFlags(configPath: mcpConfigPath) +
+            ["--resume", sessionID, prompt.text]
+    }
+
+    /// `--strict-mcp-config` is what makes the pairing complete: without it,
+    /// Claude Code still loads the project's own `.mcp.json` and the user's
+    /// own configuration alongside whatever `--mcp-config` names, which is
+    /// exactly the leak "only systems declared in `connectors.yaml` appear in
+    /// generated config" forbids. Always passed, even for zero declared
+    /// servers, so that case is suppressed too rather than left open.
+    private static func mcpFlags(configPath: String) -> [String] {
+        ["--mcp-config", configPath, "--strict-mcp-config"]
     }
 }
