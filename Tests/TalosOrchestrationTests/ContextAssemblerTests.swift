@@ -3,9 +3,7 @@ import TalosProjectLibrary
 import Testing
 
 /// Verifies ``ContextAssembler`` assembles the right parts and never a
-/// secret, against
-/// https://github.com/CalixtoTheBugHunter/talos/issues/58.
-/// Overflow behavior lives in `ContextAssemblerOverflowTests`.
+/// secret. Overflow behavior lives in `ContextAssemblerOverflowTests`.
 @Suite("Context assembler")
 struct ContextAssemblerTests {
     @Test("Assembles the guideline, safeguards, spec drive, connectors, board, and memories")
