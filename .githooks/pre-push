@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+#
+# Runs the `lint` CI stage's repo-wide, PR-context-free checks over the whole
+# tracked tree before a push leaves this machine — SwiftFormat, SwiftLint,
+# design-guard, and comment-guard. `.githooks/pre-commit` only lints staged
+# files and never runs comment-guard at all, so a comment-guard violation (an
+# issue/PR reference, a TODO marker, an oversized DocC abstract, a `//` block
+# beside a `///` one) or a violation in an unstaged tracked file previously
+# reached `main`'s required `lint` check undetected locally.
+#
+#   https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#ci-pipeline-order
+#   https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#code-comments-explain-the-non-obvious-not-the-history
+#
+# Deliberately not run here: codeowners-guard and secret-scan's push range
+# (both need live GitHub API access this hook should not require), and
+# pr-title-guard / dependency-justification-guard (need a PR title/body that
+# does not exist yet at push time). Those still run in CI, which remains the
+# required check either way.
+#
+# Installation is opt-in, per clone — see CONTRIBUTING.md. This hook is not a
+# substitute for the `lint` CI stage: CI is the required check, and a
+# contributor who has not installed the hook is not doing anything wrong.
+
+set -euo pipefail
+
+fail() {
+  printf 'pre-push: %s\n' "$1" >&2
+  exit 1
+}
+
+require() { # require <tool> <brew formula>
+  command -v "$1" >/dev/null 2>&1 || fail "$1 is not installed. brew install $2"
+}
+
+require swiftformat swiftformat
+require swiftlint swiftlint
+
+if ! swiftformat --lint . --quiet; then
+  fail 'SwiftFormat found unformatted files. Fix locally with: swiftformat .'
+fi
+
+if ! swiftlint lint --quiet; then
+  fail 'SwiftLint found violations. Fix locally with: swiftlint lint --fix'
+fi
+
+design_guard_output=''
+if ! design_guard_output="$(tools/design-guard/design-guard.sh 2>&1)"; then
+  printf '%s\n' "$design_guard_output" >&2
+  fail 'design-guard found violations of the no-values rule. What it does not cover is in tools/design-guard/README.md'
+fi
+
+comment_guard_output=''
+if ! comment_guard_output="$(tools/comment-guard/comment-guard.sh 2>&1)"; then
+  printf '%s\n' "$comment_guard_output" >&2
+  fail 'comment-guard found a violation. See https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#code-comments-explain-the-non-obvious-not-the-history'
+fi

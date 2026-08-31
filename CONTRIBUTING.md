@@ -115,6 +115,31 @@ Uninstall with `git config --unset core.hooksPath`. The hook is a convenience, n
 is a [required check](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#ci-pipeline-order),
 and it runs whether or not you installed this.
 
+### The pre-push hook
+
+Same `core.hooksPath .githooks` install as above covers this one too — no second command.
+
+[`.githooks/pre-push`](.githooks/pre-push) runs the `lint` stage's repo-wide, PR-context-free checks
+over your whole tracked tree before a push leaves your machine: `swiftformat --lint`, `swiftlint
+lint`, [`design-guard`](tools/design-guard/README.md), and
+[`comment-guard`](tools/comment-guard/README.md). The pre-commit hook above only lints your *staged*
+files and never runs `comment-guard` at all, so a `comment-guard` violation — an issue/PR reference or
+a `TODO` in a comment, an oversized DocC abstract, a `//` block beside a `///` one — or a violation in
+a tracked file you didn't stage this time previously reached `main`'s required `lint` check
+undetected locally.
+
+It does not cover every `lint`-job step:
+
+- `codeowners-guard`, `pr-title-guard`, and `dependency-justification-guard` each need a live GitHub
+  API call or a PR's title/body/base-head range that does not exist yet at push time.
+- `secret-scan`'s push-range scan is PR-scoped the same way — it diffs a PR's base and head SHAs.
+- `workflow-hardening-guard` needs neither: it's a static scan of `.github/workflows/` with no PR
+  context, the same shape as `design-guard`. It's simply out of scope for this hook for now, not
+  excluded for a technical reason like the other four.
+
+CI stays the required check for all five either way — this hook is a convenience, not the gate, same
+as `.githooks/pre-commit` above.
+
 ## Contributing with an AI agent
 
 The repo ships **Claude Skills** in [`.claude/skills/`](.claude/skills/README.md) that encode the
