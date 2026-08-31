@@ -183,7 +183,7 @@ struct SessionPipelineTerminationTests {
             guideline: makeSessionGuideline(),
             safeguards: makeTestSafeguards(),
             connectors: makeTestConnectors(),
-            launchConfiguration: TestLaunch.configuration()
+            launch: SessionLaunch(agentName: testAgentName, configuration: TestLaunch.configuration())
         )
 
         #expect(record.outcome == .failed(

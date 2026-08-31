@@ -1,3 +1,4 @@
+import Foundation
 import TalosAdapters
 import TalosProjectLibrary
 import TalosSafeguards
@@ -108,6 +109,23 @@ public enum SafeguardsPreCheckStageOutcome: Sendable {
     case denied(reason: String)
 }
 
+/// What a session launches with: the `agents.yaml` entry it runs on, bundled
+/// with where and in what environment it runs. Bundled into one value rather
+/// than two parameters on ``SessionPipeline/run(intent:guideline:safeguards:connectors:launch:observer:)``
+/// because the caller always knows both at once — it already resolved
+/// `agentName` to build `configuration` — and because keeping them apart
+/// would be the parameter this module's own `function_parameter_count` limit
+/// rejects.
+public struct SessionLaunch: Sendable {
+    public let agentName: String
+    public let configuration: AgentLaunchConfiguration
+
+    public init(agentName: String, configuration: AgentLaunchConfiguration) {
+        self.agentName = agentName
+        self.configuration = configuration
+    }
+}
+
 /// Drives one session through all eleven stages.
 ///
 /// The single call site that writes the session record and updates memories,
@@ -131,6 +149,8 @@ public struct SessionPipeline<
     private let decisionLog: any GatedDecisionLog
     private let recordWriter: any SessionRecordWriter
     private let memories: any SessionMemoriesUpdatePort
+    private let now: @Sendable () -> Date
+    private let makeRecordID: @Sendable () -> UUID
 
     public init(
         assembler: ContextAssembler,
@@ -139,7 +159,9 @@ public struct SessionPipeline<
         gate: Gate,
         decisionLog: any GatedDecisionLog,
         recordWriter: any SessionRecordWriter,
-        memories: any SessionMemoriesUpdatePort
+        memories: any SessionMemoriesUpdatePort,
+        now: @escaping @Sendable () -> Date = Date.init,
+        makeRecordID: @escaping @Sendable () -> UUID = UUID.init
     ) {
         self.assembler = assembler
         self.preCheck = preCheck
@@ -148,6 +170,8 @@ public struct SessionPipeline<
         self.decisionLog = decisionLog
         self.recordWriter = recordWriter
         self.memories = memories
+        self.now = now
+        self.makeRecordID = makeRecordID
     }
 
     public func run(
@@ -155,9 +179,10 @@ public struct SessionPipeline<
         guideline: GuidelineDocument,
         safeguards: SafeguardsDocument,
         connectors: ConnectorsManifest,
-        launchConfiguration: AgentLaunchConfiguration,
+        launch: SessionLaunch,
         observer: (@Sendable (AgentEvent) async -> Void)? = nil
     ) async -> SessionRecord {
+        let startedAt = now()
         let selected = IntentReceived(intent: intent).selectGuideline(guideline)
 
         let assembled: ContextAssembled
@@ -165,7 +190,13 @@ public struct SessionPipeline<
         case let .assembled(stage):
             assembled = stage
         case let .failed(failure):
-            return await finish(.contextAssemblyFailed(failure), for: intent)
+            return await finish(
+                .contextAssemblyFailed(failure),
+                for: intent,
+                agentName: launch.agentName,
+                startedAt: startedAt,
+                metrics: SessionRunMetrics()
+            )
         }
 
         let approved: SafeguardsApproved
@@ -176,18 +207,28 @@ public struct SessionPipeline<
             return await finish(
                 .safeguardsPreCheckDenied(reason: reason),
                 for: intent,
+                agentName: launch.agentName,
+                startedAt: startedAt,
+                metrics: SessionRunMetrics(),
                 context: assembled.context
             )
         }
 
-        let outcome = await approved.run(
-            launchConfiguration: launchConfiguration,
+        let runOutcome = await approved.run(
+            launchConfiguration: launch.configuration,
             adapter: adapter,
             gate: gate,
             decisionLog: decisionLog,
             observer: observer
         )
-        return await finish(outcome, for: intent, context: approved.context)
+        return await finish(
+            runOutcome.outcome,
+            for: intent,
+            agentName: launch.agentName,
+            startedAt: startedAt,
+            metrics: runOutcome.metrics,
+            context: approved.context
+        )
     }
 
     /// Stages 9-11: writes the record, then updates memories. Stage 10
@@ -197,16 +238,29 @@ public struct SessionPipeline<
     ///
     /// `context` is absent only where stage 3 produced none, which is the one
     /// case that has no dropped parts to report — it failed on the pinned parts
-    /// alone.
+    /// alone, and added zero tokens: `tokenOverheadRatio` is `0` for exactly
+    /// that reason, not a guess.
     private func finish(
         _ outcome: SessionOutcome,
         for intent: Intent,
+        agentName: String,
+        startedAt: Date,
+        metrics: SessionRunMetrics,
         context: AssembledContext? = nil
     ) async -> SessionRecord {
         let record = SessionRecord(
+            id: makeRecordID(),
             project: intent.project,
             subFunction: intent.requestingSubFunction,
+            agentName: agentName,
             outcome: outcome,
+            startedAt: startedAt,
+            duration: now().timeIntervalSince(startedAt),
+            toolCallCount: metrics.toolCallCount,
+            approvalCount: metrics.approvalCount,
+            denialCount: metrics.denialCount,
+            retryCount: metrics.retryCount,
+            tokenOverheadRatio: context?.overheadRatio ?? 0,
             droppedContextParts: context?.droppedParts ?? [],
             unavailableContextParts: context?.unavailableParts ?? []
         )
