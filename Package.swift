@@ -72,6 +72,10 @@ let package = Package(
         ),
         .testTarget(name: "TalosOrchestrationTests", dependencies: ["TalosOrchestration"]),
 
-        .target(name: "TalosUI", dependencies: ["TalosOrchestration"])
+        .target(name: "TalosUI", dependencies: ["TalosOrchestration"]),
+        // Named "TalosUIRenderingTests" rather than "TalosUITests" — that
+        // name is already the Xcode UI test target at ./TalosUITests, and
+        // two Swift modules of the same name collide.
+        .testTarget(name: "TalosUIRenderingTests", dependencies: ["TalosUI"])
     ]
 )
