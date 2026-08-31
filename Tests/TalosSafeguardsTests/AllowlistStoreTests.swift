@@ -35,8 +35,32 @@ struct AllowlistStoreTests {
 
     // MARK: - AC: entries are scoped to one project and one action type
 
-    @Test("Two projects' stores never share an entry, even from the same root")
-    func twoProjectsDoNotShareEntries() async throws {
+    /// A store's file is derived from `projectRoot` alone, so the guarantee two
+    /// *different* stores never share an entry only holds for two different
+    /// roots — which is the only case that occurs in practice, since a
+    /// project's `.talos/` lives under that project's own repository root.
+    /// This is deliberately two separate roots rather than one shared root
+    /// with two `ProjectIdentifier`s: the latter would be two stores reading
+    /// the same file by construction, which is not a scoping failure this
+    /// type is responsible for guarding — it is a caller passing a
+    /// `projectRoot` that does not belong to the `project` it named.
+    @Test("Two projects, with separate project roots, never share an entry")
+    func twoProjectsWithSeparateRootsDoNotShareEntries() async throws {
+        let rootA = try Self.makeTemporaryProjectRoot()
+        let rootB = try Self.makeTemporaryProjectRoot()
+        let projectA = ProjectIdentifier(rawValue: "project-a")
+        let projectB = ProjectIdentifier(rawValue: "project-b")
+        let storeA = try AllowlistStore(projectRoot: rootA, project: projectA, changeLog: RecordingChangeLog())
+        let storeB = try AllowlistStore(projectRoot: rootB, project: projectB, changeLog: RecordingChangeLog())
+
+        try await storeA.allowlistAction(.fileWrite, actor: "user")
+
+        #expect(await storeA.isAllowlisted(.fileWrite, project: projectA))
+        #expect(await !storeB.isAllowlisted(.fileWrite, project: projectB))
+    }
+
+    @Test("isAllowlisted refuses to answer for a project other than the one this store was constructed for")
+    func isAllowlistedRefusesAnotherProject() async throws {
         let root = try Self.makeTemporaryProjectRoot()
         let projectA = ProjectIdentifier(rawValue: "project-a")
         let projectB = ProjectIdentifier(rawValue: "project-b")
@@ -82,8 +106,11 @@ struct AllowlistStoreTests {
             projectRoot: root, project: ProjectIdentifier(rawValue: "p"), changeLog: RecordingChangeLog()
         )
 
-        await #expect(throws: AllowlistStoreError.self) {
+        await #expect {
             try await store.allowlistAction(SafeguardsActionType(rawValue: "not.a.real.type"), actor: "user")
+        } throws: { error in
+            guard case let .invalidEntry(action, _) = error as? AllowlistStoreError else { return false }
+            return action.rawValue == "not.a.real.type"
         }
     }
 
@@ -99,7 +126,8 @@ struct AllowlistStoreTests {
                 projectRoot: root, project: ProjectIdentifier(rawValue: "p"), changeLog: RecordingChangeLog()
             )
         } throws: { error in
-            error is AllowlistStoreError
+            guard case let .invalidEntry(action, _) = error as? AllowlistStoreError else { return false }
+            return action.rawValue == "git.*"
         }
     }
 
@@ -134,8 +162,11 @@ struct AllowlistStoreTests {
             projectRoot: root, project: ProjectIdentifier(rawValue: "p"), changeLog: RecordingChangeLog()
         )
 
-        await #expect(throws: AllowlistStoreError.self) {
+        await #expect {
             try await store.allowlistAction(action, actor: "user")
+        } throws: { error in
+            guard case let .invalidEntry(rejected, _) = error as? AllowlistStoreError else { return false }
+            return rejected == action
         }
     }
 
@@ -146,8 +177,11 @@ struct AllowlistStoreTests {
             projectRoot: root, project: ProjectIdentifier(rawValue: "p"), changeLog: RecordingChangeLog()
         )
 
-        await #expect(throws: AllowlistStoreError.self) {
+        await #expect {
             try await store.allowlistAction(.fileRead, actor: "user")
+        } throws: { error in
+            guard case let .invalidEntry(action, _) = error as? AllowlistStoreError else { return false }
+            return action == .fileRead
         }
     }
 
@@ -163,8 +197,11 @@ struct AllowlistStoreTests {
             projectRoot: root, project: ProjectIdentifier(rawValue: "p"), changeLog: RecordingChangeLog()
         )
 
-        await #expect(throws: AllowlistStoreError.self) {
+        await #expect {
             try await store.allowlistAction(action, actor: "user")
+        } throws: { error in
+            guard case let .invalidEntry(rejected, _) = error as? AllowlistStoreError else { return false }
+            return rejected == action
         }
     }
 
