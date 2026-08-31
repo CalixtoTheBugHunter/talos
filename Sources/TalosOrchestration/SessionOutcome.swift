@@ -1,3 +1,4 @@
+import Foundation
 import TalosAdapters
 import TalosProjectLibrary
 
@@ -31,6 +32,42 @@ public enum SessionOutcome: Equatable, Sendable {
     case denied(TokenReport)
 }
 
+/// The four-value outcome taxonomy the Monitor Screen and the success-rate
+/// formula read, settled by
+/// [decision 60](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#foundational-decisions):
+/// "Inferred from the session's end state and typed as `Succeeded`, `Failed`,
+/// `Denied`, or `Stopped`."
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#how-task-outcome-is-classified
+public enum SessionOutcomeClassification: String, Equatable, Sendable, CaseIterable {
+    case succeeded
+    case failed
+    case denied
+    case stopped
+}
+
+public extension SessionOutcome {
+    /// This session's outcome, collapsed onto the four values the Monitor
+    /// Screen and the success rate read. `.contextAssemblyFailed` is
+    /// `.failed` per
+    /// [decision 47](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#foundational-decisions) —
+    /// "nothing was gated, so recording a denial would name a decision nobody
+    /// made" — and `.safeguardsPreCheckDenied` is `.denied`: the session
+    /// ended because the gate denied and the work could not continue, which
+    /// is exactly
+    /// [decision 60](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#foundational-decisions)'s
+    /// definition of `Denied`.
+    var classification: SessionOutcomeClassification {
+        switch self {
+        case .contextAssemblyFailed: .failed
+        case .safeguardsPreCheckDenied: .denied
+        case .succeeded: .succeeded
+        case .failed: .failed
+        case .stopped: .stopped
+        case .denied: .denied
+        }
+    }
+}
+
 /// The row one finished session writes, exactly once.
 ///
 /// Deliberately minimal: it carries the project, the sub-function, the outcome
@@ -39,10 +76,32 @@ public enum SessionOutcome: Equatable, Sendable {
 /// fit. The richer schema (durations, tool-call and approval counts,
 /// queryability) is tracked separately.
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary#the-shared-session-model
-public struct SessionRecord: Equatable, Sendable {
+public struct SessionRecord: Identifiable, Equatable, Sendable {
+    public let id: UUID
     public let project: ProjectIdentifier
     public let subFunction: SubFunction
+    /// The `agents.yaml` entry this session ran on. Nothing upstream of the
+    /// pipeline carries it, so the caller that already knows which declared
+    /// agent it launched supplies it here, bundled with `SessionLaunch`.
+    public let agentName: String
     public let outcome: SessionOutcome
+    /// When stage 1 received the intent, and how long the whole run took —
+    /// what a query scoped to a time range reads.
+    public let startedAt: Date
+    public let duration: TimeInterval
+    /// `.toolCall` events observed on the stream, gated decisions carried
+    /// back, and same-signature retries of an already-denied action — see
+    /// ``SessionRunMetrics``.
+    public let toolCallCount: Int
+    public let approvalCount: Int
+    public let denialCount: Int
+    public let retryCount: Int
+    /// Talos-added token overhead for this session —
+    /// ``AssembledContext/overheadRatio``, or `0` when stage 3 never produced
+    /// a context to measure. Not a guess: a session with no assembled context
+    /// truly added zero tokens.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Vision-and-Principles#budgets-that-make-the-above-testable
+    public let tokenOverheadRatio: Double
     /// Context parts dropped to satisfy the ceiling, and parts that had nothing
     /// to assemble. Both travel with the record because a dropped part is
     /// reported "on the output, in the session, and on the Monitor" — a session
@@ -53,15 +112,33 @@ public struct SessionRecord: Equatable, Sendable {
     public let unavailableContextParts: [UnavailableContextPart]
 
     public init(
+        id: UUID,
         project: ProjectIdentifier,
         subFunction: SubFunction,
+        agentName: String,
         outcome: SessionOutcome,
+        startedAt: Date,
+        duration: TimeInterval,
+        toolCallCount: Int,
+        approvalCount: Int,
+        denialCount: Int,
+        retryCount: Int,
+        tokenOverheadRatio: Double,
         droppedContextParts: [DroppedContextPart] = [],
         unavailableContextParts: [UnavailableContextPart] = []
     ) {
+        self.id = id
         self.project = project
         self.subFunction = subFunction
+        self.agentName = agentName
         self.outcome = outcome
+        self.startedAt = startedAt
+        self.duration = duration
+        self.toolCallCount = toolCallCount
+        self.approvalCount = approvalCount
+        self.denialCount = denialCount
+        self.retryCount = retryCount
+        self.tokenOverheadRatio = tokenOverheadRatio
         self.droppedContextParts = droppedContextParts
         self.unavailableContextParts = unavailableContextParts
     }

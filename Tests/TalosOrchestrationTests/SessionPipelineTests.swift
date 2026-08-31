@@ -143,7 +143,7 @@ struct SessionPipelineTests {
             guideline: makeTestGuideline(context: ["memories"], tokenCeiling: 1),
             safeguards: makeTestSafeguards(),
             connectors: makeTestConnectors(),
-            launchConfiguration: TestLaunch.configuration()
+            launch: SessionLaunch(agentName: testAgentName, configuration: TestLaunch.configuration())
         )
 
         guard case .contextAssemblyFailed = record.outcome else {
@@ -281,7 +281,7 @@ struct SessionPipelineTests {
             guideline: makeTestGuideline(context: ["memories"], tokenCeiling: ceiling, rawText: "G"),
             safeguards: makeTestSafeguards(rawText: "S"),
             connectors: makeTestConnectors(),
-            launchConfiguration: TestLaunch.configuration()
+            launch: SessionLaunch(agentName: testAgentName, configuration: TestLaunch.configuration())
         )
 
         #expect(record.outcome == .succeeded(TestDefaults.usage))

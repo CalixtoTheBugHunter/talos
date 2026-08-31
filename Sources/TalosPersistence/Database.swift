@@ -72,6 +72,92 @@ public actor Database {
         try Self.rawExec(connection, sql)
     }
 
+    /// Runs `sql` with `bindings` bound to its `?` placeholders, in order.
+    /// The bound-parameter path for dynamic values — an agent-derived string,
+    /// an identifier, a count — that ``execute(_:)`` forbids.
+    public func run(_ sql: String, bindings: [DatabaseValue] = []) throws {
+        let statement = try Self.prepare(connection, sql, bindings: bindings)
+        defer { sqlite3_finalize(statement) }
+        guard sqlite3_step(statement) == SQLITE_DONE else {
+            throw DatabaseError.execFailed(message: Self.rawLastErrorMessage(connection))
+        }
+    }
+
+    /// Runs `sql` with `bindings` and returns every row, each as one
+    /// ``DatabaseValue`` per column in column order.
+    public func query(_ sql: String, bindings: [DatabaseValue] = []) throws -> [[DatabaseValue]] {
+        let statement = try Self.prepare(connection, sql, bindings: bindings)
+        defer { sqlite3_finalize(statement) }
+
+        var rows: [[DatabaseValue]] = []
+        let columnCount = sqlite3_column_count(statement)
+        while true {
+            let step = sqlite3_step(statement)
+            if step == SQLITE_DONE {
+                break
+            }
+            guard step == SQLITE_ROW else {
+                throw DatabaseError.execFailed(message: Self.rawLastErrorMessage(connection))
+            }
+            var row: [DatabaseValue] = []
+            for column in 0 ..< columnCount {
+                row.append(Self.columnValue(statement, column))
+            }
+            rows.append(row)
+        }
+        return rows
+    }
+
+    /// `SQLITE_TRANSIENT`: tells SQLite to copy a bound string or blob rather
+    /// than assume the caller keeps it alive past this call, since every
+    /// value here is a short-lived Swift `String`.
+    private static let sqliteTransient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+
+    private static func prepare(
+        _ connection: OpaquePointer?,
+        _ sql: String,
+        bindings: [DatabaseValue]
+    ) throws -> OpaquePointer? {
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(connection, sql, -1, &statement, nil) == SQLITE_OK else {
+            let message = rawLastErrorMessage(connection)
+            sqlite3_finalize(statement)
+            throw DatabaseError.execFailed(message: message)
+        }
+        for (index, value) in bindings.enumerated() {
+            let position = Int32(index + 1)
+            let result: Int32 = switch value {
+            case let .text(text):
+                sqlite3_bind_text(statement, position, text, -1, sqliteTransient)
+            case let .int(int):
+                sqlite3_bind_int64(statement, position, int)
+            case let .double(double):
+                sqlite3_bind_double(statement, position, double)
+            case .null:
+                sqlite3_bind_null(statement, position)
+            }
+            guard result == SQLITE_OK else {
+                let message = rawLastErrorMessage(connection)
+                sqlite3_finalize(statement)
+                throw DatabaseError.execFailed(message: message)
+            }
+        }
+        return statement
+    }
+
+    private static func columnValue(_ statement: OpaquePointer?, _ column: Int32) -> DatabaseValue {
+        switch sqlite3_column_type(statement, column) {
+        case SQLITE_INTEGER:
+            .int(sqlite3_column_int64(statement, column))
+        case SQLITE_FLOAT:
+            .double(sqlite3_column_double(statement, column))
+        case SQLITE_NULL:
+            .null
+        default:
+            .text(String(cString: sqlite3_column_text(statement, column)))
+        }
+    }
+
     /// Returns the value of `PRAGMA user_version`.
     public func userVersion() throws -> Int32 {
         try Self.rawUserVersion(connection)

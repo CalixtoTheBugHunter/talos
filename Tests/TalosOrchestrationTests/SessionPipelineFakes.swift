@@ -271,6 +271,19 @@ func makeTestConnectors() -> ConnectorsManifest {
     ConnectorsManifest()
 }
 
+/// A fixed instant and a fixed sequence of ids, so two otherwise-identical
+/// pipeline runs produce `==` records: without these, the wall-clock
+/// `startedAt`/`duration` and the random `id`
+/// ``SessionPipeline``'s production defaults use would make every run's
+/// record incomparable, which is not what
+/// `SchedulerSourcedSessionTests.theSourceChangesNothingThePipelineProduces`
+/// is testing for.
+let testSessionClock = Date()
+private let testSessionRecordID = UUID()
+
+/// The agent name a test session ran on, when a test does not care which one.
+let testAgentName = "test-agent"
+
 /// Assembles a pipeline from the fakes above, with only the collaborators a
 /// given test cares about named at the call site.
 func makeTestPipeline<Gate: SafeguardsGate>(
@@ -289,7 +302,9 @@ func makeTestPipeline<Gate: SafeguardsGate>(
         gate: gate,
         decisionLog: decisionLog,
         recordWriter: recordWriter,
-        memories: memories
+        memories: memories,
+        now: { testSessionClock },
+        makeRecordID: { testSessionRecordID }
     )
 }
 
@@ -311,6 +326,7 @@ func makeSessionGuideline() -> GuidelineDocument {
 func runTestSession(
     _ pipeline: SessionPipeline<FixedSafeguardsPreCheck, ScriptedAgentAdapter, some SafeguardsGate>,
     intent: Intent = makeTestIntent(),
+    agentName: String = testAgentName,
     observer: (@Sendable (AgentEvent) async -> Void)? = nil
 ) async -> SessionRecord {
     await pipeline.run(
@@ -318,7 +334,7 @@ func runTestSession(
         guideline: makeSessionGuideline(),
         safeguards: makeTestSafeguards(),
         connectors: makeTestConnectors(),
-        launchConfiguration: TestLaunch.configuration(),
+        launch: SessionLaunch(agentName: agentName, configuration: TestLaunch.configuration()),
         observer: observer
     )
 }
