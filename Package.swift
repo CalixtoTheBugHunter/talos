@@ -72,6 +72,9 @@ let package = Package(
         ),
         .testTarget(name: "TalosOrchestrationTests", dependencies: ["TalosOrchestration"]),
 
-        .target(name: "TalosUI", dependencies: ["TalosOrchestration"])
+        .target(name: "TalosUI", dependencies: ["TalosOrchestration"]),
+        // Named "TalosUIUnitTests", not "TalosUITests" — that name is already
+        // the Xcode-native XCUITest bundle wired into Talos.xcodeproj.
+        .testTarget(name: "TalosUIUnitTests", dependencies: ["TalosUI"])
     ]
 )
