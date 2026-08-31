@@ -1,4 +1,5 @@
 import TalosAdapters
+import TalosCore
 
 /// Which tier the gate classified an action into.
 ///
@@ -11,21 +12,6 @@ public enum SafeguardsTier: String, Equatable, Hashable, Sendable {
     case read
     case write
     case irreversible
-}
-
-/// One action type from the taxonomy, as the name a user writes into `.talos/`.
-///
-/// A wrapper over a string rather than an enum: an action type "is not an
-/// internal enum — it is a **name a user has written into `.talos/` and
-/// expects to keep meaning what it meant**", and the set itself is versioned
-/// and owned by the classifier.
-/// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#the-action-type-taxonomy
-public struct SafeguardsActionType: RawRepresentable, Equatable, Hashable, Sendable {
-    public let rawValue: String
-
-    public init(rawValue: String) {
-        self.rawValue = rawValue
-    }
 }
 
 /// Who a decision is attributed to.

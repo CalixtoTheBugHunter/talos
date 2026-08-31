@@ -1,4 +1,5 @@
 import TalosAdapters
+import TalosCore
 import TalosProjectLibrary
 
 /// One row of the gated-decision log: "Every gated decision is **logged** with

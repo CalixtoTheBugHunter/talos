@@ -50,6 +50,7 @@ let package = Package(
             name: "TalosSafeguards",
             dependencies: ["TalosCore", "TalosProjectLibrary", "TalosAdapters"]
         ),
+        .testTarget(name: "TalosSafeguardsTests", dependencies: ["TalosSafeguards"]),
 
         .target(name: "TalosAdapters", dependencies: ["TalosCore"]),
         .testTarget(
