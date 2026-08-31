@@ -245,13 +245,6 @@ struct SafeguardsClassifierRefusedTests {
     func configTierWrite() {
         #expect(SafeguardsActionClassifier.classify(.configTierWrite) == .refused)
     }
-
-    @Test("a refused type never resolves to a tier value that an approval could open")
-    func refusedIsNeverATier() {
-        let classification = SafeguardsActionClassifier.classify(.configTierWrite)
-        guard case .tier = classification else { return }
-        Issue.record("config.tier.write resolved to a tier, but refused types must never resolve to one")
-    }
 }
 
 @Suite("Safeguards action classifier: unrecognized names, purity, and connector target override")
