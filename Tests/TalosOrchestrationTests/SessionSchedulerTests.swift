@@ -54,6 +54,20 @@ struct SessionSchedulerTests {
         #expect(registered.subFunction == .selfImprover)
     }
 
+    /// The cadence is the field that makes a schedule a schedule, and nothing
+    /// in production reads it while the scheduler is inert — so without this,
+    /// storing any interval at all would pass.
+    @Test("A schedule keeps the cadence it was given, through registration")
+    func aScheduleKeepsTheCadenceItWasGiven() async {
+        let scheduler = InertSessionScheduler()
+        let schedule = Self.schedule(.advisor)
+
+        #expect(schedule.interval == Self.hourly)
+        _ = await scheduler.register(schedule)
+
+        #expect(await scheduler.registeredSchedules().first?.interval == Self.hourly)
+    }
+
     /// The regression: a scheduler that accepted anything would make "enters
     /// the pipeline from a user action" a comment rather than a constraint.
     @Test("A schedule for a user-activated sub-function is rejected, and says why")
@@ -70,6 +84,24 @@ struct SessionSchedulerTests {
             #expect(reason.contains(subFunction.rawValue))
             #expect(await scheduler.registeredSchedules().isEmpty)
         }
+    }
+
+    /// Two entries under one id would fire the same schedule twice once its
+    /// sub-function is enabled, which `Identifiable` says cannot happen.
+    @Test("A second schedule reusing a registered id is rejected, and names the id")
+    func aDuplicateScheduleIdIsRejected() async {
+        let scheduler = InertSessionScheduler()
+        let first = Self.schedule(.advisor)
+        _ = await scheduler.register(first)
+
+        let registration = await scheduler.register(Self.schedule(.selfImprover))
+
+        guard case let .rejected(reason) = registration else {
+            Issue.record("Expected a reused id to be rejected: \(registration)")
+            return
+        }
+        #expect(reason.contains(first.id))
+        #expect(await scheduler.registeredSchedules() == [first])
     }
 
     @Test("Exactly the two post-MVP sub-functions activate from a schedule")
@@ -116,6 +148,44 @@ struct SessionSchedulerTests {
             _ = await scheduler.register(schedule)
 
             #expect(await scheduler.emit(schedule) == nil)
+        }
+    }
+
+    /// The other side of the flag, and the reason it is a flag at all: with the
+    /// sub-function on, the same schedule on the same scheduler emits. A
+    /// scheduler whose off state were hard-coded would pass every assertion
+    /// above this one.
+    ///
+    /// > Enabling Advisor later must require **no refactor of Talos core**.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Sub-function-Advisor#what-the-mvp-must-deliver
+    @Test("A schedule emits its scheduler-sourced intent once its sub-function is on")
+    func anEnabledSubFunctionEmitsItsScheduledIntent() async {
+        let scheduler = InertSessionScheduler(isEnabled: { _ in true })
+        let schedule = Self.schedule(.advisor, content: "Review the project for missing edge cases.")
+        _ = await scheduler.register(schedule)
+
+        let intent = await scheduler.emit(schedule)
+
+        #expect(intent == schedule.intent)
+        #expect(intent?.source == .scheduler)
+        #expect(intent?.requestingSubFunction == .advisor)
+        #expect(intent?.content == "Review the project for missing edge cases.")
+    }
+
+    /// What ships is the default, so the default is what has to be pinned: a
+    /// scheduler constructed with no argument gates on nothing but
+    /// ``SubFunction/isActiveAtMVP``. Catches a default hard-coded either way.
+    @Test("The enablement a scheduler ships with is the MVP flag and nothing else")
+    func theDefaultEnablementIsTheMVPFlagAndNothingElse() async {
+        let scheduler = InertSessionScheduler()
+
+        for subFunction in SubFunction.allCases {
+            let emitted = await scheduler.emit(Self.schedule(subFunction))
+
+            #expect(
+                (emitted != nil) == subFunction.isActiveAtMVP,
+                "\(subFunction.rawValue): emitted \(emitted != nil), isActiveAtMVP \(subFunction.isActiveAtMVP)"
+            )
         }
     }
 

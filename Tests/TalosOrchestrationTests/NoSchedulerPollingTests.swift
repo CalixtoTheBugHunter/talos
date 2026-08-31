@@ -18,9 +18,9 @@ import Testing
 /// under Instruments rather than something a unit test can claim. This asserts
 /// the design that gate depends on: there is no poll to measure.
 ///
-/// **It reads the module root only**, where every file in the module lives
-/// today. A file in a subdirectory of its own is not covered, and this suite
-/// would be green if one polled.
+/// It reads the module's whole subtree rather than its root: a scan a new
+/// directory can step outside of guarantees only as much as the layout it
+/// happened to be written against.
 @Suite("Nothing in the orchestration layer polls")
 struct NoSchedulerPollingTests {
     /// Spellings that only appear in code that waits on a clock. Matched
@@ -66,15 +66,23 @@ struct NoSchedulerPollingTests {
             .joined(separator: "\n")
     }
 
+    /// Every Swift file under the module, at any depth.
+    static func sourceFiles() throws -> [URL] {
+        guard let walk = FileManager.default.enumerator(at: moduleURL, includingPropertiesForKeys: nil) else {
+            throw CocoaError(.fileReadNoSuchFile)
+        }
+        return walk
+            .compactMap { $0 as? URL }
+            .filter { $0.pathExtension == "swift" }
+    }
+
     /// Catches the regression that ships looking correct: an inert scheduler
     /// that wakes every minute to find it has nothing to fire. It emits nothing,
     /// it passes every other assertion here, and it burns CPU with no session
     /// open.
     @Test("No file in the orchestration layer waits on a clock")
     func noFileWaitsOnAClock() throws {
-        let files = try FileManager.default
-            .contentsOfDirectory(at: Self.moduleURL, includingPropertiesForKeys: nil)
-            .filter { $0.pathExtension == "swift" }
+        let files = try Self.sourceFiles()
         // A discovery that found nothing would make every assertion below
         // vacuous.
         #expect(!files.isEmpty)
