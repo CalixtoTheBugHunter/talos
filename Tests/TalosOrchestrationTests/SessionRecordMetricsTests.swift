@@ -220,7 +220,7 @@ private actor SequencedSafeguardsGate: SafeguardsGate {
         return SafeguardsDecision(
             outcome: outcome,
             action: TestDefaults.action,
-            tier: .write,
+            classification: .tier(.write),
             actor: .user
         )
     }

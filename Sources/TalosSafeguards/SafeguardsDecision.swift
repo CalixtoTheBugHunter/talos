@@ -33,24 +33,30 @@ public enum SafeguardsDecisionActor: String, Equatable, Hashable, Sendable {
 ///
 /// All four are returned together because the gate is the only party that
 /// knows them: the session pipeline hands `outcome` back to the adapter and
-/// writes the whole value to the log, and it cannot reconstruct a tier or an
-/// actor it was never told.
+/// writes the whole value to the log, and it cannot reconstruct a
+/// classification or an actor it was never told.
+///
+/// Carries `SafeguardsClassification` rather than a bare `SafeguardsTier` so a
+/// refused decision can be logged as refused rather than as a denial at some
+/// tier — "refused is not a tier", and a log that cannot say so has recorded
+/// a generic denial where the SPEC wants the specific refusal.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#refused--not-a-tier
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#rules
 public struct SafeguardsDecision: Equatable, Hashable, Sendable {
     public let outcome: AgentPermissionDecision
     public let action: SafeguardsActionType
-    public let tier: SafeguardsTier
+    public let classification: SafeguardsClassification
     public let actor: SafeguardsDecisionActor
 
     public init(
         outcome: AgentPermissionDecision,
         action: SafeguardsActionType,
-        tier: SafeguardsTier,
+        classification: SafeguardsClassification,
         actor: SafeguardsDecisionActor
     ) {
         self.outcome = outcome
         self.action = action
-        self.tier = tier
+        self.classification = classification
         self.actor = actor
     }
 }
