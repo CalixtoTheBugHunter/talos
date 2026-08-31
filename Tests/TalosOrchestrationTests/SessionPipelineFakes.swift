@@ -131,39 +131,114 @@ final class FixedSafeguardsPreCheck: SafeguardsPreCheck, @unchecked Sendable {
 
 /// A gate with a fixed decision, recording every request it was asked about.
 actor RecordingSafeguardsGate: SafeguardsGate {
-    private let decision: AgentPermissionDecision
+    private let decision: SafeguardsDecision
     private(set) var seenRequests: [AgentPermissionRequest] = []
     private(set) var seenProjects: [ProjectIdentifier] = []
 
-    init(_ decision: AgentPermissionDecision = .allowed) {
-        self.decision = decision
+    init(
+        _ outcome: AgentPermissionDecision = .allowed,
+        action: SafeguardsActionType = TestDefaults.action,
+        tier: SafeguardsTier = .write,
+        decidedBy: SafeguardsDecisionActor = .user
+    ) {
+        decision = SafeguardsDecision(outcome: outcome, action: action, tier: tier, actor: decidedBy)
     }
 
     func decide(
         _ request: AgentPermissionRequest,
         project: ProjectIdentifier,
         subFunction _: SubFunction
-    ) async -> AgentPermissionDecision {
+    ) async -> SafeguardsDecision {
         seenRequests.append(request)
         seenProjects.append(project)
         return decision
     }
 }
 
+/// A gate that never answers, modelling the state a session sits in longest: a
+/// prompt on screen and nobody having decided yet. `reached` fires as the wait
+/// begins, so a test can cancel the session at that exact point.
+actor BlockingSafeguardsGate: SafeguardsGate {
+    /// Longer than any test run, so the wait ends by cancellation or not at all.
+    private static let forever: UInt64 = 30_000_000_000
+
+    nonisolated let reached: AsyncStream<Void>
+    private nonisolated let arrival: AsyncStream<Void>.Continuation
+
+    init() {
+        (reached, arrival) = AsyncStream<Void>.makeStream()
+    }
+
+    func decide(
+        _: AgentPermissionRequest,
+        project _: ProjectIdentifier,
+        subFunction _: SubFunction
+    ) async -> SafeguardsDecision {
+        arrival.yield()
+        // A single long sleep rather than a deadline: only cancellation ends
+        // this wait, and it ends in a denial attributed to Talos, since the
+        // user never decided.
+        try? await Task.sleep(nanoseconds: Self.forever)
+        return SafeguardsDecision(
+            outcome: .denied,
+            action: TestDefaults.action,
+            tier: .write,
+            actor: .talos
+        )
+    }
+}
+
+/// Records every gated decision, so the four fields the audit log owes are
+/// assertable rather than assumed.
+actor RecordingGatedDecisionLog: GatedDecisionLog {
+    private(set) var entries: [GatedDecisionEntry] = []
+
+    func record(_ entry: GatedDecisionEntry) async {
+        entries.append(entry)
+    }
+}
+
+/// The order stages 9-11 ran in. Two counts cannot distinguish "record written,
+/// then memories updated" from the reverse, so the two ports share one journal.
+actor SessionStageJournal {
+    enum Stage: Equatable, Sendable {
+        case recordWritten
+        case memoriesUpdated
+    }
+
+    private(set) var stages: [Stage] = []
+
+    func append(_ stage: Stage) {
+        stages.append(stage)
+    }
+}
+
 /// Counts writes, so "exactly once" is an assertion rather than an assumption.
 actor RecordingSessionRecordWriter: SessionRecordWriter {
+    private let journal: SessionStageJournal?
     private(set) var written: [SessionRecord] = []
+
+    init(journal: SessionStageJournal? = nil) {
+        self.journal = journal
+    }
 
     func write(_ record: SessionRecord) async {
         written.append(record)
+        await journal?.append(.recordWritten)
     }
 }
 
 actor RecordingMemoriesUpdatePort: SessionMemoriesUpdatePort {
+    private let journal: SessionStageJournal?
     private(set) var updated: [SessionRecord] = []
+
+    init(journal: SessionStageJournal? = nil) {
+        self.journal = journal
+    }
 
     func updateMemories(for record: SessionRecord) async {
         updated.append(record)
+        await journal?.append(.memoriesUpdated)
     }
 }
 
@@ -176,6 +251,9 @@ enum TestDefaults {
         TokenCounts(input: inputTokens, output: outputTokens),
         model: "test-model"
     )
+    /// A write-tier name spelled as the taxonomy spells it, so a fixture never
+    /// stands in for an action type no user could have written.
+    static let action = SafeguardsActionType(rawValue: "file.write")
 }
 
 /// A working directory and environment for a scripted run. Deliberately holds
@@ -195,19 +273,21 @@ func makeTestConnectors() -> ConnectorsManifest {
 
 /// Assembles a pipeline from the fakes above, with only the collaborators a
 /// given test cares about named at the call site.
-func makeTestPipeline(
+func makeTestPipeline<Gate: SafeguardsGate>(
     preCheck: FixedSafeguardsPreCheck = FixedSafeguardsPreCheck(),
     adapter: ScriptedAgentAdapter = ScriptedAgentAdapter(),
-    gate: RecordingSafeguardsGate = RecordingSafeguardsGate(),
+    gate: Gate = RecordingSafeguardsGate(),
+    decisionLog: RecordingGatedDecisionLog = RecordingGatedDecisionLog(),
     recordWriter: RecordingSessionRecordWriter = RecordingSessionRecordWriter(),
     memories: RecordingMemoriesUpdatePort = RecordingMemoriesUpdatePort(),
     assembler: ContextAssembler = makeTestAssembler()
-) -> SessionPipeline<FixedSafeguardsPreCheck, ScriptedAgentAdapter, RecordingSafeguardsGate> {
+) -> SessionPipeline<FixedSafeguardsPreCheck, ScriptedAgentAdapter, Gate> {
     SessionPipeline(
         assembler: assembler,
         preCheck: preCheck,
         adapter: adapter,
         gate: gate,
+        decisionLog: decisionLog,
         recordWriter: recordWriter,
         memories: memories
     )
@@ -229,7 +309,7 @@ func makeSessionGuideline() -> GuidelineDocument {
 
 /// Runs one session with the fixture documents, shared by the pipeline suites.
 func runTestSession(
-    _ pipeline: SessionPipeline<FixedSafeguardsPreCheck, ScriptedAgentAdapter, RecordingSafeguardsGate>,
+    _ pipeline: SessionPipeline<FixedSafeguardsPreCheck, ScriptedAgentAdapter, some SafeguardsGate>,
     intent: Intent = makeTestIntent(),
     observer: (@Sendable (AgentEvent) async -> Void)? = nil
 ) async -> SessionRecord {

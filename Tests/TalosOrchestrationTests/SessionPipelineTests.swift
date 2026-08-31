@@ -21,8 +21,9 @@ struct SessionPipelineTests {
             .toolCall(AgentToolCall(id: "t1", name: "Read", targets: ["README.md"])),
             terminated(.exited(code: 0))
         ])
-        let writer = RecordingSessionRecordWriter()
-        let memories = RecordingMemoriesUpdatePort()
+        let journal = SessionStageJournal()
+        let writer = RecordingSessionRecordWriter(journal: journal)
+        let memories = RecordingMemoriesUpdatePort(journal: journal)
         let pipeline = makeTestPipeline(
             preCheck: preCheck,
             adapter: adapter,
@@ -38,6 +39,9 @@ struct SessionPipelineTests {
         #expect(await adapter.sentPrompts.count == 1)
         #expect(await writer.written == [record])
         #expect(await memories.updated == [record])
+        // Stage 9 before stage 11, which the two counts above cannot tell from
+        // the reverse: memories are updated for a session already recorded.
+        #expect(await journal.stages == [.recordWritten, .memoriesUpdated])
         // An agent that terminated on its own is never stopped on top of that.
         #expect(await adapter.stopCount == 0)
     }
@@ -128,6 +132,7 @@ struct SessionPipelineTests {
             preCheck: preCheck,
             adapter: adapter,
             gate: RecordingSafeguardsGate(),
+            decisionLog: RecordingGatedDecisionLog(),
             recordWriter: writer,
             memories: RecordingMemoriesUpdatePort()
         )
@@ -171,20 +176,85 @@ struct SessionPipelineTests {
         #expect(await adapter.carriedDecisions == ["r1": .allowed, "r2": .allowed])
     }
 
-    /// "Denial is not failure" — a session the user refused is recorded and
-    /// rendered as denied, never as an error.
-    @Test("A denied request makes the session denied, not failed")
-    func denialIsNotFailure() async {
+    /// An adapter that announces a call and then holds it produces both events
+    /// for the one action. The gate answers the held request, once: gating the
+    /// announcement as well would put two prompts and two log rows on a single
+    /// action, and not gating the request at all would remove the gate.
+    @Test("A call that is announced and then held is gated exactly once")
+    func anAnnouncedThenHeldCallIsGatedOnce() async {
+        let callID = "t1"
+        let adapter = ScriptedAgentAdapter(events: [
+            .toolCall(AgentToolCall(id: callID, name: "Write", targets: ["a.swift"])),
+            .permissionRequest(AgentPermissionRequest(id: callID, prompt: "Write a.swift", toolName: "Write")),
+            terminated(.exited(code: 0))
+        ])
+        let gate = RecordingSafeguardsGate(.allowed)
+        let log = RecordingGatedDecisionLog()
+        let pipeline = makeTestPipeline(adapter: adapter, gate: gate, decisionLog: log)
+
+        _ = await runTestSession(pipeline)
+
+        #expect(await gate.seenRequests.map(\.id) == [callID])
+        #expect(await log.entries.count == 1)
+        #expect(await adapter.carriedDecisions == [callID: .allowed])
+    }
+
+    /// "Every gated decision is **logged** with the actor, the action, the tier,
+    /// and the outcome." Asserted on a denial, since that is the row a user most
+    /// needs to find afterwards.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#rules
+    @Test("Every gated decision is logged with the actor, the action, the tier, and the outcome")
+    func everyGatedDecisionIsLogged() async {
+        let request = AgentPermissionRequest(id: "r1", prompt: "Delete 4 files in Sources/", toolName: "Bash")
+        let adapter = ScriptedAgentAdapter(events: [.permissionRequest(request), terminated(.exited(code: 0))])
+        let decision = SafeguardsDecision(
+            outcome: .denied,
+            action: SafeguardsActionType(rawValue: "file.delete"),
+            tier: .irreversible,
+            actor: .user
+        )
+        let log = RecordingGatedDecisionLog()
+        let pipeline = makeTestPipeline(
+            adapter: adapter,
+            gate: RecordingSafeguardsGate(
+                decision.outcome,
+                action: decision.action,
+                tier: decision.tier,
+                decidedBy: decision.actor
+            ),
+            decisionLog: log
+        )
+
+        let project = ProjectIdentifier(rawValue: "p-7")
+        _ = await runTestSession(pipeline, intent: makeTestIntent(project: project, requestingSubFunction: .automator))
+
+        #expect(await log.entries == [GatedDecisionEntry(
+            project: project,
+            subFunction: .automator,
+            request: request,
+            decision: decision
+        )])
+    }
+
+    /// "**A denial is a normal outcome.** The agent is told it was denied and
+    /// continues" — so a session that carried a denial and then exited cleanly
+    /// succeeded. The refusal is a row in the gated-decision log, not the
+    /// outcome of the whole run.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#rules
+    @Test("A denied request is carried back and does not become the session's outcome")
+    func aDenialDoesNotBecomeTheSessionsOutcome() async {
         let adapter = ScriptedAgentAdapter(events: [
             .permissionRequest(AgentPermissionRequest(id: "r1", prompt: "Delete the branch", toolName: "Bash")),
             terminated(.exited(code: 0))
         ])
-        let pipeline = makeTestPipeline(adapter: adapter, gate: RecordingSafeguardsGate(.denied))
+        let log = RecordingGatedDecisionLog()
+        let pipeline = makeTestPipeline(adapter: adapter, gate: RecordingSafeguardsGate(.denied), decisionLog: log)
 
         let record = await runTestSession(pipeline)
 
-        #expect(record.outcome == .denied(TestDefaults.usage))
+        #expect(record.outcome == .succeeded(TestDefaults.usage))
         #expect(await adapter.carriedDecisions == ["r1": .denied])
+        #expect(await log.entries.map(\.outcome) == [.denied])
     }
 
     @Test("An agent that terminates for denial is recorded as denied")
@@ -194,26 +264,64 @@ struct SessionPipelineTests {
         #expect(await runTestSession(pipeline).outcome == .denied(TestDefaults.usage))
     }
 
+    // MARK: - What stage 3 could not fit
+
+    /// "Context is dropped whole, in a declared order. Talos never truncates a
+    /// context part, and **never drops one silently**" — and a dropped part is
+    /// reported in the session, so the record names it.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Talos-Guidelines#when-assembled-context-exceeds-the-ceiling
+    @Test("A context part dropped for space is named on the session record")
+    func droppedContextPartsReachTheRecord() async {
+        let pipeline = makeTestPipeline(adapter: ScriptedAgentAdapter(events: [terminated(.exited(code: 0))]))
+        // Room for the two pinned parts and nothing else, so memories drop.
+        let ceiling = TokenEstimate.approximate("G") + TokenEstimate.approximate("S")
+
+        let record = await pipeline.run(
+            intent: makeTestIntent(),
+            guideline: makeTestGuideline(context: ["memories"], tokenCeiling: ceiling, rawText: "G"),
+            safeguards: makeTestSafeguards(rawText: "S"),
+            connectors: makeTestConnectors(),
+            launchConfiguration: TestLaunch.configuration()
+        )
+
+        #expect(record.outcome == .succeeded(TestDefaults.usage))
+        #expect(record.droppedContextParts.map(\.kind) == [.memories])
+    }
+
     // MARK: - Concurrent sessions on different projects
 
-    /// "Concurrent sessions on different projects are isolated." Two sessions
-    /// run at once against one shared recorder: each record carries its own
-    /// project and outcome, and neither borrows the other's.
-    @Test("Two concurrent sessions on different projects keep their own outcomes")
+    /// "Concurrent sessions on different projects are isolated." Both sessions
+    /// run the whole way through stages 5-8 at once, against one shared
+    /// recorder: each gates its own request, carries its own decision back, and
+    /// records its own outcome, so a session borrowing the other's shows up here
+    /// as a wrong value rather than only as a wrong count.
+    @Test("Two concurrent sessions each gate, answer, and record their own project's work")
     func concurrentSessionsAreIsolated() async {
         let writer = RecordingSessionRecordWriter()
+        let projectA = ProjectIdentifier(rawValue: "project-a")
+        let projectB = ProjectIdentifier(rawValue: "project-b")
+        let adapterA = ScriptedAgentAdapter(events: [
+            .permissionRequest(AgentPermissionRequest(id: "a1", prompt: "Write a.swift", toolName: "Write")),
+            terminated(.exited(code: 0))
+        ])
+        let adapterB = ScriptedAgentAdapter(events: [
+            .permissionRequest(AgentPermissionRequest(id: "b1", prompt: "Write b.swift", toolName: "Write")),
+            terminated(.exited(code: 2), lastOutput: "error: refused")
+        ])
+        let logA = RecordingGatedDecisionLog()
+        let logB = RecordingGatedDecisionLog()
         let first = makeTestPipeline(
-            preCheck: FixedSafeguardsPreCheck(.approved),
-            adapter: ScriptedAgentAdapter(events: [terminated(.exited(code: 0))]),
+            adapter: adapterA,
+            gate: RecordingSafeguardsGate(.allowed),
+            decisionLog: logA,
             recordWriter: writer
         )
         let second = makeTestPipeline(
-            preCheck: FixedSafeguardsPreCheck(.denied(reason: "Not for this project.")),
-            adapter: ScriptedAgentAdapter(events: [terminated(.exited(code: 0))]),
+            adapter: adapterB,
+            gate: RecordingSafeguardsGate(.denied),
+            decisionLog: logB,
             recordWriter: writer
         )
-        let projectA = ProjectIdentifier(rawValue: "project-a")
-        let projectB = ProjectIdentifier(rawValue: "project-b")
 
         async let recordA = runTestSession(first, intent: makeTestIntent(project: projectA))
         async let recordB = runTestSession(second, intent: makeTestIntent(project: projectB))
@@ -222,7 +330,15 @@ struct SessionPipelineTests {
         #expect(resultA.project == projectA)
         #expect(resultA.outcome == .succeeded(TestDefaults.usage))
         #expect(resultB.project == projectB)
-        #expect(resultB.outcome == .safeguardsPreCheckDenied(reason: "Not for this project."))
+        #expect(resultB.outcome == .failed(
+            reason: "The agent exited with code 2.",
+            lastOutput: "error: refused",
+            tokenReport: TestDefaults.usage
+        ))
+        #expect(await adapterA.carriedDecisions == ["a1": .allowed])
+        #expect(await adapterB.carriedDecisions == ["b1": .denied])
+        #expect(await logA.entries.map(\.project) == [projectA])
+        #expect(await logB.entries.map(\.project) == [projectB])
         #expect(await writer.written.count == 2)
     }
 }

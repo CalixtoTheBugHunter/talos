@@ -19,28 +19,51 @@ public enum SessionOutcome: Equatable, Sendable {
     case succeeded(TokenReport)
     /// The agent exited non-zero or never launched — including a crash, where
     /// `tokenReport` is whatever the adapter could still report.
-    case failed(reason: String, tokenReport: TokenReport)
+    ///
+    /// `lastOutput` is the agent's own final words, carried rather than
+    /// summarized: failure copy names "what failed, where, and what state
+    /// things are in", and a message that drops the state clause sends the user
+    /// to a terminal to learn what Talos already knew. Empty when the agent
+    /// produced none.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Content-and-Voice
+    case failed(reason: String, lastOutput: String = "", tokenReport: TokenReport)
     case stopped(TokenReport)
     case denied(TokenReport)
 }
 
 /// The row one finished session writes, exactly once.
 ///
-/// Deliberately minimal: it carries the project, the sub-function, and the
-/// outcome — which is also what stage 10 owes the Monitor Screen, since
-/// `SessionOutcome` carries the ``TokenReport``. The richer schema
-/// (durations, tool-call and approval counts, queryability) is tracked
-/// separately.
+/// Deliberately minimal: it carries the project, the sub-function, the outcome
+/// — which is also what stage 10 owes the Monitor Screen, since
+/// `SessionOutcome` carries the ``TokenReport`` — and what stage 3 could not
+/// fit. The richer schema (durations, tool-call and approval counts,
+/// queryability) is tracked separately.
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary#the-shared-session-model
 public struct SessionRecord: Equatable, Sendable {
     public let project: ProjectIdentifier
     public let subFunction: SubFunction
     public let outcome: SessionOutcome
+    /// Context parts dropped to satisfy the ceiling, and parts that had nothing
+    /// to assemble. Both travel with the record because a dropped part is
+    /// reported "on the output, in the session, and on the Monitor" — a session
+    /// that ran on less context than it asked for and did not say so has
+    /// dropped it silently.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Talos-Guidelines#when-assembled-context-exceeds-the-ceiling
+    public let droppedContextParts: [DroppedContextPart]
+    public let unavailableContextParts: [UnavailableContextPart]
 
-    public init(project: ProjectIdentifier, subFunction: SubFunction, outcome: SessionOutcome) {
+    public init(
+        project: ProjectIdentifier,
+        subFunction: SubFunction,
+        outcome: SessionOutcome,
+        droppedContextParts: [DroppedContextPart] = [],
+        unavailableContextParts: [UnavailableContextPart] = []
+    ) {
         self.project = project
         self.subFunction = subFunction
         self.outcome = outcome
+        self.droppedContextParts = droppedContextParts
+        self.unavailableContextParts = unavailableContextParts
     }
 }
 
