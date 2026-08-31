@@ -68,23 +68,27 @@ struct TieredSafeguardsGateRefusedTests {
     @Test("config.allowlist.write is refused even when the allowlist would have said yes")
     func configAllowlistWrite() async {
         let allowlist = FixedAllowlist(true)
-        let gate = TieredSafeguardsGate(allowlist: allowlist, approvalPrompt: FixedPrompt(.allowed))
+        let prompt = FixedPrompt(.allowed)
+        let gate = TieredSafeguardsGate(allowlist: allowlist, approvalPrompt: prompt)
 
         let decision = await decide(gate, toolName: "config.allowlist.write")
 
         #expect(decision.classification == .refused)
         #expect(decision.outcome == .denied)
+        #expect(await prompt.presented.isEmpty)
     }
 
     @Test("config.tier.write is refused")
     func configTierWrite() async {
-        let gate = TieredSafeguardsGate(allowlist: FixedAllowlist(false), approvalPrompt: FixedPrompt(.allowed))
+        let prompt = FixedPrompt(.allowed)
+        let gate = TieredSafeguardsGate(allowlist: FixedAllowlist(false), approvalPrompt: prompt)
 
         let decision = await decide(gate, toolName: "config.tier.write")
 
         #expect(decision.classification == .refused)
         #expect(decision.outcome == .denied)
         #expect(decision.actor == .talos)
+        #expect(await prompt.presented.isEmpty)
     }
 }
 
