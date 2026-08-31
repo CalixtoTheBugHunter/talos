@@ -139,10 +139,15 @@ actor RecordingSafeguardsGate: SafeguardsGate {
     init(
         _ outcome: AgentPermissionDecision = .allowed,
         action: SafeguardsActionType = TestDefaults.action,
-        tier: SafeguardsTier = .write,
+        classification: SafeguardsClassification = .tier(.write),
         decidedBy: SafeguardsDecisionActor = .user
     ) {
-        decision = SafeguardsDecision(outcome: outcome, action: action, tier: tier, actor: decidedBy)
+        decision = SafeguardsDecision(
+            outcome: outcome,
+            action: action,
+            classification: classification,
+            actor: decidedBy
+        )
     }
 
     func decide(
@@ -183,7 +188,7 @@ actor BlockingSafeguardsGate: SafeguardsGate {
         return SafeguardsDecision(
             outcome: .denied,
             action: TestDefaults.action,
-            tier: .write,
+            classification: .tier(.write),
             actor: .talos
         )
     }

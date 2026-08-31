@@ -211,7 +211,7 @@ struct SessionPipelineTests {
         let decision = SafeguardsDecision(
             outcome: .denied,
             action: SafeguardsActionType(rawValue: "file.delete"),
-            tier: .irreversible,
+            classification: .tier(.irreversible),
             actor: .user
         )
         let log = RecordingGatedDecisionLog()
@@ -220,7 +220,7 @@ struct SessionPipelineTests {
             gate: RecordingSafeguardsGate(
                 decision.outcome,
                 action: decision.action,
-                tier: decision.tier,
+                classification: decision.classification,
                 decidedBy: decision.actor
             ),
             decisionLog: log

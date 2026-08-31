@@ -15,7 +15,7 @@ public struct GatedDecisionEntry: Equatable, Sendable {
     public let requestID: AgentPermissionRequest.ID
     public let requestPrompt: String
     public let action: SafeguardsActionType
-    public let tier: SafeguardsTier
+    public let classification: SafeguardsClassification
     public let actor: SafeguardsDecisionActor
     public let outcome: AgentPermissionDecision
 
@@ -32,7 +32,7 @@ public struct GatedDecisionEntry: Equatable, Sendable {
         requestID = request.id
         requestPrompt = request.prompt
         action = decision.action
-        tier = decision.tier
+        classification = decision.classification
         actor = decision.actor
         outcome = decision.outcome
     }
