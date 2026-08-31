@@ -175,6 +175,10 @@ public protocol AgentAdapter: Sendable {
     /// permission request waits unresolved — the state a session sits in
     /// longest, and the one where the user most wants out. The run ends with
     /// ``AgentTerminationReason/stopped`` and the stream finishes.
+    ///
+    /// It also completes when the calling task is already cancelled, which is
+    /// the usual way a user stop arrives. A stop that gave up because the
+    /// session was being torn down leaves the orphan the rule is about.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#stop-kills-the-tree
     func stop() async
 }

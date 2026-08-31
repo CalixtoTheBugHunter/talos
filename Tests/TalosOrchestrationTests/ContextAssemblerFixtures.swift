@@ -23,8 +23,17 @@ func makeTestSafeguards(rawText: String = "Never deploy on a Friday.") -> Safegu
     SafeguardsDocument(rawText: rawText)
 }
 
-func makeTestIntent(content: String = "Add a dark mode toggle.") -> Intent {
-    Intent(content: content, source: .userText, project: .generate(), requestingSubFunction: .assistant)
+func makeTestIntent(
+    content: String = "Add a dark mode toggle.",
+    project: ProjectIdentifier = .generate(),
+    requestingSubFunction: SubFunction = .assistant
+) -> Intent {
+    Intent(
+        content: content,
+        source: .userText,
+        project: project,
+        requestingSubFunction: requestingSubFunction
+    )
 }
 
 func makeTestAssembler(

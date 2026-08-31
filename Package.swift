@@ -43,7 +43,13 @@ let package = Package(
         ),
         .testTarget(name: "TalosProjectLibraryTests", dependencies: ["TalosProjectLibrary"]),
 
-        .target(name: "TalosSafeguards", dependencies: ["TalosCore"]),
+        // Depends on the Project Library (the pre-check reads the guideline,
+        // Safeguards, and connectors documents) and on the adapter layer (the
+        // gate decides an `AgentPermissionRequest`). Neither depends back.
+        .target(
+            name: "TalosSafeguards",
+            dependencies: ["TalosCore", "TalosProjectLibrary", "TalosAdapters"]
+        ),
 
         .target(name: "TalosAdapters", dependencies: ["TalosCore"]),
         .testTarget(
