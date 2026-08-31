@@ -177,7 +177,10 @@ struct SessionRecordMetricsTests {
             launch: SessionLaunch(agentName: testAgentName, configuration: TestLaunch.configuration())
         )
 
-        #expect(record.duration > 0)
+        // Exactly two reads of `clock` happen per run — start and finish —
+        // so this is the exact value, not just a positive one: it also
+        // catches a regression that inflates duration by some other amount.
+        #expect(record.duration == 1)
     }
 }
 
