@@ -34,6 +34,17 @@ public enum SafeguardsActionClassifier {
         return .tier(tiers[actionType] ?? .irreversible)
     }
 
+    /// Every name `taxonomy: 1` actually declares — the 3 refused plus the 43
+    /// tiered entries — distinct from what `classify` returns for a name
+    /// outside that set. `classify` must default an unknown name to
+    /// irreversible so the *gate* never falls through to read; a store
+    /// validating what a user may write into an allowlist needs the sharper
+    /// question this answers instead: is this name in the taxonomy at all.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#the-action-type-taxonomy
+    public static var knownActionTypes: Set<SafeguardsActionType> {
+        refused.union(tiers.keys)
+    }
+
     /// The three refused types. See
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#refused--not-a-tier
     ///
