@@ -154,7 +154,10 @@ public actor AllowlistStore: SafeguardsAllowlist {
     /// Only a write-tier name may be allowlisted: an unknown name is not in
     /// `taxonomy: 1` at all, a refused type has no approval path to begin
     /// with, a read-tier type is already always allowed, and an
-    /// irreversible-tier type is "not allowlistable, ever."
+    /// irreversible-tier type is "not allowlistable, ever." The tier check
+    /// alone already rejects every irreversible-tier type, 🔒 or not —
+    /// ``SafeguardsNeverAllowlistable`` is consulted only to pick the fix
+    /// message, never to narrow what this rejects.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#what-is-never-allowlistable
     private static func validateAllowlistable(_ action: SafeguardsActionType) throws {
         guard SafeguardsActionClassifier.knownActionTypes.contains(action) else {
@@ -164,10 +167,20 @@ public actor AllowlistStore: SafeguardsAllowlist {
             )
         }
         guard SafeguardsActionClassifier.classify(action) == .tier(.write) else {
-            throw AllowlistStoreError.invalidEntry(
-                action: action,
-                fix: "'\(action.rawValue)' is not write-tier and can never be allowlisted."
-            )
+            throw AllowlistStoreError.invalidEntry(action: action, fix: rejectionFix(for: action))
         }
+    }
+
+    /// Cites the SPEC's own words for one of the eight never-allowlistable
+    /// items, so the rejection is traceable to the rule rather than to this
+    /// store's paraphrase of it. Every other non-write-tier name keeps the
+    /// generic reason, which is already accurate for it.
+    private static func rejectionFix(for action: SafeguardsActionType) -> String {
+        guard SafeguardsNeverAllowlistable.registry.contains(action) else {
+            return "'\(action.rawValue)' is not write-tier and can never be allowlisted."
+        }
+        return "'\(action.rawValue)' is never allowlistable: \"No configuration, no user preference, and no " +
+            "agent request can move these out of in-the-moment approval.\" See " +
+            "https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#what-is-never-allowlistable"
     }
 }
