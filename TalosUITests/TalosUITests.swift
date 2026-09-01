@@ -25,6 +25,12 @@ final class TalosUITests: XCTestCase {
         try assertNoTalosOwnAccessibilityIssues(on: app)
     }
 
+    @MainActor
+    func testDeniedActionNoticePassesAccessibilityAuditWhilePresented() throws {
+        let app = launchWithDeniedNotice(tier: "irreversible")
+        try assertNoTalosOwnAccessibilityIssues(on: app)
+    }
+
     /// Asserts AC2, AC3, AC4, and AC8 of
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#rules
     /// for the tier "not allowlistable, ever": nothing pre-checked, Return
@@ -66,6 +72,14 @@ final class TalosUITests: XCTestCase {
     private func launchWithPendingApproval(tier: String) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["TALOS_UI_TEST_PENDING_APPROVAL"] = tier
+        app.launch()
+        return app
+    }
+
+    @MainActor
+    private func launchWithDeniedNotice(tier: String) -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchEnvironment["TALOS_UI_TEST_DENIED_NOTICE"] = tier
         app.launch()
         return app
     }

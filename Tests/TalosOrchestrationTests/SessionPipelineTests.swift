@@ -352,3 +352,33 @@ private actor RecordingObserver {
         events.append(event)
     }
 }
+
+/// "[The agent] never retries the same denied action silently" — a second
+/// `.permissionRequest` whose originating `.toolCall` repeats a denied
+/// signature is answered without asking the gate again.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#rules
+@Suite("Silent retry blocking")
+struct SilentRetryBlockingTests {
+    @Test("A retry of an already-denied signature is blocked without consulting the gate again")
+    func aRetryOfAnAlreadyDeniedSignatureIsBlockedWithoutConsultingTheGateAgain() async {
+        let deniedCall = AgentToolCall(id: "t1", name: "Bash", targets: ["rm -rf /tmp/scratch"])
+        let retryCall = AgentToolCall(id: "t2", name: "Bash", targets: ["rm -rf /tmp/scratch"])
+        let adapter = ScriptedAgentAdapter(events: [
+            .toolCall(deniedCall),
+            .permissionRequest(AgentPermissionRequest(id: "t1", prompt: "Delete /tmp/scratch", toolName: "Bash")),
+            .toolCall(retryCall),
+            .permissionRequest(AgentPermissionRequest(id: "t2", prompt: "Delete /tmp/scratch", toolName: "Bash")),
+            terminated(.exited(code: 0))
+        ])
+        let gate = RecordingSafeguardsGate(.denied)
+        let log = RecordingGatedDecisionLog()
+        let pipeline = makeTestPipeline(adapter: adapter, gate: gate, decisionLog: log)
+
+        _ = await runTestSession(pipeline)
+
+        #expect(await gate.seenRequests.map(\.id) == ["t1"])
+        #expect(await adapter.carriedDecisions == ["t1": .denied, "t2": .denied])
+        #expect(await log.entries.map(\.outcome) == [.denied, .denied])
+        #expect(await log.entries.last?.actor == .talos)
+    }
+}

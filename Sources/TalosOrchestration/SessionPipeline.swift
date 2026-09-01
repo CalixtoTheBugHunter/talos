@@ -1,5 +1,6 @@
 import Foundation
 import TalosAdapters
+import TalosCore
 import TalosProjectLibrary
 import TalosSafeguards
 
@@ -111,7 +112,7 @@ public enum SafeguardsPreCheckStageOutcome: Sendable {
 
 /// What a session launches with: the `agents.yaml` entry it runs on, bundled
 /// with where and in what environment it runs. Bundled into one value rather
-/// than two parameters on ``SessionPipeline/run(intent:guideline:safeguards:connectors:launch:observer:)``
+/// than two parameters on ``SessionPipeline/run(intent:guideline:safeguards:connectors:launch:observer:onDenial:)``
 /// because the caller always knows both at once — it already resolved
 /// `agentName` to build `configuration` — and because keeping them apart
 /// would be the parameter this module's own `function_parameter_count` limit
@@ -180,7 +181,8 @@ public struct SessionPipeline<
         safeguards: SafeguardsDocument,
         connectors: ConnectorsManifest,
         launch: SessionLaunch,
-        observer: (@Sendable (AgentEvent) async -> Void)? = nil
+        observer: (@Sendable (AgentEvent) async -> Void)? = nil,
+        onDenial: (@Sendable (SafeguardsActionType, String) async -> Void)? = nil
     ) async -> SessionRecord {
         let startedAt = now()
         let selected = IntentReceived(intent: intent).selectGuideline(guideline)
@@ -219,7 +221,8 @@ public struct SessionPipeline<
             adapter: adapter,
             gate: gate,
             decisionLog: decisionLog,
-            observer: observer
+            observer: observer,
+            onDenial: onDenial
         )
         return await finish(
             runOutcome.outcome,

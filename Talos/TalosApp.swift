@@ -5,22 +5,26 @@ import TalosCore
 import TalosSafeguards
 import TalosUI
 
-/// Otherwise deliberately empty except for the approval-prompt host — log
-/// export as a File-menu command rather than a bespoke control means
-/// VoiceOver, keyboard reach, and contrast come from `NSSavePanel`/`NSAlert`
-/// rather than from a Talos-authored surface there; the approval prompt is
-/// the first Talos-authored one, so its menu commands are wired here too.
+/// Otherwise deliberately empty except for the approval-prompt and
+/// denied-notice hosts — log export as a File-menu command rather than a
+/// bespoke control means VoiceOver, keyboard reach, and contrast come from
+/// `NSSavePanel`/`NSAlert` rather than from a Talos-authored surface there;
+/// the approval prompt is the first Talos-authored one, so its menu commands
+/// are wired here too.
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Interaction-and-Keyboard#menus-carry-the-shortcuts
 @main
 struct TalosApp: App {
     @State private var approvalPromptCenter = ApprovalPromptCenter()
+    @State private var deniedActionNoticeCenter = DeniedActionNoticeCenter()
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .approvalPromptHost(approvalPromptCenter)
+                .deniedActionNoticeHost(deniedActionNoticeCenter)
                 .task {
                     await seedApprovalPromptForUITestingIfRequested()
+                    await seedDeniedActionNoticeForUITestingIfRequested()
                 }
         }
         .commands {
@@ -76,6 +80,19 @@ struct TalosApp: App {
             prompt: "The agent wants to delete build/ and 3 cache files in Sources/Talos/Legacy/."
         )
         _ = await approvalPromptCenter.present(request, action: action, tier: tier)
+    }
+
+    /// Exists for the same reason as the seed above, and for the same
+    /// reason: `TalosUITests` needs to drive the real, mounted notice before
+    /// a session ever runs one for real.
+    @MainActor
+    private func seedDeniedActionNoticeForUITestingIfRequested() async {
+        guard let tierName = ProcessInfo.processInfo.environment["TALOS_UI_TEST_DENIED_NOTICE"] else { return }
+        let action: SafeguardsActionType = tierName == "irreversible" ? .fileDelete : .fileWrite
+        await deniedActionNoticeCenter.notify(
+            action: action,
+            requestPrompt: "The agent wants to delete build/ and 3 cache files in Sources/Talos/Legacy/."
+        )
     }
 }
 
