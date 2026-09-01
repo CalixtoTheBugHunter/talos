@@ -1,3 +1,4 @@
+import Foundation
 import TalosAdapters
 import TalosCore
 import TalosProjectLibrary
@@ -19,7 +20,10 @@ public struct SafeguardsApproved: Sendable {
 
     /// Stages 5-8: launches the agent, sends the prompt, streams output, routes
     /// every held action through `gate`, and writes each decision to
-    /// `decisionLog` before carrying it back to the adapter.
+    /// `decisionLog` before carrying it back to the adapter. `sessionID` is
+    /// the id the caller already minted for this run — not generated here —
+    /// so every row this run logs carries the same session id the eventual
+    /// session record does; `now` timestamps each row.
     ///
     /// A tool call and a permission request stay two distinct events here, and
     /// the gate answers only the second: a `.permissionRequest` is an action
@@ -36,10 +40,12 @@ public struct SafeguardsApproved: Sendable {
     /// including a pending prompt, which is where a session waits longest.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#rules
     public func run(
+        sessionID: UUID,
         launchConfiguration: AgentLaunchConfiguration,
         adapter: some AgentAdapter,
         gate: some SafeguardsGate,
         decisionLog: any GatedDecisionLog,
+        now: @escaping @Sendable () -> Date = Date.init,
         observer: (@Sendable (AgentEvent) async -> Void)? = nil,
         onDenial: (@Sendable (SafeguardsActionType, String) async -> Void)? = nil
     ) async -> SessionRunOutcome {
@@ -63,6 +69,8 @@ public struct SafeguardsApproved: Sendable {
             adapter: adapter,
             gate: gate,
             decisionLog: decisionLog,
+            sessionID: sessionID,
+            now: now,
             onDenial: onDenial
         )
         return await consume(stream, collaborators: collaborators, observer: observer)
@@ -173,6 +181,8 @@ public struct SafeguardsApproved: Sendable {
         }
         await collaborators.decisionLog.record(GatedDecisionEntry(
             project: intent.project,
+            sessionID: collaborators.sessionID,
+            timestamp: collaborators.now(),
             subFunction: intent.requestingSubFunction,
             request: request,
             decision: decision
@@ -290,15 +300,17 @@ private struct ToolCallSignature: Hashable, Sendable {
     let targets: [String]
 }
 
-/// Everything ``SafeguardsApproved/run(launchConfiguration:adapter:gate:decisionLog:observer:onDenial:)``
+/// Everything ``SafeguardsApproved/run(sessionID:launchConfiguration:adapter:gate:decisionLog:now:observer:onDenial:)``
 /// needs to route one session, bundled so `consume`/`carry` take one
-/// parameter for all four instead of four — the shape this module's own
-/// `function_parameter_count` limit forces, and a reasonable one: the four
+/// parameter for all six instead of six — the shape this module's own
+/// `function_parameter_count` limit forces, and a reasonable one: the six
 /// never vary independently within a single run.
 private struct SessionRunCollaborators<Adapter: AgentAdapter, Gate: SafeguardsGate> {
     let adapter: Adapter
     let gate: Gate
     let decisionLog: any GatedDecisionLog
+    let sessionID: UUID
+    let now: @Sendable () -> Date
     let onDenial: (@Sendable (SafeguardsActionType, String) async -> Void)?
 }
 

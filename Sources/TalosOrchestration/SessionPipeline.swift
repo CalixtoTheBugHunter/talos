@@ -127,6 +127,16 @@ public struct SessionLaunch: Sendable {
     }
 }
 
+/// The bookkeeping `run` establishes once, at stage 1, and every later stage
+/// reads rather than recomputes: the session id every gated decision this run
+/// produces is logged against, when the run started, and which declared
+/// agent it launched on.
+private struct SessionRunBookkeeping: Sendable {
+    let sessionID: UUID
+    let startedAt: Date
+    let agentName: String
+}
+
 /// Drives one session through all eleven stages.
 ///
 /// The single call site that writes the session record and updates memories,
@@ -184,7 +194,11 @@ public struct SessionPipeline<
         observer: (@Sendable (AgentEvent) async -> Void)? = nil,
         onDenial: (@Sendable (SafeguardsActionType, String) async -> Void)? = nil
     ) async -> SessionRecord {
-        let startedAt = now()
+        let bookkeeping = SessionRunBookkeeping(
+            sessionID: makeRecordID(),
+            startedAt: now(),
+            agentName: launch.agentName
+        )
         let selected = IntentReceived(intent: intent).selectGuideline(guideline)
 
         let assembled: ContextAssembled
@@ -194,9 +208,8 @@ public struct SessionPipeline<
         case let .failed(failure):
             return await finish(
                 .contextAssemblyFailed(failure),
+                bookkeeping: bookkeeping,
                 for: intent,
-                agentName: launch.agentName,
-                startedAt: startedAt,
                 metrics: SessionRunMetrics()
             )
         }
@@ -208,27 +221,27 @@ public struct SessionPipeline<
         case let .denied(reason):
             return await finish(
                 .safeguardsPreCheckDenied(reason: reason),
+                bookkeeping: bookkeeping,
                 for: intent,
-                agentName: launch.agentName,
-                startedAt: startedAt,
                 metrics: SessionRunMetrics(),
                 context: assembled.context
             )
         }
 
         let runOutcome = await approved.run(
+            sessionID: bookkeeping.sessionID,
             launchConfiguration: launch.configuration,
             adapter: adapter,
             gate: gate,
             decisionLog: decisionLog,
+            now: now,
             observer: observer,
             onDenial: onDenial
         )
         return await finish(
             runOutcome.outcome,
+            bookkeeping: bookkeeping,
             for: intent,
-            agentName: launch.agentName,
-            startedAt: startedAt,
             metrics: runOutcome.metrics,
             context: approved.context
         )
@@ -243,22 +256,27 @@ public struct SessionPipeline<
     /// case that has no dropped parts to report — it failed on the pinned parts
     /// alone, and added zero tokens: `tokenOverheadRatio` is `0` for exactly
     /// that reason, not a guess.
+    ///
+    /// `bookkeeping.sessionID` is minted once, at the top of `run`, rather
+    /// than here — every gated decision the run produced was already logged
+    /// against it by the time this stage runs, so generating a second id here
+    /// would leave the session record and its own gated-decision-log rows
+    /// correlated by nothing.
     private func finish(
         _ outcome: SessionOutcome,
+        bookkeeping: SessionRunBookkeeping,
         for intent: Intent,
-        agentName: String,
-        startedAt: Date,
         metrics: SessionRunMetrics,
         context: AssembledContext? = nil
     ) async -> SessionRecord {
         let record = SessionRecord(
-            id: makeRecordID(),
+            id: bookkeeping.sessionID,
             project: intent.project,
             subFunction: intent.requestingSubFunction,
-            agentName: agentName,
+            agentName: bookkeeping.agentName,
             outcome: outcome,
-            startedAt: startedAt,
-            duration: now().timeIntervalSince(startedAt),
+            startedAt: bookkeeping.startedAt,
+            duration: now().timeIntervalSince(bookkeeping.startedAt),
             toolCallCount: metrics.toolCallCount,
             approvalCount: metrics.approvalCount,
             denialCount: metrics.denialCount,

@@ -1,3 +1,4 @@
+import Foundation
 import TalosAdapters
 import TalosCore
 import TalosProjectLibrary
@@ -8,9 +9,15 @@ import TalosProjectLibrary
 /// The request's own id and wording travel with those four so a row names what
 /// the agent asked for in the words the user was shown, rather than a category
 /// a reader has to map back to an action.
+///
+/// `sessionID` and `timestamp` are not the gate's to know — they belong to the
+/// run carrying the decision, not the decision itself — so they are supplied
+/// by the caller rather than derived from `decision`.
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#rules
 public struct GatedDecisionEntry: Equatable, Sendable {
     public let project: ProjectIdentifier
+    public let sessionID: UUID
+    public let timestamp: Date
     public let subFunction: SubFunction
     public let requestID: AgentPermissionRequest.ID
     public let requestPrompt: String
@@ -23,11 +30,15 @@ public struct GatedDecisionEntry: Equatable, Sendable {
     /// outcome with another request's fields.
     public init(
         project: ProjectIdentifier,
+        sessionID: UUID,
+        timestamp: Date,
         subFunction: SubFunction,
         request: AgentPermissionRequest,
         decision: SafeguardsDecision
     ) {
         self.project = project
+        self.sessionID = sessionID
+        self.timestamp = timestamp
         self.subFunction = subFunction
         requestID = request.id
         requestPrompt = request.prompt

@@ -20,12 +20,22 @@ public enum SafeguardsTier: String, Equatable, Hashable, Sendable {
 /// act, not the user's: "a log that shows a user denial they never made is a
 /// wrong record rather than a cautious one."
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#the-gate-fails-closed
+///
+/// `allowlist` is its own case rather than folded into `talos`: "a decision
+/// made by an allowlist is still a gated decision", and a log that cannot
+/// name the allowlist as the actor cannot distinguish that pass from a
+/// fail-closed denial or a read-tier auto-allow, both of which are also
+/// Talos deciding with no prompt shown.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#rules
 public enum SafeguardsDecisionActor: String, Equatable, Hashable, Sendable {
     /// The user answered the prompt.
     case user
     /// Talos answered without the user deciding — a fail-closed denial, or an
     /// outcome the tier settles with no prompt at all.
     case talos
+    /// A write-tier action matched an existing allowlist entry, so it was
+    /// allowed without presenting a prompt.
+    case allowlist
 }
 
 /// What the gate decided, carrying the four fields a gated decision is logged
