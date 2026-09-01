@@ -2,6 +2,18 @@ import TalosAdapters
 import TalosCore
 import TalosProjectLibrary
 
+/// Maps an adapter-identified verb onto the classifier's own — a translation
+/// rather than a shared type, since ``AgentConnectorVerb`` lives in
+/// `TalosAdapters`, which does not depend on `TalosSafeguards`.
+private extension AgentConnectorVerb {
+    var safeguardsVerb: SafeguardsConnectorVerb {
+        switch self {
+        case .read: .read
+        case .write: .write
+        }
+    }
+}
+
 /// The gate's own decision logic: classify, then settle the outcome per
 /// [tier](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#tiers)
 /// without ever widening one.
@@ -25,11 +37,14 @@ import TalosProjectLibrary
 ///   actor Talos: "a gate that cannot obtain a decision denies."
 ///   https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#the-gate-fails-closed
 ///
-/// The action type is read from `request.toolName`, which is the adapter's
-/// own tool name rather than a taxonomy name until an adapter classifies its
-/// own calls — a future, adapter-specific change tracked separately. Until
-/// then a name absent from the taxonomy classifies as irreversible, which is
-/// the classifier's designed-for safe default, not a defect of this gate.
+/// The action type comes from `request.connectorAccess` when the adapter
+/// identified one — resolved against `connectors.yaml` here, at decision
+/// time, per call — else from `request.toolName` read directly as a taxonomy
+/// name. `toolName` is the adapter's own tool name rather than a taxonomy
+/// name until an adapter classifies its own calls — a future, adapter-specific
+/// change tracked separately. Until then a name absent from the taxonomy
+/// classifies as irreversible, which is the classifier's designed-for safe
+/// default, not a defect of this gate.
 ///
 /// Takes no guideline, intent, or session-instruction text as input, so
 /// nothing carried in a prompt or a guideline can reach this decision at
@@ -38,10 +53,16 @@ import TalosProjectLibrary
 public struct TieredSafeguardsGate: SafeguardsGate {
     private let allowlist: any SafeguardsAllowlist
     private let approvalPrompt: any SafeguardsApprovalPrompt
+    private let connectors: ConnectorsManifest
 
-    public init(allowlist: any SafeguardsAllowlist, approvalPrompt: any SafeguardsApprovalPrompt) {
+    public init(
+        allowlist: any SafeguardsAllowlist,
+        approvalPrompt: any SafeguardsApprovalPrompt,
+        connectors: ConnectorsManifest = ConnectorsManifest()
+    ) {
         self.allowlist = allowlist
         self.approvalPrompt = approvalPrompt
+        self.connectors = connectors
     }
 
     public func decide(
@@ -49,7 +70,7 @@ public struct TieredSafeguardsGate: SafeguardsGate {
         project: ProjectIdentifier,
         subFunction _: SubFunction
     ) async -> SafeguardsDecision {
-        let action = SafeguardsActionType(rawValue: request.toolName ?? "")
+        let action = resolvedAction(for: request)
         switch SafeguardsActionClassifier.classify(action) {
         case .refused:
             return SafeguardsDecision(outcome: .denied, action: action, classification: .refused, actor: .talos)
@@ -79,5 +100,16 @@ public struct TieredSafeguardsGate: SafeguardsGate {
             return SafeguardsDecision(outcome: .denied, action: action, classification: .tier(tier), actor: .talos)
         }
         return SafeguardsDecision(outcome: outcome, action: action, classification: .tier(tier), actor: .user)
+    }
+
+    /// A connector access resolves against `connectors.isDeclared` here, live,
+    /// rather than from any guess the adapter made — declared-ness can change
+    /// and is checked each time, never cached onto the call.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#what-is-never-allowlistable
+    private func resolvedAction(for request: AgentPermissionRequest) -> SafeguardsActionType {
+        guard let access = request.connectorAccess else {
+            return SafeguardsActionType(rawValue: request.toolName ?? "")
+        }
+        return .connector(verb: access.verb.safeguardsVerb, declared: connectors.isDeclared(access.target))
     }
 }

@@ -56,6 +56,32 @@ public struct AgentToolCall: Equatable, Hashable, Sendable, Identifiable {
     }
 }
 
+/// Which side of a connector call an adapter identified — read or write
+/// against the target. Declared-ness is not this adapter's to decide, since
+/// `connectors.yaml` lives in a module this one does not depend on; see
+/// ``AgentConnectorAccess``.
+public enum AgentConnectorVerb: Equatable, Hashable, Sendable {
+    case read
+    case write
+}
+
+/// A connector target and verb an adapter identified for a held call, so the
+/// gate can resolve `connector.read` / `connector.write` / `connector.undeclared`
+/// against a live `connectors.yaml` lookup instead of guessing from
+/// ``AgentPermissionRequest/toolName``.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#the-action-type-taxonomy
+public struct AgentConnectorAccess: Equatable, Hashable, Sendable {
+    /// The connector name as declared in `connectors.yaml` — a lookup key,
+    /// not a URL or a display string.
+    public let target: String
+    public let verb: AgentConnectorVerb
+
+    public init(target: String, verb: AgentConnectorVerb) {
+        self.target = target
+        self.verb = verb
+    }
+}
+
 /// The agent's CLI asking for consent of its own accord — a question put to
 /// Talos, not an intent to run. The adapter surfaces it and carries back the
 /// decision the gate produced; it never answers.
@@ -67,11 +93,20 @@ public struct AgentPermissionRequest: Equatable, Hashable, Sendable, Identifiabl
     public let prompt: String
     /// The tool the CLI is asking about, when it named one.
     public let toolName: String?
+    /// A connector target and verb, when the adapter identified one. `nil`
+    /// falls back to ``toolName``.
+    public let connectorAccess: AgentConnectorAccess?
 
-    public init(id: String, prompt: String, toolName: String? = nil) {
+    public init(
+        id: String,
+        prompt: String,
+        toolName: String? = nil,
+        connectorAccess: AgentConnectorAccess? = nil
+    ) {
         self.id = id
         self.prompt = prompt
         self.toolName = toolName
+        self.connectorAccess = connectorAccess
     }
 }
 
