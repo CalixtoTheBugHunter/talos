@@ -1,4 +1,5 @@
 import TalosAdapters
+import TalosCore
 import TalosProjectLibrary
 import TalosSafeguards
 
@@ -135,20 +136,29 @@ public struct SafeguardsApproved: Sendable {
     /// logged and tallied either way, and the agent it would have been told
     /// is about to be killed.
     ///
-    /// A denial feeds `retries` the originating `.toolCall`'s signature, when
-    /// one was observed, so a later `.toolCall` with the same signature counts
-    /// as a retry.
+    /// A request whose originating `.toolCall` signature was already denied
+    /// this session is answered from `retries` without consulting `gate` —
+    /// the gate would ask a user who already said no, which is the prompt
+    /// the SPEC's "it never retries the same denied action silently" exists
+    /// to prevent. A denial feeds `retries` the originating `.toolCall`'s
+    /// signature, when one was observed, so a later `.toolCall` with the
+    /// same signature is blocked the same way.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#rules
     private func carry(
         _ request: AgentPermissionRequest,
         collaborators: SessionRunCollaborators<some AgentAdapter, some SafeguardsGate>,
         metrics: inout SessionRunMetrics,
         retries: inout RetryTracker
     ) async throws -> SessionRunOutcome? {
-        let decision = await collaborators.gate.decide(
-            request,
-            project: intent.project,
-            subFunction: intent.requestingSubFunction
-        )
+        let decision = if let blocked = retries.blockedDecision(for: request.id) {
+            blocked
+        } else {
+            await collaborators.gate.decide(
+                request,
+                project: intent.project,
+                subFunction: intent.requestingSubFunction
+            )
+        }
         await collaborators.decisionLog.record(GatedDecisionEntry(
             project: intent.project,
             subFunction: intent.requestingSubFunction,
@@ -160,7 +170,7 @@ public struct SafeguardsApproved: Sendable {
             metrics.approvalCount += 1
         case .denied:
             metrics.denialCount += 1
-            retries.noteDenial(of: request.id)
+            retries.noteDenial(of: request.id, action: decision.action, classification: decision.classification)
         }
         if Task.isCancelled {
             return await stop(adapter: collaborators.adapter, metrics: metrics)
@@ -279,28 +289,48 @@ private struct SessionRunCollaborators<Adapter: AgentAdapter, Gate: SafeguardsGa
 }
 
 /// Tracks which tool-call signatures have been denied this session, so a
-/// later `.toolCall` repeating one can be counted as a retry. Two calls
-/// contribute to this: `noteToolCall` remembers a call's own signature by
-/// its id, and `noteDenial` — given the id a `.permissionRequest` denial
-/// answers — promotes that remembered signature into the denied set.
+/// later `.toolCall` repeating one can be counted as a retry and a later
+/// `.permissionRequest` repeating one can be blocked without asking again.
+/// Two calls contribute to this: `noteToolCall` remembers a call's own
+/// signature by its id, and `noteDenial` — given the id and decision a
+/// `.permissionRequest` denial answers — promotes that remembered signature
+/// into the denied set, carrying the decision's own action and
+/// classification so a later block can log honestly without re-classifying.
 private struct RetryTracker {
     private var signaturesByCallID: [String: ToolCallSignature] = [:]
-    private var deniedSignatures: Set<ToolCallSignature> = []
+    private var deniedSignatures: [ToolCallSignature: SafeguardsDecision] = [:]
 
     /// Records `call`'s signature and reports whether it repeats one already
     /// denied this session.
     mutating func noteToolCall(_ call: AgentToolCall) -> Bool {
         let signature = ToolCallSignature(name: call.name, targets: call.targets)
         signaturesByCallID[call.id] = signature
-        return deniedSignatures.contains(signature)
+        return deniedSignatures.keys.contains(signature)
     }
 
-    /// The permission request `requestID` was denied. If it correlates to an
-    /// observed `.toolCall` (the adapter contract does not guarantee one
-    /// does), that call's signature is now a denied one.
-    mutating func noteDenial(of requestID: String) {
+    /// The permission request `requestID` was denied by `action`/`classification`.
+    /// If it correlates to an observed `.toolCall` (the adapter contract does
+    /// not guarantee one does), that call's signature is now a denied one.
+    mutating func noteDenial(
+        of requestID: String,
+        action: SafeguardsActionType,
+        classification: SafeguardsClassification
+    ) {
         guard let signature = signaturesByCallID[requestID] else { return }
-        deniedSignatures.insert(signature)
+        deniedSignatures[signature] = SafeguardsDecision(
+            outcome: .denied,
+            action: action,
+            classification: classification,
+            actor: .talos
+        )
+    }
+
+    /// A synthesized denial for `requestID`, if it correlates to a `.toolCall`
+    /// signature already denied this session — the gate is not consulted for
+    /// this decision, so the user is never asked about the same action twice.
+    func blockedDecision(for requestID: String) -> SafeguardsDecision? {
+        guard let signature = signaturesByCallID[requestID] else { return nil }
+        return deniedSignatures[signature]
     }
 }
 
