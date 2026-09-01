@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		7A10000000000000000A0001 /* TalosApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B0001 /* TalosApp.swift */; };
 		7A10000000000000000A0002 /* TalosCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A10000000000000000E0001 /* TalosCore */; };
+		7A10000000000000000A0005 /* TalosUI in Frameworks */ = {isa = PBXBuildFile; productRef = 7A1000000000000000170001 /* TalosUI */; };
 		7A10000000000000000A0003 /* MinimumSupportedOSTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B0005 /* MinimumSupportedOSTests.swift */; };
 		7A10000000000000000A0004 /* TalosCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A10000000000000000E0002 /* TalosCore */; };
 		7A20000000000000000A0001 /* TalosUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A20000000000000000B0001 /* TalosUITests.swift */; };
@@ -41,6 +42,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				7A10000000000000000A0002 /* TalosCore in Frameworks */,
+				7A10000000000000000A0005 /* TalosUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -126,6 +128,7 @@
 			name = Talos;
 			packageProductDependencies = (
 				7A10000000000000000E0001 /* TalosCore */,
+				7A1000000000000000170001 /* TalosUI */,
 			);
 			productName = Talos;
 			productReference = 7A10000000000000000B0004 /* Talos.app */;
@@ -488,6 +491,10 @@
 		7A10000000000000000E0002 /* TalosCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = TalosCore;
+		};
+		7A1000000000000000170001 /* TalosUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = TalosUI;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
