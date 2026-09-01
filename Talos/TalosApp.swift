@@ -1,16 +1,27 @@
 import AppKit
 import SwiftUI
+import TalosAdapters
 import TalosCore
+import TalosSafeguards
+import TalosUI
 
-/// Otherwise deliberately empty — the one real capability wired in here
-/// is log export as a File-menu command rather than a bespoke control, so
+/// Otherwise deliberately empty except for the approval-prompt host — log
+/// export as a File-menu command rather than a bespoke control means
 /// VoiceOver, keyboard reach, and contrast come from `NSSavePanel`/`NSAlert`
-/// rather than from a Talos-authored surface.
+/// rather than from a Talos-authored surface there; the approval prompt is
+/// the first Talos-authored one, so its menu commands are wired here too.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Interaction-and-Keyboard#menus-carry-the-shortcuts
 @main
 struct TalosApp: App {
+    @State private var approvalPromptCenter = ApprovalPromptCenter()
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .approvalPromptHost(approvalPromptCenter)
+                .task {
+                    await seedApprovalPromptForUITestingIfRequested()
+                }
         }
         .commands {
             CommandGroup(after: .saveItem) {
@@ -18,7 +29,53 @@ struct TalosApp: App {
                     LogExportCommand.run()
                 }
             }
+            CommandGroup(after: .toolbar) {
+                approveCommand
+                denyCommand
+            }
         }
+    }
+
+    /// Bound to the write-tier shortcut, and disabled — not just
+    /// shortcut-less — while the pending request is irreversible: that tier
+    /// is reachable "only by pointer, or by tabbing to the button [in the
+    /// prompt itself] and activating it deliberately", so this menu command
+    /// must not open a second path around that. See § Return never approves
+    /// an irreversible action.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Interaction-and-Keyboard
+    private var approveCommand: some View {
+        Button("Approve") {
+            if let pending = approvalPromptCenter.current {
+                approvalPromptCenter.resolve(pending.id, with: .allowed)
+            }
+        }
+        .keyboardShortcut(KeyboardShortcut(.return, modifiers: .command))
+        .disabled(approvalPromptCenter.current == nil || approvalPromptCenter.current?.tier == .irreversible)
+    }
+
+    private var denyCommand: some View {
+        Button("Deny") {
+            if let pending = approvalPromptCenter.current {
+                approvalPromptCenter.resolve(pending.id, with: .denied)
+            }
+        }
+        .keyboardShortcut(.cancelAction)
+        .disabled(approvalPromptCenter.current == nil)
+    }
+
+    /// Exists only so `TalosUITests` can drive the real, mounted approval
+    /// prompt before a Session Console or a live gate exists to raise one —
+    /// the launch-environment key it reads is never set by a normal launch.
+    @MainActor
+    private func seedApprovalPromptForUITestingIfRequested() async {
+        guard let tierName = ProcessInfo.processInfo.environment["TALOS_UI_TEST_PENDING_APPROVAL"] else { return }
+        let tier: SafeguardsTier = tierName == "irreversible" ? .irreversible : .write
+        let action: SafeguardsActionType = tier == .irreversible ? .fileDelete : .fileWrite
+        let request = AgentPermissionRequest(
+            id: "ui-test-\(tierName)",
+            prompt: "The agent wants to delete build/ and 3 cache files in Sources/Talos/Legacy/."
+        )
+        _ = await approvalPromptCenter.present(request, action: action, tier: tier)
     }
 }
 
