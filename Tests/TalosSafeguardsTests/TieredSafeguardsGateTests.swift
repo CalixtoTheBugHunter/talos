@@ -230,3 +230,94 @@ struct TieredSafeguardsGateClassificationTests {
         #expect(await prompt.presented.isEmpty)
     }
 }
+
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#the-action-type-taxonomy
+@Suite("Tiered Safeguards gate: connector access resolves against connectors.yaml")
+struct TieredSafeguardsGateConnectorTests {
+    private func makeDeclared(_ name: String) -> ConnectorsManifest {
+        ConnectorsManifest(connectors: [
+            ConnectorDeclaration(name: name, kind: .repo, target: "https://example.com/\(name)", reachedVia: .mcp)
+        ])
+    }
+
+    private func connectorRequest(target: String, verb: AgentConnectorVerb) -> AgentPermissionRequest {
+        AgentPermissionRequest(
+            id: "r1",
+            prompt: "connector call",
+            connectorAccess: AgentConnectorAccess(target: target, verb: verb)
+        )
+    }
+
+    @Test("A connector write against an undeclared target is irreversible and never reaches the allowlist")
+    func undeclaredConnectorWriteIsIrreversible() async {
+        let allowlist = FixedAllowlist(true)
+        let prompt = FixedPrompt(.denied)
+        let gate = TieredSafeguardsGate(allowlist: allowlist, approvalPrompt: prompt, connectors: ConnectorsManifest())
+
+        let decision = await gate.decide(
+            connectorRequest(target: "github-repo", verb: .write), project: testProject, subFunction: .automator
+        )
+
+        #expect(decision.action == .connectorUndeclared)
+        #expect(decision.classification == .tier(.irreversible))
+        #expect(await prompt.presented.count == 1)
+        #expect(await allowlist.checked.isEmpty)
+    }
+
+    @Test("A connector write against a declared target is write tier and consults the allowlist")
+    func declaredConnectorWriteIsWriteTier() async {
+        let allowlist = FixedAllowlist(true)
+        let prompt = FixedPrompt(.denied)
+        let gate = TieredSafeguardsGate(
+            allowlist: allowlist, approvalPrompt: prompt, connectors: makeDeclared("github-repo")
+        )
+
+        let decision = await gate.decide(
+            connectorRequest(target: "github-repo", verb: .write), project: testProject, subFunction: .automator
+        )
+
+        #expect(decision.action == .connectorWrite)
+        #expect(decision.classification == .tier(.write))
+        #expect(decision.outcome == .allowed)
+        #expect(await allowlist.checked.map(\.action) == [.connectorWrite])
+        #expect(await prompt.presented.isEmpty)
+    }
+
+    @Test("A connector read against a declared target is read tier")
+    func declaredConnectorReadIsReadTier() async {
+        let prompt = FixedPrompt(.denied)
+        let gate = TieredSafeguardsGate(
+            allowlist: FixedAllowlist(false), approvalPrompt: prompt, connectors: makeDeclared("ci")
+        )
+
+        let decision = await gate.decide(
+            connectorRequest(target: "ci", verb: .read), project: testProject, subFunction: .automator
+        )
+
+        #expect(decision.action == .connectorRead)
+        #expect(decision.classification == .tier(.read))
+        #expect(decision.outcome == .allowed)
+        #expect(await prompt.presented.isEmpty)
+    }
+
+    /// The same target and verb resolve to opposite outcomes depending only
+    /// on which manifest the gate holds — proof the lookup happens against
+    /// the live registry at decision time, not from a value cached on the
+    /// request or guessed from `toolName`.
+    @Test("The same target resolves declared or undeclared depending on the manifest, not on the request")
+    func sameTargetResolvesAgainstTheLiveManifest() async {
+        let request = connectorRequest(target: "ci", verb: .read)
+        let undeclaredGate = TieredSafeguardsGate(
+            allowlist: FixedAllowlist(false), approvalPrompt: FixedPrompt(.denied), connectors: ConnectorsManifest()
+        )
+        let declaredGate = TieredSafeguardsGate(
+            allowlist: FixedAllowlist(false), approvalPrompt: FixedPrompt(.denied), connectors: makeDeclared("ci")
+        )
+
+        let undeclaredDecision = await undeclaredGate.decide(request, project: testProject, subFunction: .automator)
+        let declaredDecision = await declaredGate.decide(request, project: testProject, subFunction: .automator)
+
+        #expect(undeclaredDecision.classification == .tier(.irreversible))
+        #expect(declaredDecision.classification == .tier(.read))
+    }
+}
