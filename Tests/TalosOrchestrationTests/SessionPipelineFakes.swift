@@ -333,7 +333,8 @@ func runTestSession(
     _ pipeline: SessionPipeline<FixedSafeguardsPreCheck, ScriptedAgentAdapter, some SafeguardsGate>,
     intent: Intent = makeTestIntent(),
     agentName: String = testAgentName,
-    observer: (@Sendable (AgentEvent) async -> Void)? = nil
+    observer: (@Sendable (AgentEvent) async -> Void)? = nil,
+    onDenial: (@Sendable (SafeguardsActionType, String) async -> Void)? = nil
 ) async -> SessionRecord {
     await pipeline.run(
         intent: intent,
@@ -341,6 +342,7 @@ func runTestSession(
         safeguards: makeTestSafeguards(),
         connectors: makeTestConnectors(),
         launch: SessionLaunch(agentName: agentName, configuration: TestLaunch.configuration()),
-        observer: observer
+        observer: observer,
+        onDenial: onDenial
     )
 }

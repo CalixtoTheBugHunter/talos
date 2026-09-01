@@ -10,11 +10,11 @@ import Testing
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/MVP-Definition-of-Done#notes-on-the-harder-criteria
 ///
 /// The user-visible half of "a denial handled cleanly" — a clear,
-/// non-alarming indication — is discharged by the approval prompt's own
-/// neutral copy (`SafeguardsApprovalCopy`, `SafeguardsApprovalPromptView`)
-/// for the interactive path exercised below. Visibility of a denial inline
-/// in a session transcript belongs to the Session Console, which does not
-/// exist yet.
+/// non-alarming indication — is `SessionRun`'s `onDenial` callback, asserted
+/// below for both the interactive denial and the blocked retry alike: a
+/// blocked repeat never reaches the approval prompt, so it needed its own
+/// path to the user rather than inheriting the prompt's.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#denial-is-not-failure
 @Suite("Denial handled cleanly")
 struct DenialHandledCleanlyTests {
     @Test(
@@ -34,9 +34,10 @@ struct DenialHandledCleanlyTests {
         let gate = TieredSafeguardsGate(allowlist: NeverAllowlisted(), approvalPrompt: prompt)
         let log = RecordingGatedDecisionLog()
         let sideEffect = SideEffectSpy()
+        let deniedNotices = RecordingDeniedNotices()
         let pipeline = makeTestPipeline(adapter: adapter, gate: gate, decisionLog: log)
 
-        let record = await runTestSession(pipeline)
+        let record = await runTestSession(pipeline, onDenial: { await deniedNotices.record($0, $1) })
 
         // AC1 + AC2: the agent was told, through the normal carry-back path,
         // and the session finished as an ordinary successful run rather than
@@ -61,6 +62,21 @@ struct DenialHandledCleanlyTests {
         #expect(record.denialCount == 2)
         #expect(await log.entries.map(\.outcome) == [.denied, .denied])
         #expect(await log.entries.map(\.actor) == [.user, .talos])
+
+        // AC6: the user was told, for both denials — including the blocked
+        // retry, which never showed the prompt at all.
+        #expect(await deniedNotices.actions == [.fileWrite, .fileWrite])
+    }
+}
+
+/// Independently observes every call `onDenial` actually received, so a
+/// regression that stops calling it for the blocked path is caught here
+/// rather than only in the prompt's own count.
+private actor RecordingDeniedNotices {
+    private(set) var actions: [SafeguardsActionType] = []
+
+    func record(_ action: SafeguardsActionType, _: String) {
+        actions.append(action)
     }
 }
 

@@ -40,7 +40,8 @@ public struct SafeguardsApproved: Sendable {
         adapter: some AgentAdapter,
         gate: some SafeguardsGate,
         decisionLog: any GatedDecisionLog,
-        observer: (@Sendable (AgentEvent) async -> Void)? = nil
+        observer: (@Sendable (AgentEvent) async -> Void)? = nil,
+        onDenial: (@Sendable (SafeguardsActionType, String) async -> Void)? = nil
     ) async -> SessionRunOutcome {
         if Task.isCancelled {
             return await stop(adapter: adapter, metrics: SessionRunMetrics())
@@ -58,7 +59,12 @@ public struct SafeguardsApproved: Sendable {
             )
         }
 
-        let collaborators = SessionRunCollaborators(adapter: adapter, gate: gate, decisionLog: decisionLog)
+        let collaborators = SessionRunCollaborators(
+            adapter: adapter,
+            gate: gate,
+            decisionLog: decisionLog,
+            onDenial: onDenial
+        )
         return await consume(stream, collaborators: collaborators, observer: observer)
     }
 
@@ -144,6 +150,12 @@ public struct SafeguardsApproved: Sendable {
     /// signature, when one was observed, so a later `.toolCall` with the
     /// same signature is blocked the same way.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#rules
+    ///
+    /// `onDenial` fires for every denial reaching this point, whether the
+    /// gate was asked or the request was blocked without asking — the user
+    /// is owed the same clear, non-alarming indication either way, since a
+    /// blocked repeat is still a denial from their side of the gate.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#denial-is-not-failure
     private func carry(
         _ request: AgentPermissionRequest,
         collaborators: SessionRunCollaborators<some AgentAdapter, some SafeguardsGate>,
@@ -171,6 +183,7 @@ public struct SafeguardsApproved: Sendable {
         case .denied:
             metrics.denialCount += 1
             retries.noteDenial(of: request.id, action: decision.action, classification: decision.classification)
+            await collaborators.onDenial?(decision.action, request.prompt)
         }
         if Task.isCancelled {
             return await stop(adapter: collaborators.adapter, metrics: metrics)
@@ -277,15 +290,16 @@ private struct ToolCallSignature: Hashable, Sendable {
     let targets: [String]
 }
 
-/// Everything ``SafeguardsApproved/run(launchConfiguration:adapter:gate:decisionLog:observer:)``
+/// Everything ``SafeguardsApproved/run(launchConfiguration:adapter:gate:decisionLog:observer:onDenial:)``
 /// needs to route one session, bundled so `consume`/`carry` take one
-/// parameter for all three instead of three — the shape this module's own
-/// `function_parameter_count` limit forces, and a reasonable one: the three
+/// parameter for all four instead of four — the shape this module's own
+/// `function_parameter_count` limit forces, and a reasonable one: the four
 /// never vary independently within a single run.
 private struct SessionRunCollaborators<Adapter: AgentAdapter, Gate: SafeguardsGate> {
     let adapter: Adapter
     let gate: Gate
     let decisionLog: any GatedDecisionLog
+    let onDenial: (@Sendable (SafeguardsActionType, String) async -> Void)?
 }
 
 /// Tracks which tool-call signatures have been denied this session, so a
@@ -359,7 +373,7 @@ public struct SessionRunMetrics: Equatable, Sendable {
     }
 }
 
-/// What ``SafeguardsApproved/run(launchConfiguration:adapter:gate:decisionLog:observer:)``
+/// What ``SafeguardsApproved/run(launchConfiguration:adapter:gate:decisionLog:observer:onDenial:)``
 /// produces: the terminal ``SessionOutcome`` and the metrics accumulated
 /// reaching it.
 public struct SessionRunOutcome: Sendable {
