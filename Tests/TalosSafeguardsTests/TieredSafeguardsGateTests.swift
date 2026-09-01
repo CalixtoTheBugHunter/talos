@@ -94,7 +94,7 @@ struct TieredSafeguardsGateRefusedTests {
 
 @Suite("Tiered Safeguards gate: write tier consults the allowlist")
 struct TieredSafeguardsGateWriteTierTests {
-    @Test("An allowlisted write-tier action is allowed by Talos, without presenting a prompt")
+    @Test("An allowlisted write-tier action is allowed by the allowlist, without presenting a prompt")
     func allowlistedWriteIsAllowedWithoutAPrompt() async {
         let allowlist = FixedAllowlist(true)
         let prompt = FixedPrompt(.denied)
@@ -104,7 +104,7 @@ struct TieredSafeguardsGateWriteTierTests {
 
         #expect(decision.outcome == .allowed)
         #expect(decision.classification == .tier(.write))
-        #expect(decision.actor == .talos)
+        #expect(decision.actor == .allowlist)
         #expect(await prompt.presented.isEmpty)
         #expect(await allowlist.checked.map(\.action) == [.fileWrite])
     }

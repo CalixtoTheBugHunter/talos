@@ -227,10 +227,13 @@ struct SessionPipelineTests {
         )
 
         let project = ProjectIdentifier(rawValue: "p-7")
-        _ = await runTestSession(pipeline, intent: makeTestIntent(project: project, requestingSubFunction: .automator))
+        let intent = makeTestIntent(project: project, requestingSubFunction: .automator)
+        let record = await runTestSession(pipeline, intent: intent)
 
         #expect(await log.entries == [GatedDecisionEntry(
             project: project,
+            sessionID: record.id,
+            timestamp: record.startedAt,
             subFunction: .automator,
             request: request,
             decision: decision

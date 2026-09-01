@@ -296,7 +296,7 @@ func makeTestPipeline<Gate: SafeguardsGate>(
     preCheck: FixedSafeguardsPreCheck = FixedSafeguardsPreCheck(),
     adapter: ScriptedAgentAdapter = ScriptedAgentAdapter(),
     gate: Gate = RecordingSafeguardsGate(),
-    decisionLog: RecordingGatedDecisionLog = RecordingGatedDecisionLog(),
+    decisionLog: any GatedDecisionLog = RecordingGatedDecisionLog(),
     recordWriter: RecordingSessionRecordWriter = RecordingSessionRecordWriter(),
     memories: RecordingMemoriesUpdatePort = RecordingMemoriesUpdatePort(),
     assembler: ContextAssembler = makeTestAssembler()

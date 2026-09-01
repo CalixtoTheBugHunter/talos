@@ -23,8 +23,8 @@ private extension AgentConnectorVerb {
 ///   never have.
 ///   https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#refused--not-a-tier
 /// - Write tier checks `allowlist` first; a hit resolves without a prompt,
-///   actor Talos — an allowlisted pass is still a gated decision, decided by
-///   Talos rather than asked of the user.
+///   actor `.allowlist` — an allowlisted pass is still a gated decision,
+///   decided by the allowlist rather than asked of the user.
 /// - Irreversible tier never consults `allowlist` at all, so nothing here can
 ///   make one allowlistable by mistake: "not allowlistable, ever."
 /// - Read tier resolves allowed without a prompt. A held action reaching the
@@ -82,7 +82,7 @@ public struct TieredSafeguardsGate: SafeguardsGate {
                     outcome: .allowed,
                     action: action,
                     classification: .tier(.write),
-                    actor: .talos
+                    actor: .allowlist
                 )
             }
             return await decideByPrompting(request, action: action, tier: .write)

@@ -31,6 +31,25 @@ final class TalosUITests: XCTestCase {
         try assertNoTalosOwnAccessibilityIssues(on: app)
     }
 
+    @MainActor
+    func testGatedDecisionLogReadyStatePassesAccessibilityAuditWhilePresented() throws {
+        let app = launchWithGatedDecisionLog(state: "ready")
+        try assertNoTalosOwnAccessibilityIssues(on: app)
+    }
+
+    @MainActor
+    func testGatedDecisionLogEmptyStatePassesAccessibilityAuditWhilePresented() throws {
+        let app = launchWithGatedDecisionLog(state: "empty")
+        try assertNoTalosOwnAccessibilityIssues(on: app)
+    }
+
+    @MainActor
+    func testGatedDecisionLogFailedStateOffersARetryControl() throws {
+        let app = launchWithGatedDecisionLog(state: "failed")
+        XCTAssertTrue(app.buttons["Retry"].waitForExistence(timeout: 5))
+        try assertNoTalosOwnAccessibilityIssues(on: app)
+    }
+
     /// Asserts AC2, AC3, AC4, and AC8 of
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#rules
     /// for the tier "not allowlistable, ever": nothing pre-checked, Return
@@ -80,6 +99,14 @@ final class TalosUITests: XCTestCase {
     private func launchWithDeniedNotice(tier: String) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["TALOS_UI_TEST_DENIED_NOTICE"] = tier
+        app.launch()
+        return app
+    }
+
+    @MainActor
+    private func launchWithGatedDecisionLog(state: String) -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchEnvironment["TALOS_UI_TEST_GATED_DECISION_LOG"] = state
         app.launch()
         return app
     }
