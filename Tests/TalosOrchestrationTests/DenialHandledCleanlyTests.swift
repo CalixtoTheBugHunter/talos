@@ -5,18 +5,16 @@ import TalosProjectLibrary
 import TalosSafeguards
 import Testing
 
-/// The end-to-end test [issue #69](https://github.com/CalixtoTheBugHunter/talos/issues/69) itself
-/// requires: a real mutation, denied through the real gate, asserting every
-/// piece of "a denial handled cleanly" together rather than one at a time.
+/// A real mutation, denied through the real gate, asserting every piece of
+/// "a denial handled cleanly" together rather than one at a time.
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/MVP-Definition-of-Done#notes-on-the-harder-criteria
 ///
 /// The user-visible half of "a denial handled cleanly" — a clear,
 /// non-alarming indication — is discharged by the approval prompt's own
-/// neutral copy (`SafeguardsApprovalCopy`, `SafeguardsApprovalPromptView`,
-/// shipped and reviewed already) for the interactive path exercised below;
-/// full inline-transcript visibility of a denial is
-/// [issue #75](https://github.com/CalixtoTheBugHunter/talos/issues/75)'s own
-/// acceptance criterion, against a Session Console that does not exist yet.
+/// neutral copy (`SafeguardsApprovalCopy`, `SafeguardsApprovalPromptView`)
+/// for the interactive path exercised below. Visibility of a denial inline
+/// in a session transcript belongs to the Session Console, which does not
+/// exist yet.
 @Suite("Denial handled cleanly")
 struct DenialHandledCleanlyTests {
     @Test(
