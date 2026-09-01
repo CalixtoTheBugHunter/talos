@@ -21,9 +21,8 @@ public struct SafeguardsApproved: Sendable {
     /// Stages 5-8: launches the agent, sends the prompt, streams output, routes
     /// every held action through `gate`, and writes each decision to
     /// `decisionLog` before carrying it back to the adapter. `sessionID` is
-    /// the id the caller already minted for this run — not generated here —
-    /// so every row this run logs carries the same session id the eventual
-    /// session record does; `now` timestamps each row.
+    /// minted once by the caller, not here, so every logged row shares the
+    /// eventual session record's id; `now` timestamps each row.
     ///
     /// A tool call and a permission request stay two distinct events here, and
     /// the gate answers only the second: a `.permissionRequest` is an action
@@ -80,10 +79,9 @@ public struct SafeguardsApproved: Sendable {
     /// that decides the session's outcome. Tallies ``SessionRunMetrics`` as
     /// events arrive: a `.toolCall` increments the tool-call count and, when
     /// its (name, targets) signature matches one already denied this session,
-    /// the retry count — the concrete reading of "[the agent]... never
-    /// retries the same denied action silently"
-    /// (https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#rules)
-    /// available to observe from the adapter contract.
+    /// the retry count — the concrete reading of "[the agent]... never retries
+    /// the same denied action silently" available from the adapter contract.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#rules
     private func consume(
         _ stream: AgentEventStream,
         collaborators: SessionRunCollaborators<some AgentAdapter, some SafeguardsGate>,
@@ -179,14 +177,14 @@ public struct SafeguardsApproved: Sendable {
                 subFunction: intent.requestingSubFunction
             )
         }
-        await collaborators.decisionLog.record(GatedDecisionEntry(
+        let entry = GatedDecisionEntry(
             project: intent.project,
             sessionID: collaborators.sessionID,
             timestamp: collaborators.now(),
             subFunction: intent.requestingSubFunction,
             request: request,
             decision: decision
-        ))
+        )
         switch decision.outcome {
         case .allowed:
             metrics.approvalCount += 1
@@ -196,9 +194,12 @@ public struct SafeguardsApproved: Sendable {
             await collaborators.onDenial?(decision.action, request.prompt)
         }
         if Task.isCancelled {
+            await collaborators.decisionLog.record(entry)
             return await stop(adapter: collaborators.adapter, metrics: metrics)
         }
+        // Resolved before logged: a slow write never delays the agent's answer.
         try await collaborators.adapter.resolve(request.id, with: decision.outcome)
+        await collaborators.decisionLog.record(entry)
         return nil
     }
 
