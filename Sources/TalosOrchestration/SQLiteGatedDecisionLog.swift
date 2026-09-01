@@ -50,6 +50,32 @@ public struct StoredGatedDecisionEntry: Identifiable, Equatable, Sendable {
     public let classification: SafeguardsClassification
     public let actor: SafeguardsDecisionActor
     public let outcome: AgentPermissionDecision
+
+    public init(
+        id: Int,
+        project: ProjectIdentifier,
+        sessionID: UUID,
+        timestamp: Date,
+        subFunction: SubFunction,
+        requestID: String,
+        requestPrompt: String,
+        action: SafeguardsActionType,
+        classification: SafeguardsClassification,
+        actor: SafeguardsDecisionActor,
+        outcome: AgentPermissionDecision
+    ) {
+        self.id = id
+        self.project = project
+        self.sessionID = sessionID
+        self.timestamp = timestamp
+        self.subFunction = subFunction
+        self.requestID = requestID
+        self.requestPrompt = requestPrompt
+        self.action = action
+        self.classification = classification
+        self.actor = actor
+        self.outcome = outcome
+    }
 }
 
 /// Persists ``GatedDecisionEntry`` to the local SQLite database.

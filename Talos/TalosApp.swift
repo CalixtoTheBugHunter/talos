@@ -1,7 +1,10 @@
 import AppKit
+import Foundation
 import SwiftUI
 import TalosAdapters
 import TalosCore
+import TalosOrchestration
+import TalosProjectLibrary
 import TalosSafeguards
 import TalosUI
 
@@ -16,15 +19,24 @@ import TalosUI
 struct TalosApp: App {
     @State private var approvalPromptCenter = ApprovalPromptCenter()
     @State private var deniedActionNoticeCenter = DeniedActionNoticeCenter()
+    @State private var isGatedDecisionLogPresented = false
+    @State private var gatedDecisionLogState: GatedDecisionLogViewModel.State = .loading
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .approvalPromptHost(approvalPromptCenter)
                 .deniedActionNoticeHost(deniedActionNoticeCenter)
+                .sheet(isPresented: $isGatedDecisionLogPresented) {
+                    GatedDecisionLogView(
+                        state: gatedDecisionLogState,
+                        onRetry: { seedGatedDecisionLogForUITestingIfRequested() }
+                    )
+                }
                 .task {
                     await seedApprovalPromptForUITestingIfRequested()
                     await seedDeniedActionNoticeForUITestingIfRequested()
+                    seedGatedDecisionLogForUITestingIfRequested()
                 }
         }
         .commands {
@@ -94,6 +106,74 @@ struct TalosApp: App {
             requestPrompt: "The agent wants to delete build/ and 3 cache files in Sources/Talos/Legacy/."
         )
     }
+
+    /// Exists for the same reason as the two seeds above: `TalosUITests`
+    /// needs to drive the real, mounted gated-decision-log view before any
+    /// screen exists to host it — mounting behind real navigation is
+    /// explicitly out of scope until one does.
+    @MainActor
+    private func seedGatedDecisionLogForUITestingIfRequested() {
+        guard let stateName = ProcessInfo.processInfo.environment["TALOS_UI_TEST_GATED_DECISION_LOG"] else { return }
+        gatedDecisionLogState = Self.seededGatedDecisionLogState(named: stateName)
+        isGatedDecisionLogPresented = true
+    }
+
+    private static func seededGatedDecisionLogState(named name: String) -> GatedDecisionLogViewModel.State {
+        switch name {
+        case "loading":
+            .loading
+        case "empty":
+            .empty
+        case "failed":
+            .failed("The decision log could not be read: the file is unreadable.")
+        default:
+            .ready(seededGatedDecisionLogEntries)
+        }
+    }
+
+    /// A first and a second decision, spaced two minutes apart, so a UI test
+    /// can see more than one row and both an irreversible denial and an
+    /// allowlisted write-tier pass.
+    private static let seededGatedDecisionLogEntries: [StoredGatedDecisionEntry] = {
+        let project = ProjectIdentifier(rawValue: "ui-test-project")
+        let firstTimestamp = Date(timeIntervalSince1970: seededGatedDecisionLogEpoch)
+        let secondTimestamp = firstTimestamp.addingTimeInterval(seededGatedDecisionLogEntrySpacing)
+        return [
+            StoredGatedDecisionEntry(
+                id: seededGatedDecisionLogFirstEntryID,
+                project: project,
+                sessionID: UUID(),
+                timestamp: firstTimestamp,
+                subFunction: .automator,
+                requestID: "ui-test-1",
+                requestPrompt: "The agent wants to delete build/ and 3 cache files in Sources/Talos/Legacy/.",
+                action: .fileDelete,
+                classification: .tier(.irreversible),
+                actor: .user,
+                outcome: .denied
+            ),
+            StoredGatedDecisionEntry(
+                id: seededGatedDecisionLogSecondEntryID,
+                project: project,
+                sessionID: UUID(),
+                timestamp: secondTimestamp,
+                subFunction: .automator,
+                requestID: "ui-test-2",
+                requestPrompt: "The agent wants to commit Sources/App/Secrets.swift.",
+                action: .gitCommit,
+                classification: .tier(.write),
+                actor: .allowlist,
+                outcome: .allowed
+            )
+        ]
+    }()
+
+    /// An arbitrary but fixed instant, so a UI test sees a stable timestamp
+    /// rather than the moment it happened to run.
+    private static let seededGatedDecisionLogEpoch: TimeInterval = 1_700_000_000
+    private static let seededGatedDecisionLogEntrySpacing: TimeInterval = 120
+    private static let seededGatedDecisionLogFirstEntryID = 1
+    private static let seededGatedDecisionLogSecondEntryID = 2
 }
 
 /// The export flow behind the "Export Logs for Bug Report…" menu command.
