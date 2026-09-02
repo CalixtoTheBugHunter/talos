@@ -84,6 +84,15 @@ actor AgentProcess {
     /// in `yield`, so a consumer slower than the child would force a choice
     /// between dropping an event and buffering without a bound.
     ///
+    /// `onCancel` is what makes stop reachable "at all times" rather than only
+    /// while a caller happens to be holding this actor's own reference: the
+    /// consumer's call into ``next()`` can be parked on the pipe for as long as
+    /// the child produces nothing, and unfolding's own cancellation handling
+    /// only stops it from calling `produce` *again* — it does not reach into an
+    /// already-suspended call and end it. Registering this closure is what
+    /// does: cancelling the task consuming this stream is, by itself, a stop.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#stop-kills-the-tree
+    ///
     /// - Throws: ``AgentSpawnFailure`` when the process never started, so a
     ///   failure to launch is not reported as a run that produced nothing.
     func start() throws -> AsyncThrowingStream<AgentProcessEvent, any Error> {
@@ -91,7 +100,12 @@ actor AgentProcess {
             return stream
         }
         try spawn()
-        let stream = AsyncThrowingStream<AgentProcessEvent, any Error>(unfolding: { try await self.next() })
+        let stream = AsyncThrowingStream<AgentProcessEvent, any Error>(unfolding: {
+            try await withTaskCancellationHandler(
+                operation: { try await self.next() },
+                onCancel: { Task { await self.stop() } }
+            )
+        })
         self.stream = stream
         return stream
     }

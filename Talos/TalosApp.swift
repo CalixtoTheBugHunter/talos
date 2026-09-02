@@ -19,6 +19,7 @@ import TalosUI
 struct TalosApp: App {
     @State private var approvalPromptCenter = ApprovalPromptCenter()
     @State private var deniedActionNoticeCenter = DeniedActionNoticeCenter()
+    @State private var sessionStopCenter = SessionStopCenter()
     @State private var isGatedDecisionLogPresented = false
     @State private var gatedDecisionLogState: GatedDecisionLogViewModel.State = .loading
 
@@ -27,6 +28,7 @@ struct TalosApp: App {
             ContentView()
                 .approvalPromptHost(approvalPromptCenter)
                 .deniedActionNoticeHost(deniedActionNoticeCenter)
+                .sessionStopHost(sessionStopCenter)
                 .sheet(isPresented: $isGatedDecisionLogPresented) {
                     GatedDecisionLogView(
                         state: gatedDecisionLogState,
@@ -37,6 +39,7 @@ struct TalosApp: App {
                     await seedApprovalPromptForUITestingIfRequested()
                     await seedDeniedActionNoticeForUITestingIfRequested()
                     seedGatedDecisionLogForUITestingIfRequested()
+                    seedSessionStopForUITestingIfRequested()
                 }
         }
         .commands {
@@ -48,6 +51,7 @@ struct TalosApp: App {
             CommandGroup(after: .toolbar) {
                 approveCommand
                 denyCommand
+                stopCommand
             }
         }
     }
@@ -79,6 +83,20 @@ struct TalosApp: App {
         .disabled(approvalPromptCenter.current == nil)
     }
 
+    /// The one app-scoped stop command, never a per-window copy: "`⌘.` is one
+    /// app-scoped command, in the menu bar, with no per-window copy and no
+    /// cross-window focus order to reason about" — bound here rather than on
+    /// the visible control itself, so the guarantee does not depend on which
+    /// view happens to be in the responder chain.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/App-Shell-and-Navigation#stop-stays-reachable
+    private var stopCommand: some View {
+        Button("Stop session") {
+            sessionStopCenter.requestStop()
+        }
+        .keyboardShortcut(".", modifiers: .command)
+        .disabled(!sessionStopCenter.isSessionRunning)
+    }
+
     /// Exists only so `TalosUITests` can drive the real, mounted approval
     /// prompt before a Session Console or a live gate exists to raise one —
     /// the launch-environment key it reads is never set by a normal launch.
@@ -105,6 +123,19 @@ struct TalosApp: App {
             action: action,
             requestPrompt: "The agent wants to delete build/ and 3 cache files in Sources/Talos/Legacy/."
         )
+    }
+
+    /// Exists for the same reason as the two seeds above: `TalosUITests`
+    /// needs to drive the real, mounted Stop control before a real session
+    /// ever starts one. The stop handler ends the tracked session rather than
+    /// running a real process — proving the control is present, activates
+    /// with no confirmation, is keyboard-reachable, and is VoiceOver-labeled
+    /// does not require a process behind it, which the real adapter and
+    /// process-tree tests own.
+    @MainActor
+    private func seedSessionStopForUITestingIfRequested() {
+        guard ProcessInfo.processInfo.environment["TALOS_UI_TEST_SESSION_RUNNING"] != nil else { return }
+        sessionStopCenter.beginTracking(stopping: { await sessionStopCenter.sessionEnded() })
     }
 
     /// Exists for the same reason as the two seeds above: `TalosUITests`

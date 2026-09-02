@@ -67,6 +67,49 @@ struct SessionPipelineTerminationTests {
         #expect(await writer.written.count == 1)
     }
 
+    /// "The user can **stop any running session immediately**, and stop means
+    /// the process is killed" — with no qualifier limiting that to a moment a
+    /// prompt happens to be pending. This is the state the prior test does
+    /// not reach: nothing is pending, the agent has simply produced nothing
+    /// more yet, and the pipeline's `for try await` is suspended on the
+    /// *next* event rather than on a gate decision.
+    ///
+    /// Proves the cancellation reaches `adapter.stop()` from that suspension
+    /// point too, rather than waiting for the stream to produce something on
+    /// its own — the gap this issue closes.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#stop-kills-the-tree
+    @Test("A stop while the agent is merely running, with nothing pending, still kills it")
+    func aStopWithNothingPendingKillsTheAgent() async {
+        let adapter = HangingAgentAdapter()
+        let pipeline = SessionPipeline(
+            assembler: makeTestAssembler(),
+            preCheck: FixedSafeguardsPreCheck(),
+            adapter: adapter,
+            gate: RecordingSafeguardsGate(),
+            decisionLog: RecordingGatedDecisionLog(),
+            recordWriter: RecordingSessionRecordWriter(),
+            memories: RecordingMemoriesUpdatePort()
+        )
+
+        let session = Task {
+            await pipeline.run(
+                intent: makeTestIntent(),
+                guideline: makeSessionGuideline(),
+                safeguards: makeTestSafeguards(),
+                connectors: makeTestConnectors(),
+                launch: SessionLaunch(agentName: testAgentName, configuration: TestLaunch.configuration())
+            )
+        }
+        for await _ in adapter.launched {
+            break
+        }
+        session.cancel()
+        let record = await session.value
+
+        #expect(record.outcome == .stopped(TestDefaults.usage))
+        #expect(await adapter.stopCount == 1)
+    }
+
     /// The stream ends in an error rather than a `.terminated` event.
     @Test("An agent crash mid-stream is recorded as failed, exactly once")
     func agentCrashIsRecordedOnce() async {

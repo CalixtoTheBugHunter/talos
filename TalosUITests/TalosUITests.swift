@@ -50,6 +50,53 @@ final class TalosUITests: XCTestCase {
         try assertNoTalosOwnAccessibilityIssues(on: app)
     }
 
+    /// Asserts § The stop guarantee is an interaction rule: the control is
+    /// visible while a session runs and is VoiceOver-clean.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Interaction-and-Keyboard
+    @MainActor
+    func testStopControlIsVisibleAndPassesAccessibilityAuditWhileASessionRuns() throws {
+        let app = launchWithSessionRunning()
+        XCTAssertTrue(app.buttons["Stop session"].waitForExistence(timeout: 5))
+        try assertNoTalosOwnAccessibilityIssues(on: app)
+    }
+
+    /// Asserts AC1: the stop command in the menu bar is reachable at `⌘.`
+    /// with no session running, but is disabled — there is nothing to stop —
+    /// which is the keyboard-reachable half of "any new shortcut appears in
+    /// the menu bar beside its command".
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Interaction-and-Keyboard#menus-carry-the-shortcuts
+    @MainActor
+    func testStopMenuCommandExistsAndIsDisabledWithNoSessionRunning() {
+        let app = XCUIApplication()
+        app.launch()
+
+        let stopMenuItem = app.menuItems["Stop session"]
+        XCTAssertTrue(stopMenuItem.waitForExistence(timeout: 5))
+        XCTAssertFalse(stopMenuItem.isEnabled, "nothing is running, so there is nothing to stop")
+    }
+
+    /// Asserts AC1 and AC7: the visible control is reachable — with no
+    /// confirmation in the way — and activating it calls through to the
+    /// tracked session's own stop handler.
+    @MainActor
+    func testStopControlEndsTheTrackedSession() {
+        let app = launchWithSessionRunning()
+        let stop = app.buttons["Stop session"]
+        XCTAssertTrue(stop.waitForExistence(timeout: 5))
+
+        stop.click()
+
+        XCTAssertFalse(stop.waitForExistence(timeout: 5), "stopping ends the session with no confirmation in the way")
+    }
+
+    @MainActor
+    private func launchWithSessionRunning() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchEnvironment["TALOS_UI_TEST_SESSION_RUNNING"] = "1"
+        app.launch()
+        return app
+    }
+
     /// Asserts AC2, AC3, AC4, and AC8 of
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#rules
     /// for the tier "not allowlistable, ever": nothing pre-checked, Return
