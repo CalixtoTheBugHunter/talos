@@ -56,7 +56,7 @@ final class TalosUITests: XCTestCase {
     @MainActor
     func testStopControlIsVisibleAndPassesAccessibilityAuditWhileASessionRuns() throws {
         let app = launchWithSessionRunning()
-        XCTAssertTrue(app.buttons["Stop"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Stop session"].waitForExistence(timeout: 5))
         try assertNoTalosOwnAccessibilityIssues(on: app)
     }
 
@@ -70,7 +70,7 @@ final class TalosUITests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
 
-        let stopMenuItem = app.menuItems["Stop"]
+        let stopMenuItem = app.menuItems["Stop session"]
         XCTAssertTrue(stopMenuItem.waitForExistence(timeout: 5))
         XCTAssertFalse(stopMenuItem.isEnabled, "nothing is running, so there is nothing to stop")
     }
@@ -81,7 +81,7 @@ final class TalosUITests: XCTestCase {
     @MainActor
     func testStopControlEndsTheTrackedSession() {
         let app = launchWithSessionRunning()
-        let stop = app.buttons["Stop"]
+        let stop = app.buttons["Stop session"]
         XCTAssertTrue(stop.waitForExistence(timeout: 5))
 
         stop.click()

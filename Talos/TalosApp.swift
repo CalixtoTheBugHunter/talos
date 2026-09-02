@@ -90,7 +90,7 @@ struct TalosApp: App {
     /// view happens to be in the responder chain.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/App-Shell-and-Navigation#stop-stays-reachable
     private var stopCommand: some View {
-        Button("Stop") {
+        Button("Stop session") {
             sessionStopCenter.requestStop()
         }
         .keyboardShortcut(".", modifiers: .command)

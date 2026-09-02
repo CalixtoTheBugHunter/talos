@@ -3,6 +3,10 @@ import SwiftUI
 /// The visible Stop control — reachable at all times a session runs, never
 /// behind a menu, a disclosure, or a confirmation.
 ///
+/// Labeled "Stop session", not "Stop": sentence case for buttons is
+/// specified with this exact phrase as the example.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Content-and-Voice#writing-mechanics
+///
 /// > A stop button that needs confirming is not a stop button.
 ///
 /// So this is a single tap: no `.confirmationDialog`, no second sheet, and
@@ -17,7 +21,7 @@ struct SessionStopControlView: View {
 
     var body: some View {
         Button(role: .destructive, action: onStop) {
-            Text(verbatim: "Stop")
+            Text(verbatim: "Stop session")
         }
         .accessibilityHint(Text(verbatim: "Ends the running session immediately. The agent process is killed."))
     }
