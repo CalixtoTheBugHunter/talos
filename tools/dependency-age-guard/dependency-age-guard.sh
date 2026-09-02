@@ -6,7 +6,6 @@
 #
 #   https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#dependency-update-age
 #   https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions
-#   https://github.com/CalixtoTheBugHunter/talos/issues/178
 #
 # A compromised maintainer account or a hijacked publish ships a malicious
 # version that looks like a routine update; holding the MERGE (not the PR)
@@ -111,7 +110,7 @@ action_pins_at() { # action_pins_at <ref> -> "name<TAB>sha"
     done < <(workflow_files_at "$ref") \
         | grep -oE 'uses:[[:space:]]*[^@[:space:]]+@[0-9a-fA-F]{40}' \
         | sed -E 's/^uses:[[:space:]]*//; s/@/\t/' \
-        | sort -u
+        | sort -u || true
 }
 
 # ── Swift package requirements: "url<TAB>version" for every version-pinned
@@ -138,13 +137,13 @@ swift_deps_at() { # swift_deps_at <ref> -> "url<TAB>version"
         chunk != "" { chunk = chunk " " $0 }
         END { if (chunk != "") print chunk }
     ' | while IFS= read -r chunk; do
-        url="$(printf '%s\n' "$chunk" | grep -oE 'url:[[:space:]]*"[^"]+"' | sed -E 's/^url:[[:space:]]*"//; s/"$//')"
+        url="$(printf '%s\n' "$chunk" | grep -oE 'url:[[:space:]]*"[^"]+"' | sed -E 's/^url:[[:space:]]*"//; s/"$//' || true)"
         [ -n "$url" ] || continue
         rest="$(printf '%s\n' "$chunk" | sed -E 's/url:[[:space:]]*"[^"]+"//')"
-        version="$(printf '%s\n' "$rest" | grep -oE '"[0-9]+\.[0-9]+(\.[0-9]+)?[A-Za-z0-9.+-]*"' | head -1 | tr -d '"')"
+        version="$(printf '%s\n' "$rest" | grep -oE '"[0-9]+\.[0-9]+(\.[0-9]+)?[A-Za-z0-9.+-]*"' | head -1 | tr -d '"' || true)"
         [ -n "$version" ] || continue
         printf '%s\t%s\n' "$url" "$version"
-    done | sort -u
+    done | sort -u || true
 }
 
 # ── the left-join: every key present at HEAD whose sha differs from BASE's

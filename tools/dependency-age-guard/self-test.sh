@@ -3,11 +3,12 @@
 # Confirms `dependency-age-guard.sh` fails on a bump to a deliberately fresh
 # version, passes on a bump to a deliberately old one, passes when nothing
 # changed, treats a brand-new pin the same as a bump, passes on an unrelated
-# edit that changes no pin's value, and fails rather than silently skips when
-# `gh` is missing. A guard nobody tested is indistinguishable from one that
-# matches nothing, and both are green.
+# edit that changes no pin's value, fails rather than silently skips when
+# `gh` is missing, and does not abort on a dependency shape it cannot
+# age-check (a branch-pinned package, or a ref with no pins of either kind at
+# all). A guard nobody tested is indistinguishable from one that matches
+# nothing, and both are green.
 #
-#   https://github.com/CalixtoTheBugHunter/talos/issues/178
 #   https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#dependency-update-age
 #
 # Built in a throwaway git repository, never committed to this one — the guard
@@ -228,6 +229,63 @@ else
     else
         fail 'gh missing fails the build rather than silently passing' "$out"
     fi
+fi
+
+# ── case 8: a branch-pinned Swift package (no version) is skipped, not a crash ──
+git -C "$repo" checkout -q "$base"
+git -C "$repo" checkout -q -b branch-pinned-dep
+cat >"$repo/Package.swift" <<'EOF'
+// swift-tools-version: 6.2
+import PackageDescription
+let package = Package(
+    name: "Fixture",
+    dependencies: [
+        .package(url: "https://github.com/jpsim/Yams.git", from: "6.2.2"),
+        .package(url: "https://github.com/example/branchdep.git", branch: "main")
+    ],
+    targets: [.target(name: "Fixture")]
+)
+EOF
+git -C "$repo" commit -q -am 'add: a branch-pinned dependency with no version to age-check'
+branch_pinned="$(git -C "$repo" rev-parse HEAD)"
+
+echo
+echo 'A branch-pinned Swift package (no version) is skipped rather than crashing the guard'
+out="$(PATH="$work/bin:$PATH" BASE_SHA="$base" HEAD_SHA="$branch_pinned" MIN_AGE_HOURS=24 "$GUARD" "$base" "$branch_pinned" "$repo" 2>&1)" && status=0 || status=$?
+if [ "$status" -eq 0 ]; then
+    pass 'exits zero — the branch-pinned dependency carries no version to check, and Yams is unchanged'
+else
+    fail 'exits zero on a branch-pinned dependency' "$out"
+fi
+
+# ── case 9: a ref with zero pinned actions and zero Swift dependencies ────────
+git -C "$repo" checkout -q "$base"
+git -C "$repo" checkout -q -b no-deps-at-all
+rm -rf "$repo/.github/workflows"
+cat >"$repo/Package.swift" <<'EOF'
+// swift-tools-version: 6.2
+import PackageDescription
+let package = Package(
+    name: "Fixture",
+    dependencies: [],
+    targets: [.target(name: "Fixture")]
+)
+EOF
+git -C "$repo" add -A
+git -C "$repo" commit -q -m 'remove: every pinned action and swift dependency'
+no_deps_base="$(git -C "$repo" rev-parse HEAD)"
+echo 'unrelated' >"$repo/README.md"
+git -C "$repo" add -A
+git -C "$repo" commit -q -m 'unrelated: touch a file that is not a dependency manifest'
+no_deps_head="$(git -C "$repo" rev-parse HEAD)"
+
+echo
+echo 'A ref with zero pinned actions and zero Swift dependencies passes rather than crashing'
+out="$(PATH="$work/bin:$PATH" BASE_SHA="$no_deps_base" HEAD_SHA="$no_deps_head" MIN_AGE_HOURS=24 "$GUARD" "$no_deps_base" "$no_deps_head" "$repo" 2>&1)" && status=0 || status=$?
+if [ "$status" -eq 0 ]; then
+    pass 'exits zero — nothing to check at either ref, and no gh call crashes the pipeline'
+else
+    fail 'exits zero when zero actions and zero swift dependencies exist' "$out"
 fi
 
 # ── verdict ──────────────────────────────────────────────────────────────────

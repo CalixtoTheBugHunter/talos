@@ -48,8 +48,8 @@
 #     `lint`, not a stage, for the same reason. See
 #     tools/workflow-hardening-guard/README.md and
 #     https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#workflow-hardening.
-#   - Issue #178's dependency-age check is also a STEP inside `lint`, not a
-#     stage, for the same reason — decision 64:
+#   - The dependency-age check is also a STEP inside `lint`, not a stage, for
+#     the same reason — decision 64:
 #     https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions.
 #     See tools/dependency-age-guard/README.md.
 
@@ -271,8 +271,8 @@ jobs:
       - name: workflow-hardening-guard
         run: tools/workflow-hardening-guard/workflow-hardening-guard.sh
 
-      # Issue #178's criterion. Only `pull_request` carries a meaningful base
-      # to diff a dependency bump against — same reason pr-title-guard and
+      # Only `pull_request` carries a meaningful base to diff a dependency
+      # bump against — same reason pr-title-guard and
       # dependency-justification-guard are gated the same way, above.
       # Self-test runs first, for the same reason every guard above runs
       # theirs first: a guard that matches nothing is green on any diff.
