@@ -84,10 +84,19 @@ public struct AssembledContext: Equatable, Sendable {
     public let assembledTokens: Int
     public let rawPromptTokenEstimate: Int
 
+    /// Includes ``PromptDataFraming/overheadTokens(for:)`` — the framing
+    /// added when this context reaches the prompt — since that is real
+    /// Talos-added overhead. `assembledTokens` itself is reported
+    /// framing-free; the framed total (which is what ``ContextAssembler``
+    /// actually gates against the guideline's ceiling — see
+    /// `dropUntilUnderCeiling`) is recomputed here rather than stored, so
+    /// there is one source for "how many tokens did the framing cost."
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#prompt-injection-posture
     public var overheadRatio: Double {
-        let total = assembledTokens + rawPromptTokenEstimate
+        let overhead = assembledTokens + PromptDataFraming.overheadTokens(for: includedParts)
+        let total = overhead + rawPromptTokenEstimate
         guard total > 0 else { return 0 }
-        return Double(assembledTokens) / Double(total)
+        return Double(overhead) / Double(total)
     }
 }
 
@@ -137,18 +146,20 @@ public struct ContextAssembler: Sendable {
             ))
         }
 
+        let pinned = [
+            IncludedContextPart(kind: .guideline, text: input.guideline.rawText, estimatedTokens: guidelineTokens),
+            IncludedContextPart(kind: .safeguards, text: input.safeguards.rawText, estimatedTokens: safeguardsTokens)
+        ]
+
         let gathered = gatherDroppableParts(input)
         var runningTotal = guidelineTokens + safeguardsTokens + gathered.tokenTotal
         var remaining = gathered.included
-        let dropped = dropUntilUnderCeiling(&remaining, runningTotal: &runningTotal, ceiling: ceiling, input: input)
-
-        let included = [
-            IncludedContextPart(kind: .guideline, text: input.guideline.rawText, estimatedTokens: guidelineTokens),
-            IncludedContextPart(kind: .safeguards, text: input.safeguards.rawText, estimatedTokens: safeguardsTokens)
-        ] + remaining
+        let dropped = dropUntilUnderCeiling(
+            pinned: pinned, remaining: &remaining, runningTotal: &runningTotal, ceiling: ceiling, input: input
+        )
 
         return .assembled(AssembledContext(
-            includedParts: included,
+            includedParts: pinned + remaining,
             droppedParts: dropped,
             unavailableParts: gathered.unavailable,
             assembledTokens: runningTotal,
@@ -204,18 +215,26 @@ public struct ContextAssembler: Sendable {
         return GatheredDroppableParts(included: included, unavailable: unavailable, tokenTotal: total)
     }
 
-    /// Drops whole parts, in ``ContextPartKind/dropOrder``, until
-    /// `runningTotal` fits `ceiling` or nothing droppable remains. Never
-    /// truncates — a part is removed entirely or not at all.
+    /// Drops whole parts, in ``ContextPartKind/dropOrder``, until the total
+    /// that will actually reach the agent — `runningTotal` plus what
+    /// ``PromptDataFraming`` adds to frame `pinned + remaining` — fits
+    /// `ceiling`, or nothing droppable remains. Gating on the framed total
+    /// rather than on `runningTotal` alone is what keeps the ceiling a bound
+    /// on the prompt ``SafeguardsApproved/prompt`` sends, not only on the
+    /// content before framing wraps it. Never truncates — a part is removed
+    /// entirely or not at all.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Talos-Guidelines#when-assembled-context-exceeds-the-ceiling
     private func dropUntilUnderCeiling(
-        _ remaining: inout [IncludedContextPart],
+        pinned: [IncludedContextPart],
+        remaining: inout [IncludedContextPart],
         runningTotal: inout Int,
         ceiling: Int,
         input: ContextAssemblyInput
     ) -> [DroppedContextPart] {
         var dropped: [DroppedContextPart] = []
         for kind in ContextPartKind.dropOrder {
-            guard runningTotal > ceiling else { break }
+            let framedTotal = runningTotal + PromptDataFraming.overheadTokens(for: pinned + remaining)
+            guard framedTotal > ceiling else { break }
             guard let index = remaining.firstIndex(where: { $0.kind == kind }) else { continue }
             let part = remaining.remove(at: index)
             runningTotal -= part.estimatedTokens

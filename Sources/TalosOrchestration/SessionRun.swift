@@ -12,9 +12,9 @@ public struct SafeguardsApproved: Sendable {
 
     /// The prompt sent to the agent: every included part in assembly order,
     /// then the intent's own text. Parts the assembler dropped are absent
-    /// because they were dropped, not shortened.
+    /// because they were dropped, not shortened. See ``PromptDataFraming``.
     public var prompt: AgentPrompt {
-        let parts = context.includedParts.map(\.text) + [intent.content]
+        let parts = PromptDataFraming.render(context.includedParts) + [intent.content]
         return AgentPrompt(text: parts.joined(separator: "\n\n"))
     }
 
