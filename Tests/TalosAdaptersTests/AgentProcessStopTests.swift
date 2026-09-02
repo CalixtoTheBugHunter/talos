@@ -177,6 +177,39 @@ struct AgentProcessStopTests {
         return false
     }
 
+    /// Diagnostic, not a claim this issue makes: proves empirically whether
+    /// merely cancelling the task consuming ``AgentProcess/start()``'s stream —
+    /// never calling ``AgentProcess/stop()`` — already kills the tree, or
+    /// whether it takes the SPEC's guarantee with it.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#stop-kills-the-tree
+    @Test("Cancelling the consuming task, with no explicit stop, still kills the tree")
+    func cancellingTheConsumingTaskStillKillsTheTree() async throws {
+        let process = AgentProcessTests.makeProcess(Self.spawnsAGrandchild)
+        let stream = try await process.start()
+        let (pids, pidContinuation) = AsyncStream<pid_t>.makeStream()
+
+        let consumer = Task {
+            var iterator = stream.makeAsyncIterator()
+            guard let first = try? await iterator.next(), case let .output(chunk) = first,
+                  let pid = pid_t(chunk.text.split(separator: "\n", omittingEmptySubsequences: true).first ?? "")
+            else { return }
+            pidContinuation.yield(pid)
+            // Suspended here until the tree is actually killed: the shell is
+            // parked at `wait` and produces nothing more on its own.
+            _ = try? await iterator.next()
+        }
+
+        var pidIterator = pids.makeAsyncIterator()
+        let grandchild = try #require(await pidIterator.next())
+        #expect(kill(grandchild, 0) == 0, "the grandchild was not running before cancellation")
+
+        consumer.cancel()
+        _ = await consumer.value
+
+        let gone = await Self.waitUntilGone { kill(grandchild, 0) }
+        #expect(gone, "cancelling the consumer, with no explicit stop(), left a descendant running")
+    }
+
     /// Not an error, and it does not rewrite what happened: a `stop()` that
     /// overwrote the exit code would hide a failure behind a user action.
     @Test("Stopping an already finished process changes nothing")
