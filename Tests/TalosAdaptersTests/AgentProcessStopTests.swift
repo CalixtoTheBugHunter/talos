@@ -210,6 +210,46 @@ struct AgentProcessStopTests {
         #expect(gone, "cancelling the consumer, with no explicit stop(), left a descendant running")
     }
 
+    /// A grandchild alongside a shell that keeps flooding its own stdout —
+    /// unread by this test — so the queue between the child and the consumer
+    /// is actively filling and read sources may be suspended under
+    /// backpressure at the moment `stop()` runs, rather than idle. "Under
+    /// load" is this: `stop()` must still tear down every descendant and
+    /// close every pipe regardless of what state the read/queue machinery
+    /// was in when it was called.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#stop-kills-the-tree
+    static let spawnsAGrandchildUnderLoad = "sleep 300 & echo $!; while true; do echo x; done"
+
+    /// Catches a stop that only works cleanly against an idle process: the
+    /// grandchild here is alive while the shell above it is actively
+    /// producing output this test never drains, so `stop()` runs while the
+    /// output queue is under load rather than empty.
+    @Test("Stopping under heavy, unread output load still kills every descendant")
+    func stoppingUnderLoadKillsEveryDescendant() async throws {
+        let process = AgentProcessTests.makeProcess(Self.spawnsAGrandchildUnderLoad)
+        var events: [AgentProcessEvent] = []
+        var stream = try await process.start().makeAsyncIterator()
+
+        // The first chunk carries the grandchild's pid; nothing further is
+        // read from the stream, so the flooding loop's output backs up.
+        try events.append(#require(await stream.next()))
+        let grandchild = try #require(pid_t(Self.firstLine(of: events)))
+        #expect(kill(grandchild, 0) == 0, "the grandchild was not running before the stop")
+
+        // Give the flooding loop a moment to actually load the queue before
+        // stopping — the assertions below hold regardless of how far it got,
+        // but a stop issued before any load exists would not be testing this.
+        try await Task.sleep(for: .milliseconds(50))
+
+        let group = try getpgid(#require(await process.processIdentifier))
+        await process.stop()
+
+        let grandchildGone = await Self.waitUntilGone { kill(grandchild, 0) }
+        #expect(grandchildGone, "a descendant survived a stop issued under load")
+        let groupGone = await Self.waitUntilGone { killpg(group, 0) }
+        #expect(groupGone, "the process group outlived a stop issued under load")
+    }
+
     /// Not an error, and it does not rewrite what happened: a `stop()` that
     /// overwrote the exit code would hide a failure behind a user action.
     @Test("Stopping an already finished process changes nothing")

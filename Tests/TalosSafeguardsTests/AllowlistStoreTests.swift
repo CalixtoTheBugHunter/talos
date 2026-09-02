@@ -170,6 +170,33 @@ struct AllowlistStoreTests {
         }
     }
 
+    // MARK: - AC: hand-editing the config file directly is rejected too, not only the API write
+
+    /// The API write path above (`everyIrreversibleActionTypeIsRejected`) is one way an entry could
+    /// reach the store — the config-file path is a different one: an actor with plain file-write
+    /// access edits `.talos/allowlist.yaml` by hand rather than calling `allowlistAction`. `init`
+    /// re-validates every loaded entry the same way, so this is the same rejection reached through
+    /// the file rather than the API — checked here against a real never-allowlistable name, not only
+    /// against the unrecognized-name and wildcard-shaped fixtures the tests above already cover.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#what-is-never-allowlistable
+    @Test(
+        "Hand-editing allowlist.yaml to add a never-allowlistable action throws on load",
+        arguments: SafeguardsNeverAllowlistable.registry
+    )
+    func handEditedNeverAllowlistableEntryThrowsOnLoad(action: SafeguardsActionType) throws {
+        let root = try Self.makeTemporaryProjectRoot()
+        try Self.writeAllowlistFile(contents: "allowlist:\n  - \(action.rawValue)\n", under: root)
+
+        #expect {
+            try AllowlistStore(
+                projectRoot: root, project: ProjectIdentifier(rawValue: "p"), changeLog: RecordingChangeLog()
+            )
+        } throws: { error in
+            guard case let .invalidEntry(rejected, _) = error as? AllowlistStoreError else { return false }
+            return rejected == action
+        }
+    }
+
     @Test("A read-tier action type is rejected — it never needs allowlisting")
     func readTierActionTypeIsRejected() async throws {
         let root = try Self.makeTemporaryProjectRoot()
