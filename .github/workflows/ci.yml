@@ -48,6 +48,10 @@
 #     `lint`, not a stage, for the same reason. See
 #     tools/workflow-hardening-guard/README.md and
 #     https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#workflow-hardening.
+#   - The dependency-age check is also a STEP inside `lint`, not a stage, for
+#     the same reason — decision 64:
+#     https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions.
+#     See tools/dependency-age-guard/README.md.
 
 name: ci
 
@@ -81,6 +85,11 @@ env:
   SWIFTFORMAT_SHA256: 7cb1cb1fae04932047c7015441c543848e8e60e1572d808d080e0a1f1661114a
   GITLEAKS_VERSION: 8.30.1
   GITLEAKS_SHA256: b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5
+
+  # decision 64's "single configured value" — tools/dependency-age-guard never
+  # embeds this number itself:
+  # https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#dependency-update-age
+  DEPENDENCY_MIN_AGE_HOURS: 24
 
 jobs:
   # ── lint ────────────────────────────────────────────────────────────────
@@ -261,6 +270,24 @@ jobs:
 
       - name: workflow-hardening-guard
         run: tools/workflow-hardening-guard/workflow-hardening-guard.sh
+
+      # Only `pull_request` carries a meaningful base to diff a dependency
+      # bump against — same reason pr-title-guard and
+      # dependency-justification-guard are gated the same way, above.
+      # Self-test runs first, for the same reason every guard above runs
+      # theirs first: a guard that matches nothing is green on any diff.
+      - name: Self-test the dependency age guard
+        if: github.event_name == 'pull_request'
+        run: tools/dependency-age-guard/self-test.sh
+
+      - name: dependency-age-guard
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          MIN_AGE_HOURS: ${{ env.DEPENDENCY_MIN_AGE_HOURS }}
+          GH_TOKEN: ${{ github.token }}
+        run: tools/dependency-age-guard/dependency-age-guard.sh
 
       # A step, not a stage — see this file's header and decision 64. Self-test
       # runs first, for the same reason every guard above runs theirs first: a
