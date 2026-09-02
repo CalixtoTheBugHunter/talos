@@ -84,10 +84,17 @@ public struct AssembledContext: Equatable, Sendable {
     public let assembledTokens: Int
     public let rawPromptTokenEstimate: Int
 
+    /// Includes ``PromptDataFraming/overheadTokens(for:)`` — the framing
+    /// added when this context reaches the prompt — since that is real
+    /// Talos-added overhead. `assembledTokens` itself stays framing-free: it
+    /// is what the guideline's declared ceiling is checked against, and the
+    /// ceiling governs content, not the fixed cost of the safety wrapper.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#prompt-injection-posture
     public var overheadRatio: Double {
-        let total = assembledTokens + rawPromptTokenEstimate
+        let overhead = assembledTokens + PromptDataFraming.overheadTokens(for: includedParts)
+        let total = overhead + rawPromptTokenEstimate
         guard total > 0 else { return 0 }
-        return Double(assembledTokens) / Double(total)
+        return Double(overhead) / Double(total)
     }
 }
 
