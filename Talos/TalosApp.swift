@@ -174,17 +174,15 @@ struct TalosApp: App {
         case "loading":
             sessionConsoleViewModel.sessionStarted()
         case "failed":
-            sessionConsoleViewModel.sessionStarted()
-            for chunk in Self.seededSessionConsoleTerminationChunks {
-                sessionConsoleViewModel.appendOutput(chunk)
-            }
-            sessionConsoleViewModel.handle(.terminated(AgentTermination(reason: .exited(code: 1))))
+            seedTerminatedTranscript(reason: .exited(code: 1))
         case "denied":
+            seedTerminatedTranscript(reason: .denied)
+        case "tool-call-read":
             sessionConsoleViewModel.sessionStarted()
-            for chunk in Self.seededSessionConsoleTerminationChunks {
-                sessionConsoleViewModel.appendOutput(chunk)
-            }
-            sessionConsoleViewModel.handle(.terminated(AgentTermination(reason: .denied)))
+            sessionConsoleViewModel.handle(.toolCall(Self.seededReadTierToolCall))
+        case "tool-call-pending-write", "tool-call-pending-irreversible":
+            sessionConsoleViewModel.sessionStarted()
+            seedPendingToolCallApproval(irreversible: stateName == "tool-call-pending-irreversible")
         default:
             sessionConsoleViewModel.sessionStarted()
             for chunk in Self.seededSessionConsoleTranscriptChunks {
@@ -193,6 +191,53 @@ struct TalosApp: App {
         }
         isSessionConsoleTranscriptPresented = true
     }
+
+    /// The "failed" and "denied" seeds share everything but the termination
+    /// reason.
+    @MainActor
+    private func seedTerminatedTranscript(reason: AgentTerminationReason) {
+        sessionConsoleViewModel.sessionStarted()
+        for chunk in Self.seededSessionConsoleTerminationChunks {
+            sessionConsoleViewModel.appendOutput(chunk)
+        }
+        sessionConsoleViewModel.handle(.terminated(AgentTermination(reason: reason)))
+    }
+
+    /// Exists only so `TalosUITests` can drive the real, mounted pending
+    /// approval row before a live gate exists to raise one — the same reason
+    /// `seedApprovalPromptForUITestingIfRequested()` exists, but for the
+    /// inline row rather than the sheet. `present` is spawned on its own
+    /// `Task` rather than awaited here, exactly as a real
+    /// `TieredSafeguardsGate` would call it without blocking the caller that
+    /// launched the session.
+    @MainActor
+    private func seedPendingToolCallApproval(irreversible: Bool) {
+        let tier: SafeguardsTier = irreversible ? .irreversible : .write
+        let action: SafeguardsActionType = irreversible ? .fileDelete : .fileWrite
+        let call = AgentToolCall(
+            id: "ui-test-tool-call",
+            name: irreversible ? "Delete" : "Write",
+            targets: ["Sources/Talos/Legacy/Old.swift"]
+        )
+        sessionConsoleViewModel.handle(.toolCall(call))
+        let request = AgentPermissionRequest(
+            id: call.id,
+            prompt: irreversible
+                ? "The agent wants to delete Sources/Talos/Legacy/Old.swift."
+                : "The agent wants to modify Sources/Talos/Legacy/Old.swift."
+        )
+        Task { _ = await sessionConsoleViewModel.present(request, action: action, tier: tier) }
+    }
+
+    /// A read-tier call never reaches the gate as a held request, so this
+    /// row never moves past ``SessionConsoleToolCallApproval/notGated`` — the
+    /// seed for "visible but visually de-emphasized, since they never
+    /// prompt".
+    private static let seededReadTierToolCall = AgentToolCall(
+        id: "ui-test-read-call",
+        name: "Read",
+        targets: ["Sources/Talos/Legacy/Old.swift"]
+    )
 
     /// Three short lines plus one 100k+ character line with no newline, so a
     /// UI test and a manual scroll-performance pass both have a transcript

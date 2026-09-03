@@ -113,7 +113,7 @@ public struct SessionConsoleView: View {
     private var transcript: some View {
         ScrollViewReader { proxy in
             List(viewModel.lines) { line in
-                viewModel.renderers.view(for: line.element)
+                row(for: line)
                     .id(line.id)
             }
             .onScrollPhaseChange { _, newPhase in
@@ -137,6 +137,44 @@ public struct SessionConsoleView: View {
             .onChange(of: viewModel.lines.last) { _, newValue in
                 guard viewModel.isFollowingOutput, let lastID = newValue?.id else { return }
                 scrollToBottom(lastID, proxy: proxy)
+            }
+            .onChange(of: pendingApprovalLineID) { _, newValue in
+                // A pending approval "does not scroll out of reach", whether
+                // or not it happens to be the last line and regardless of
+                // the follow-output toggle — the one sanctioned exception to
+                // "focus never moves on its own" applies to keeping this row
+                // in view too.
+                // https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Interaction-and-Keyboard#focus
+                guard let newValue else { return }
+                scrollToBottom(newValue, proxy: proxy)
+            }
+        }
+    }
+
+    /// The id of the row currently pending an approval, if any — used only to
+    /// keep that row in view when one appears; ``SessionConsoleViewModel``
+    /// itself decides tier and outcome.
+    private var pendingApprovalLineID: SessionConsoleLine.ID? {
+        for line in viewModel.lines {
+            guard case let .toolCall(call) = line.content, case .pending = call.approval else { continue }
+            return line.id
+        }
+        return nil
+    }
+
+    /// Dispatches each row by content: agent output through the pluggable
+    /// registry, unchanged; a tool call through its own row, which is where
+    /// a pending approval renders — inline, in the row it belongs to, never
+    /// a sheet.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is
+    @ViewBuilder
+    private func row(for line: SessionConsoleLine) -> some View {
+        switch line.content {
+        case let .output(element):
+            viewModel.renderers.view(for: element)
+        case let .toolCall(call):
+            SessionConsoleToolCallRow(call: call) { decision in
+                viewModel.resolvePendingApproval(with: decision)
             }
         }
     }

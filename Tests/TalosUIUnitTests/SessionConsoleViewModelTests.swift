@@ -6,7 +6,9 @@ import Testing
 /// Verifies ``SessionConsoleViewModel`` against
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is
 /// — output that appends incrementally, dispatches through the pluggable
-/// renderer interface, and announces one meaningful unit at a time.
+/// renderer interface, and announces one meaningful unit at a time. Tool
+/// calls and inline approvals are a separate suite:
+/// ``SessionConsoleToolCallApprovalTests``.
 @Suite("Session console view model")
 struct SessionConsoleViewModelTests {
     @Test("A chunk with no newline grows one open line without disturbing earlier ones")
@@ -20,7 +22,7 @@ struct SessionConsoleViewModelTests {
 
         #expect(viewModel.lines.count == 1)
         #expect(viewModel.lines.last?.id == firstLineID)
-        #expect(viewModel.lines.last?.element.payload == "Reading the file tree.")
+        #expect(viewModel.lines.last?.outputPayload == "Reading the file tree.")
     }
 
     @Test("A newline finalizes exactly the text before it and opens a new line for the remainder")
@@ -34,8 +36,8 @@ struct SessionConsoleViewModelTests {
 
         #expect(viewModel.lines.count == 2)
         #expect(viewModel.lines[0].id == finalizedID)
-        #expect(viewModel.lines[0].element.payload == "Found 3 matches.")
-        #expect(viewModel.lines[1].element.payload == "Still searching.")
+        #expect(viewModel.lines[0].outputPayload == "Found 3 matches.")
+        #expect(viewModel.lines[1].outputPayload == "Still searching.")
     }
 
     @Test("A finalized line never changes once a later chunk arrives")
@@ -60,12 +62,12 @@ struct SessionConsoleViewModelTests {
         viewModel.appendOutput(AgentOutputChunk(channel: .standardOutput, text: "Before.\n\(longRun)\nAfter."))
 
         #expect(viewModel.lines.count == 3)
-        #expect(viewModel.lines[0].element.payload == "Before.")
-        #expect(viewModel.lines[1].element.payload == longRun)
-        #expect(viewModel.lines[2].element.payload == "After.")
+        #expect(viewModel.lines[0].outputPayload == "Before.")
+        #expect(viewModel.lines[1].outputPayload == longRun)
+        #expect(viewModel.lines[2].outputPayload == "After.")
     }
 
-    @Test("Every line is markdown-kind data, dispatched through the registry rather than a hardcoded renderer")
+    @Test("Every output line is markdown-kind data, dispatched through the registry rather than a hardcoded renderer")
     @MainActor
     func linesDispatchThroughTheRegistry() {
         let spy = SpyRenderer()
@@ -74,28 +76,13 @@ struct SessionConsoleViewModelTests {
         let viewModel = SessionConsoleViewModel(renderers: registry)
         viewModel.appendOutput(AgentOutputChunk(channel: .standardOutput, text: "Some output.\n"))
 
-        #expect(viewModel.lines[0].element.kind == .markdown)
-        _ = viewModel.renderers.view(for: viewModel.lines[0].element)
-        #expect(spy.received == viewModel.lines[0].element)
-    }
-
-    @Test("handle(_:) ignores tool calls and permission requests, but not output or termination")
-    @MainActor
-    func handleIgnoresToolCallsAndPermissionRequestsButNotTermination() {
-        let viewModel = SessionConsoleViewModel()
-        viewModel.sessionStarted()
-
-        viewModel.handle(.toolCall(AgentToolCall(id: "call-1", name: "Read")))
-        viewModel.handle(.output(AgentOutputChunk(channel: .standardOutput, text: "Reading.")))
-        viewModel.handle(.permissionRequest(AgentPermissionRequest(id: "req-1", prompt: "Delete a file?")))
-
-        #expect(viewModel.lines.count == 1)
-        #expect(viewModel.lines[0].element.payload == "Reading.")
-        #expect(viewModel.state == .ready)
-
-        let termination = AgentTermination(reason: .exited(code: 1))
-        viewModel.handle(.terminated(termination))
-        #expect(viewModel.state == .failed(termination))
+        guard case let .output(element) = viewModel.lines[0].content else {
+            Issue.record("expected an output line")
+            return
+        }
+        #expect(element.kind == .markdown)
+        _ = viewModel.renderers.view(for: element)
+        #expect(spy.received == element)
     }
 
     @Test("state starts empty and moves to loading once the session begins")
@@ -221,7 +208,14 @@ struct SessionConsoleViewModelTests {
     }
 }
 
-private final class SpyRenderer: OutputRenderer, @unchecked Sendable {
+extension SessionConsoleLine {
+    var outputPayload: String? {
+        guard case let .output(element) = content else { return nil }
+        return element.payload
+    }
+}
+
+final class SpyRenderer: OutputRenderer, @unchecked Sendable {
     private(set) var received: OutputElement?
 
     func view(for element: OutputElement) -> AnyView {
@@ -230,7 +224,7 @@ private final class SpyRenderer: OutputRenderer, @unchecked Sendable {
     }
 }
 
-private final class SpyAnnouncer: SessionConsoleAnnouncing, @unchecked Sendable {
+final class SpyAnnouncer: SessionConsoleAnnouncing, @unchecked Sendable {
     private(set) var announced: [String] = []
 
     func announce(_ text: String) {
