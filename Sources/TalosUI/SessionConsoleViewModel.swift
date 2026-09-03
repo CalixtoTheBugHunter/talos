@@ -163,19 +163,25 @@ public final class SessionConsoleViewModel: SafeguardsApprovalPrompt {
     /// Suspends until the view calls ``resolvePendingApproval(with:)``, or
     /// resolves `nil` on cancellation — the fail-closed case the gate
     /// attributes to Talos rather than to a decision the user never made.
+    ///
+    /// ``beginPendingApproval(request:action:tier:)`` runs only once the task
+    /// is confirmed not already cancelled, mirroring ``ApprovalPromptCenter/present(_:action:tier:)``'s
+    /// own ordering — never before, so a task already cancelled at entry
+    /// never shows a row it cannot resolve: `cancelPendingApproval` only acts
+    /// on a `pendingApprovalContinuation` this method has stored.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#the-gate-fails-closed
     public func present(
         _ request: AgentPermissionRequest,
         action: SafeguardsActionType,
         tier: SafeguardsTier
     ) async -> AgentPermissionDecision? {
-        beginPendingApproval(request: request, action: action, tier: tier)
-        return await withTaskCancellationHandler {
+        await withTaskCancellationHandler {
             await withCheckedContinuation { (continuation: CheckedContinuation<AgentPermissionDecision?, Never>) in
                 guard !Task.isCancelled else {
                     continuation.resume(returning: nil)
                     return
                 }
+                beginPendingApproval(request: request, action: action, tier: tier)
                 pendingApprovalContinuation = continuation
             }
         } onCancel: {

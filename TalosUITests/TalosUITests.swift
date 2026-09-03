@@ -245,10 +245,18 @@ final class TalosUITests: XCTestCase {
         let deny = app.buttons["Deny"]
         XCTAssertTrue(deny.waitForExistence(timeout: 5))
 
-        XCTAssertEqual(app.sheets.count, 0, "the approval is a row in the transcript, never a presented sheet")
+        // The console itself is always hosted in its own sheet (see
+        // `seedSessionConsoleTranscriptForUITestingIfRequested`), so `1` here
+        // is that sheet alone — a second, detached approval sheet stacked on
+        // top of it would make this `2`.
+        XCTAssertEqual(app.sheets.count, 1, "the approval is a row in the transcript, never a second, detached sheet")
         XCTAssertTrue(
             app.staticTexts["The agent wants to modify Sources/Talos/Legacy/Old.swift."].exists,
             "the sentence naming the operation and target is visible, not hidden behind a disclosure"
+        )
+        XCTAssertTrue(
+            app.staticTexts["Write · This can be undone."].exists,
+            "the tier is visible, not only inferable from the reversibility statement alone"
         )
     }
 

@@ -40,7 +40,7 @@ public struct SafeguardsApprovalPromptView: View {
         VStack(alignment: .leading) {
             Text(verbatim: sentence)
 
-            Text(verbatim: SafeguardsApprovalCopy.reversibilityStatement(for: tier))
+            Text(verbatim: "\(tierLabel) · \(SafeguardsApprovalCopy.reversibilityStatement(for: tier))")
                 .foregroundStyle(.secondary)
 
             HStack {
@@ -87,6 +87,18 @@ public struct SafeguardsApprovalPromptView: View {
 
     private var sentence: String {
         request.prompt.isEmpty ? SafeguardsApprovalCopy.operationLabel(for: action) : request.prompt
+    }
+
+    /// Named so the user can see why the action prompted at all — "the tier
+    /// of each tool call is visible" — rather than inferring it only from the
+    /// reversibility statement it is now paired with.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#tiers
+    private var tierLabel: String {
+        switch tier {
+        case .read: "Read"
+        case .write: "Write"
+        case .irreversible: "Irreversible"
+        }
     }
 
     private var approveHint: String {

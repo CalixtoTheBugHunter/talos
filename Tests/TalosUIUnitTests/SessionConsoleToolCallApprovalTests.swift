@@ -144,6 +144,32 @@ struct SessionConsoleToolCallApprovalTests {
         }
         #expect(call.approval == .resolved(action: .fileDelete, tier: .irreversible, outcome: .denied))
     }
+
+    /// Cancelling before `present(_:action:tier:)` ever suspends is a real
+    /// race — Stop cancels the session task independently of where the gate
+    /// happens to be. A row that cannot be resolved must never be shown as
+    /// pending, so this asserts the row stays at `.notGated` rather than a
+    /// `.pending` no control can ever answer — the same guarantee
+    /// ``ApprovalPromptCenter`` gives by showing nothing in the equivalent
+    /// race.
+    @Test("Cancelling before the continuation exists never leaves the row stuck pending")
+    @MainActor
+    func cancellingBeforeTheContinuationExistsNeverLeavesTheRowStuckPending() async {
+        let viewModel = SessionConsoleViewModel()
+        viewModel.handle(.toolCall(AgentToolCall(id: "call-1", name: "Delete")))
+        let request = AgentPermissionRequest(id: "call-1", prompt: "Delete a file?")
+
+        let task = Task { await viewModel.present(request, action: .fileDelete, tier: .irreversible) }
+        task.cancel() // cancel immediately, before `present` has had a chance to suspend
+
+        #expect(await task.value == nil)
+        guard case let .toolCall(call) = viewModel.lines[0].content else {
+            Issue.record("expected the tool call line")
+            return
+        }
+        #expect(call.approval == .notGated, "never shown as pending, so never stuck pending")
+        #expect(!viewModel.hasPendingApprovalForTesting)
+    }
 }
 
 /// A pending approval is never observable through public API alone — it is

@@ -141,9 +141,10 @@ public struct SessionConsoleView: View {
             .onChange(of: pendingApprovalLineID) { _, newValue in
                 // A pending approval "does not scroll out of reach", whether
                 // or not it happens to be the last line and regardless of
-                // the follow-output toggle — the one sanctioned exception to
-                // "focus never moves on its own" applies to keeping this row
-                // in view too.
+                // the follow-output toggle — this is what puts the row where
+                // the one sanctioned focus-move ("focus never moves on its
+                // own", except when a new approval prompt appears) actually
+                // lands on a control the user can see.
                 // https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Interaction-and-Keyboard#focus
                 guard let newValue else { return }
                 scrollToBottom(newValue, proxy: proxy)
