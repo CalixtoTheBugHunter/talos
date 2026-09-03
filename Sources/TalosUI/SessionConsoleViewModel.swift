@@ -11,9 +11,21 @@ import TalosAdapters
 /// `List` keyed on that `id` only ever diffs the one row still streaming,
 /// never the whole transcript.
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is
+///
+/// ``state`` carries the five states this surface owes, named exactly as
+/// ``GatedDecisionLogViewModel/State`` names them for the same reason.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback
 @Observable
 @MainActor
 public final class SessionConsoleViewModel {
+    public enum State: Equatable, Sendable {
+        case empty
+        case loading
+        case ready
+        case failed(AgentTermination)
+        case denied(AgentTermination)
+    }
+
     /// Resolves each line's ``OutputElement`` to the view that displays it —
     /// the pluggable dispatch this view model never bypasses.
     public let renderers: OutputRendererRegistry
@@ -25,12 +37,44 @@ public final class SessionConsoleViewModel {
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#nothing-polls
     public private(set) var isFollowingOutput = true
 
+    /// Set once by ``sessionStarted()``, before the first event ever arrives —
+    /// what tells ``state`` apart ``State/empty`` (no session at all) from
+    /// ``State/loading`` (a session is running; the agent has not answered
+    /// yet).
+    private var hasStarted = false
+    /// How the most recent session ended, or `nil` while it is still running.
+    private var termination: AgentTermination?
     private let announcer: any SessionConsoleAnnouncing
     /// The `id` of the last line, while it is still open to more text.
     /// `nil` means every line so far is finalized — true only before the
     /// first chunk ever arrives.
     private var openLineID: Int?
     private var nextID = 0
+
+    /// What ``SessionConsoleView`` renders right now — derived rather than
+    /// stored, so it can never drift from ``lines`` and ``termination``.
+    /// A termination is checked before an empty transcript, so a session that
+    /// failed or was denied before producing any output still reads as
+    /// ``State/failed(_:)`` / ``State/denied(_:)`` rather than as stuck in
+    /// ``State/loading``.
+    public var state: State {
+        if let termination {
+            switch termination.reason {
+            case let .exited(code):
+                return code == 0 ? (lines.isEmpty ? .empty : .ready) : .failed(termination)
+            case .failedToLaunch:
+                return .failed(termination)
+            case .denied:
+                return .denied(termination)
+            case .stopped:
+                return lines.isEmpty ? .empty : .ready
+            }
+        }
+        if lines.isEmpty {
+            return hasStarted ? .loading : .empty
+        }
+        return .ready
+    }
 
     /// `renderers` defaults to the registry a console starts from — Markdown
     /// registered as data — and `announcer` defaults to the real VoiceOver
@@ -43,13 +87,32 @@ public final class SessionConsoleViewModel {
         self.announcer = announcer
     }
 
+    /// Called once, before the first ``AgentEvent`` ever arrives, so ``state``
+    /// can tell "no session" (``State/empty``) apart from "a session is
+    /// running and the agent has not answered yet" (``State/loading``) — the
+    /// distinction this exact surface owes.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback
+    public func sessionStarted() {
+        hasStarted = true
+        termination = nil
+    }
+
     /// The seam this view model plugs into directly as
-    /// `SafeguardsApproved.run`'s `observer:` parameter. Every other event
-    /// case belongs to a different surface (tool calls, permission requests,
-    /// termination) and is ignored here.
+    /// `SafeguardsApproved.run`'s `observer:` parameter. `.toolCall` and
+    /// `.permissionRequest` belong to a different surface and are ignored
+    /// here; `.terminated` is not ignored — it is what moves ``state`` to
+    /// ``State/failed(_:)`` or ``State/denied(_:)``, attributed to the agent
+    /// rather than paraphrased.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#errors
     public func handle(_ event: AgentEvent) {
-        guard case let .output(chunk) = event else { return }
-        appendOutput(chunk)
+        switch event {
+        case let .output(chunk):
+            appendOutput(chunk)
+        case let .terminated(termination):
+            self.termination = termination
+        case .toolCall, .permissionRequest:
+            break
+        }
     }
 
     /// Feeds one incremental chunk of agent output through the same

@@ -79,17 +79,105 @@ struct SessionConsoleViewModelTests {
         #expect(spy.received == viewModel.lines[0].element)
     }
 
-    @Test("handle(_:) delegates only .output events, ignoring the rest")
+    @Test("handle(_:) ignores tool calls and permission requests, but not output or termination")
     @MainActor
-    func handleDelegatesOnlyOutputEvents() {
+    func handleIgnoresToolCallsAndPermissionRequestsButNotTermination() {
         let viewModel = SessionConsoleViewModel()
+        viewModel.sessionStarted()
 
         viewModel.handle(.toolCall(AgentToolCall(id: "call-1", name: "Read")))
         viewModel.handle(.output(AgentOutputChunk(channel: .standardOutput, text: "Reading.")))
-        viewModel.handle(.terminated(AgentTermination(reason: .exited(code: 0))))
+        viewModel.handle(.permissionRequest(AgentPermissionRequest(id: "req-1", prompt: "Delete a file?")))
 
         #expect(viewModel.lines.count == 1)
         #expect(viewModel.lines[0].element.payload == "Reading.")
+        #expect(viewModel.state == .ready)
+
+        let termination = AgentTermination(reason: .exited(code: 1))
+        viewModel.handle(.terminated(termination))
+        #expect(viewModel.state == .failed(termination))
+    }
+
+    @Test("state starts empty and moves to loading once the session begins")
+    @MainActor
+    func stateStartsEmptyThenLoading() {
+        let viewModel = SessionConsoleViewModel()
+        #expect(viewModel.state == .empty)
+
+        viewModel.sessionStarted()
+        #expect(viewModel.state == .loading)
+    }
+
+    @Test("state is ready once output has arrived")
+    @MainActor
+    func stateIsReadyOnceOutputArrives() {
+        let viewModel = SessionConsoleViewModel()
+        viewModel.sessionStarted()
+
+        viewModel.appendOutput(AgentOutputChunk(channel: .standardOutput, text: "Reading.\n"))
+
+        #expect(viewModel.state == .ready)
+    }
+
+    @Test("a non-zero exit moves state to failed, carrying the agent's own termination")
+    @MainActor
+    func nonZeroExitMovesStateToFailed() {
+        let viewModel = SessionConsoleViewModel()
+        viewModel.sessionStarted()
+        viewModel.appendOutput(AgentOutputChunk(channel: .standardOutput, text: "Reading.\n"))
+
+        let termination = AgentTermination(reason: .exited(code: 1), lastOutput: "Reading.\n")
+        viewModel.handle(.terminated(termination))
+
+        #expect(viewModel.state == .failed(termination))
+    }
+
+    @Test("failing to launch moves state to failed even with no output at all")
+    @MainActor
+    func failedToLaunchMovesStateToFailedWithNoOutput() {
+        let viewModel = SessionConsoleViewModel()
+        viewModel.sessionStarted()
+
+        let termination = AgentTermination(reason: .failedToLaunch)
+        viewModel.handle(.terminated(termination))
+
+        #expect(viewModel.state == .failed(termination))
+    }
+
+    @Test("a denied termination moves state to denied")
+    @MainActor
+    func deniedTerminationMovesStateToDenied() {
+        let viewModel = SessionConsoleViewModel()
+        viewModel.sessionStarted()
+
+        let termination = AgentTermination(reason: .denied)
+        viewModel.handle(.terminated(termination))
+
+        #expect(viewModel.state == .denied(termination))
+    }
+
+    @Test("a clean exit leaves state ready rather than failed")
+    @MainActor
+    func cleanExitLeavesStateReady() {
+        let viewModel = SessionConsoleViewModel()
+        viewModel.sessionStarted()
+        viewModel.appendOutput(AgentOutputChunk(channel: .standardOutput, text: "Done.\n"))
+
+        viewModel.handle(.terminated(AgentTermination(reason: .exited(code: 0))))
+
+        #expect(viewModel.state == .ready)
+    }
+
+    @Test("a stop leaves state ready rather than failed or denied")
+    @MainActor
+    func stopLeavesStateReady() {
+        let viewModel = SessionConsoleViewModel()
+        viewModel.sessionStarted()
+        viewModel.appendOutput(AgentOutputChunk(channel: .standardOutput, text: "Done.\n"))
+
+        viewModel.handle(.terminated(AgentTermination(reason: .stopped)))
+
+        #expect(viewModel.state == .ready)
     }
 
     @Test("Following output starts true, and pause/resume are event-driven state toggles")

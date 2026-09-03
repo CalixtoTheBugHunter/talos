@@ -1,4 +1,5 @@
 import SwiftUI
+import TalosAdapters
 
 /// The streaming transcript: one virtualized row per ``SessionConsoleLine``,
 /// dispatched through the ``OutputRendererRegistry`` a ``SessionConsoleViewModel``
@@ -22,10 +23,27 @@ public struct SessionConsoleView: View {
     }
 
     public var body: some View {
-        if viewModel.lines.isEmpty {
+        switch viewModel.state {
+        case .empty:
             emptyState
-        } else {
+        case .loading:
+            loadingState
+        case .ready:
             transcript
+        case let .failed(termination):
+            VStack {
+                if !viewModel.lines.isEmpty {
+                    transcript
+                }
+                statusBanner(Self.failureCopy(for: termination), symbol: "exclamationmark.triangle")
+            }
+        case .denied:
+            VStack {
+                if !viewModel.lines.isEmpty {
+                    transcript
+                }
+                statusBanner(Self.deniedCopy, symbol: "hand.raised")
+            }
         }
     }
 
@@ -35,6 +53,62 @@ public struct SessionConsoleView: View {
             .padding()
             .accessibilityLabel(Text(verbatim: "No output yet"))
     }
+
+    /// "Waiting for the first token" — the prompt is with the agent and it
+    /// has not answered yet. The `ProgressView` is decorative: the text
+    /// alone carries the state, so nothing here says anything by motion
+    /// alone.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback
+    private var loadingState: some View {
+        HStack {
+            ProgressView()
+                .controlSize(.small)
+                .accessibilityHidden(true)
+            Text(verbatim: "Waiting for the agent to respond.")
+                .foregroundStyle(.secondary)
+        }
+        .padding()
+    }
+
+    /// Never colour alone: a text label and a distinct SF Symbol per kind,
+    /// and the Failed and Denied symbols are visually distinct from each
+    /// other so a denial never reads as an error. The symbol is
+    /// accessibility-hidden and the text stands alone, the same split
+    /// ``GatedDecisionLogRow``'s own outcome symbol uses.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Accessibility#never-by-color-alone
+    private func statusBanner(_ text: String, symbol: String) -> some View {
+        HStack {
+            Image(systemName: symbol)
+                .accessibilityHidden(true)
+            Text(verbatim: text)
+        }
+        .padding()
+    }
+
+    /// "What failed, where, and what state things are in now." No agent
+    /// name: this view model is not told one, and inventing one would
+    /// misattribute the words.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Content-and-Voice
+    private static func failureCopy(for termination: AgentTermination) -> String {
+        switch termination.reason {
+        case let .exited(code):
+            "Exited with status \(code). Output above."
+        case .failedToLaunch:
+            "Failed to launch. No output was produced."
+        case .denied, .stopped:
+            // Unreachable: `SessionConsoleViewModel.state` only produces
+            // `.failed(_:)` for `.exited` with a non-zero code or
+            // `.failedToLaunch` — `.denied` and `.stopped` map to `.denied(_:)`
+            // or `.ready` instead.
+            "Exited with an unrecognized status. Output above."
+        }
+    }
+
+    /// Neutral, never an error treatment — "Denied. Nothing was written." is
+    /// the copy shape; this is the same shape for a run the gate ended
+    /// rather than one gated write.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Content-and-Voice
+    private static let deniedCopy = "Denied. Session ended, nothing further ran."
 
     private var transcript: some View {
         ScrollViewReader { proxy in

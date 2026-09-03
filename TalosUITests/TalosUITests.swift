@@ -180,10 +180,41 @@ final class TalosUITests: XCTestCase {
         )
     }
 
+    /// Asserts ``SessionConsoleViewModel/State/loading``: the surface shows
+    /// activity plus the current step in words before the agent's first token.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback
     @MainActor
-    private func launchWithSessionConsoleTranscript() -> XCUIApplication {
+    func testSessionConsoleLoadingStatePassesAccessibilityAuditWhilePresented() throws {
+        let app = launchWithSessionConsoleTranscript(state: "loading")
+        XCTAssertTrue(app.staticTexts["Waiting for the agent to respond."].waitForExistence(timeout: 5))
+        try assertNoTalosOwnAccessibilityIssues(on: app)
+    }
+
+    /// Asserts ``SessionConsoleViewModel/State/failed(_:)``: a non-zero exit
+    /// is attributed to the agent, over the transcript it already produced —
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#errors.
+    @MainActor
+    func testSessionConsoleFailedStateShowsTheStatusBannerOverTheTranscript() throws {
+        let app = launchWithSessionConsoleTranscript(state: "failed")
+        XCTAssertTrue(app.staticTexts["Found 3 matches."].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Exited with status 1. Output above."].waitForExistence(timeout: 5))
+        try assertNoTalosOwnAccessibilityIssues(on: app)
+    }
+
+    /// Asserts ``SessionConsoleViewModel/State/denied(_:)``: neutral copy,
+    /// never an error treatment —
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#denial-is-not-failure.
+    @MainActor
+    func testSessionConsoleDeniedStateShowsTheStatusBanner() throws {
+        let app = launchWithSessionConsoleTranscript(state: "denied")
+        XCTAssertTrue(app.staticTexts["Denied. Session ended, nothing further ran."].waitForExistence(timeout: 5))
+        try assertNoTalosOwnAccessibilityIssues(on: app)
+    }
+
+    @MainActor
+    private func launchWithSessionConsoleTranscript(state: String = "1") -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchEnvironment["TALOS_UI_TEST_SESSION_CONSOLE_TRANSCRIPT"] = "1"
+        app.launchEnvironment["TALOS_UI_TEST_SESSION_CONSOLE_TRANSCRIPT"] = state
         app.launch()
         return app
     }
