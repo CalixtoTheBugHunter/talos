@@ -22,6 +22,8 @@ struct TalosApp: App {
     @State private var sessionStopCenter = SessionStopCenter()
     @State private var isGatedDecisionLogPresented = false
     @State private var gatedDecisionLogState: GatedDecisionLogViewModel.State = .loading
+    @State private var sessionConsoleViewModel = SessionConsoleViewModel()
+    @State private var isSessionConsoleTranscriptPresented = false
 
     var body: some Scene {
         WindowGroup {
@@ -35,11 +37,15 @@ struct TalosApp: App {
                         onRetry: { seedGatedDecisionLogForUITestingIfRequested() }
                     )
                 }
+                .sheet(isPresented: $isSessionConsoleTranscriptPresented) {
+                    SessionConsoleView(viewModel: sessionConsoleViewModel)
+                }
                 .task {
                     await seedApprovalPromptForUITestingIfRequested()
                     await seedDeniedActionNoticeForUITestingIfRequested()
                     seedGatedDecisionLogForUITestingIfRequested()
                     seedSessionStopForUITestingIfRequested()
+                    seedSessionConsoleTranscriptForUITestingIfRequested()
                 }
         }
         .commands {
@@ -148,6 +154,34 @@ struct TalosApp: App {
         gatedDecisionLogState = Self.seededGatedDecisionLogState(named: stateName)
         isGatedDecisionLogPresented = true
     }
+
+    /// Exists for the same reason as the two seeds above: `TalosUITests`
+    /// needs to drive the real, mounted session transcript before a real
+    /// session ever streams output into one.
+    @MainActor
+    private func seedSessionConsoleTranscriptForUITestingIfRequested() {
+        guard ProcessInfo.processInfo.environment["TALOS_UI_TEST_SESSION_CONSOLE_TRANSCRIPT"] != nil else { return }
+        for chunk in Self.seededSessionConsoleTranscriptChunks {
+            sessionConsoleViewModel.appendOutput(chunk)
+        }
+        isSessionConsoleTranscriptPresented = true
+    }
+
+    /// Three short lines plus one 100k+ character line with no newline, so a
+    /// UI test and a manual scroll-performance pass both have a transcript
+    /// long enough, and pathological enough, to exercise the active-memory
+    /// and frame-rate budgets.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Vision-and-Principles#budgets-that-make-the-above-testable
+    private static let seededSessionConsoleTranscriptChunks: [AgentOutputChunk] = [
+        AgentOutputChunk(channel: .standardOutput, text: "Reading the file tree.\n"),
+        AgentOutputChunk(channel: .standardOutput, text: "Found 3 matches.\n"),
+        AgentOutputChunk(
+            channel: .standardOutput,
+            text: String(repeating: "a", count: seededTranscriptLongLineLength)
+        ),
+        AgentOutputChunk(channel: .standardOutput, text: "\nDone.\n")
+    ]
+    private static let seededTranscriptLongLineLength = 120_000
 
     private static func seededGatedDecisionLogState(named name: String) -> GatedDecisionLogViewModel.State {
         switch name {

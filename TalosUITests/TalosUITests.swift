@@ -158,6 +158,36 @@ final class TalosUITests: XCTestCase {
         return app
     }
 
+    /// Asserts AC5 and the structural half of AC7 of
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is —
+    /// the seeded transcript's own rows carry real labels and roles.
+    @MainActor
+    func testSessionConsoleTranscriptPassesAccessibilityAuditWhilePresented() throws {
+        let app = launchWithSessionConsoleTranscript()
+        try assertNoTalosOwnAccessibilityIssues(on: app)
+    }
+
+    /// Asserts AC6's "follows new output" half through the real, mounted
+    /// view: the seeded transcript's last line is visible with no manual
+    /// scrolling, which only holds if the view auto-scrolled past the
+    /// seeded 120k-character line ahead of it.
+    @MainActor
+    func testSessionConsoleTranscriptScrollsToLatestOutputByDefault() {
+        let app = launchWithSessionConsoleTranscript()
+        XCTAssertTrue(
+            app.staticTexts["Done."].waitForExistence(timeout: 5),
+            "the transcript follows new output to the bottom by default"
+        )
+    }
+
+    @MainActor
+    private func launchWithSessionConsoleTranscript() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchEnvironment["TALOS_UI_TEST_SESSION_CONSOLE_TRANSCRIPT"] = "1"
+        app.launch()
+        return app
+    }
+
     /// Every issue is accepted here (always `true`), so the audit enumerates
     /// the whole tree instead of stopping at the first rejection.
     /// `talosOwnIssues` is the real count this test asserts against — the CI
