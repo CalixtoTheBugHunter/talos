@@ -1,6 +1,8 @@
 import Foundation
 import Observation
 import TalosAdapters
+import TalosCore
+import TalosSafeguards
 
 /// Accumulates an agent's streamed output into ``SessionConsoleLine``s and
 /// tracks whether the transcript should keep following new output.
@@ -15,9 +17,16 @@ import TalosAdapters
 /// ``state`` carries the five states this surface owes, named exactly as
 /// ``GatedDecisionLogViewModel/State`` names them for the same reason.
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback
+///
+/// Conforms to ``SafeguardsApprovalPrompt`` so a pending approval renders
+/// "inline, where the work is happening" rather than as a detached modal —
+/// the console is given the gate's own `action`/`tier` directly through
+/// `present(_:action:tier:)`, which is the only place that data exists; core
+/// never derives a tier by reading ``AgentToolCall/name``.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is
 @Observable
 @MainActor
-public final class SessionConsoleViewModel {
+public final class SessionConsoleViewModel: SafeguardsApprovalPrompt {
     public enum State: Equatable, Sendable {
         case empty
         case loading
@@ -26,8 +35,10 @@ public final class SessionConsoleViewModel {
         case denied(AgentTermination)
     }
 
-    /// Resolves each line's ``OutputElement`` to the view that displays it —
-    /// the pluggable dispatch this view model never bypasses.
+    /// Resolves an output line's ``OutputElement`` to the view that displays
+    /// it — the pluggable dispatch this view model never bypasses. A
+    /// ``SessionConsoleToolCall`` line is not an ``OutputElement`` and never
+    /// goes through this registry; it renders through its own row.
     public let renderers: OutputRendererRegistry
     /// The transcript so far, in arrival order. Every element but the last
     /// is finalized; the last is still open to more text.
@@ -50,6 +61,13 @@ public final class SessionConsoleViewModel {
     /// first chunk ever arrives.
     private var openLineID: Int?
     private var nextID = 0
+    /// The continuation a pending ``present(_:action:tier:)`` call is
+    /// suspended on. One slot, not a queue: the stream that raises a
+    /// `.permissionRequest` here is fully serialized by
+    /// `SafeguardsApproved.run` — it awaits this call before consuming the
+    /// next event — so at most one approval is ever pending for this console
+    /// at a time.
+    private var pendingApprovalContinuation: CheckedContinuation<AgentPermissionDecision?, Never>?
 
     /// What ``SessionConsoleView`` renders right now — derived rather than
     /// stored, so it can never drift from ``lines`` and ``termination``.
@@ -98,9 +116,15 @@ public final class SessionConsoleViewModel {
     }
 
     /// The seam this view model plugs into directly as
-    /// `SafeguardsApproved.run`'s `observer:` parameter. `.toolCall` and
-    /// `.permissionRequest` belong to a different surface and are ignored
-    /// here; `.terminated` is not ignored — it is what moves ``state`` to
+    /// `SafeguardsApproved.run`'s `observer:` parameter, and separately as
+    /// the `approvalPrompt` a ``SafeguardsGate`` presents through.
+    ///
+    /// A `.toolCall` renders inline as it arrives — "tool calls as the agent
+    /// makes them". `.permissionRequest` is ignored here: the gate calls
+    /// ``present(_:action:tier:)`` directly for the same event, carrying the
+    /// `action`/`tier` this method is never given, so that is the one real
+    /// channel a pending approval renders through, never duplicated here.
+    /// `.terminated` is not ignored — it is what moves ``state`` to
     /// ``State/failed(_:)`` or ``State/denied(_:)``, attributed to the agent
     /// rather than paraphrased.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#errors
@@ -108,11 +132,74 @@ public final class SessionConsoleViewModel {
         switch event {
         case let .output(chunk):
             appendOutput(chunk)
+        case let .toolCall(call):
+            appendToolCall(call)
         case let .terminated(termination):
             self.termination = termination
-        case .toolCall, .permissionRequest:
+        case .permissionRequest:
             break
         }
+    }
+
+    /// Renders a tool call inline the moment it arrives, structurally at
+    /// ``SessionConsoleToolCallApproval/none`` — never by classifying
+    /// ``AgentToolCall/name``, which core does not switch on. A call that
+    /// later turns out to need approval is upgraded in place by
+    /// ``present(_:action:tier:)``; one that never does is read tier, shown
+    /// de-emphasized because it never prompted.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#tiers
+    private func appendToolCall(_ call: AgentToolCall) {
+        closeOpenLineIfNeeded()
+        lines.append(SessionConsoleLine(
+            id: makeNextID(),
+            content: .toolCall(SessionConsoleToolCall(callID: call.id, name: call.name, targets: call.targets))
+        ))
+    }
+
+    /// Presents a pending approval inline in the transcript rather than as a
+    /// detached modal — the row a ``SessionConsoleToolCall`` with the same
+    /// `callID` upgrades to ``SessionConsoleToolCallApproval/pending(request:action:tier:)``,
+    /// or a synthesized row when no correlated `.toolCall` ever arrived.
+    /// Suspends until the view calls ``resolvePendingApproval(with:)``, or
+    /// resolves `nil` on cancellation — the fail-closed case the gate
+    /// attributes to Talos rather than to a decision the user never made.
+    ///
+    /// ``beginPendingApproval(request:action:tier:)`` runs only once the task
+    /// is confirmed not already cancelled, mirroring ``ApprovalPromptCenter/present(_:action:tier:)``'s
+    /// own ordering — never before, so a task already cancelled at entry
+    /// never shows a row it cannot resolve: `cancelPendingApproval` only acts
+    /// on a `pendingApprovalContinuation` this method has stored.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#the-gate-fails-closed
+    public func present(
+        _ request: AgentPermissionRequest,
+        action: SafeguardsActionType,
+        tier: SafeguardsTier
+    ) async -> AgentPermissionDecision? {
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { (continuation: CheckedContinuation<AgentPermissionDecision?, Never>) in
+                guard !Task.isCancelled else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                beginPendingApproval(request: request, action: action, tier: tier)
+                pendingApprovalContinuation = continuation
+            }
+        } onCancel: {
+            Task { @MainActor [weak self] in self?.cancelPendingApproval(requestID: request.id) }
+        }
+    }
+
+    /// Called by the view once the user decides on the row currently
+    /// pending — there is only ever one, per ``present(_:action:tier:)``'s
+    /// own guarantee.
+    public func resolvePendingApproval(with decision: AgentPermissionDecision) {
+        guard let pending = currentPendingApproval, let continuation = pendingApprovalContinuation else { return }
+        pendingApprovalContinuation = nil
+        updateToolCall(
+            callID: pending.callID,
+            approval: .resolved(action: pending.action, tier: pending.tier, outcome: decision)
+        )
+        continuation.resume(returning: decision)
     }
 
     /// Feeds one incremental chunk of agent output through the same
@@ -121,7 +208,7 @@ public final class SessionConsoleViewModel {
         guard !chunk.text.isEmpty else { return }
 
         let hasOpenLine = openLineID != nil
-        let basePayload = hasOpenLine ? (lines.last?.element.payload ?? "") : ""
+        let basePayload = hasOpenLine ? openLinePayload : ""
         let segments = (basePayload + chunk.text)
             .split(separator: "\n", omittingEmptySubsequences: false)
             .map(String.init)
@@ -161,27 +248,120 @@ public final class SessionConsoleViewModel {
 
     private func updateOpenLinePayload(_ payload: String) {
         guard let index = lines.indices.last else { return }
-        lines[index].element = OutputElement(kind: .markdown, payload: payload)
+        lines[index].content = .output(OutputElement(kind: .markdown, payload: payload))
     }
 
     /// Converts the current open line into a finalized one, in place, so its
     /// `id` never changes.
     private func finalizeOpenLine(payload: String) {
         guard let index = lines.indices.last else { return }
-        lines[index].element = OutputElement(kind: .markdown, payload: payload)
+        lines[index].content = .output(OutputElement(kind: .markdown, payload: payload))
         announceIfMeaningful(payload)
         openLineID = nil
     }
 
     private func appendFinalizedLine(payload: String) {
-        lines.append(SessionConsoleLine(id: makeNextID(), element: OutputElement(kind: .markdown, payload: payload)))
+        lines.append(SessionConsoleLine(
+            id: makeNextID(),
+            content: .output(OutputElement(kind: .markdown, payload: payload))
+        ))
         announceIfMeaningful(payload)
     }
 
     private func openNewLine(payload: String) {
         let id = makeNextID()
-        lines.append(SessionConsoleLine(id: id, element: OutputElement(kind: .markdown, payload: payload)))
+        lines.append(SessionConsoleLine(id: id, content: .output(OutputElement(kind: .markdown, payload: payload))))
         openLineID = id
+    }
+
+    /// The open output line's own payload so far, or empty when the last
+    /// line is not an open output line at all — which is also true the
+    /// moment a ``SessionConsoleToolCall`` row becomes the last line, since
+    /// ``closeOpenLineIfNeeded()`` clears ``openLineID`` before that happens.
+    private var openLinePayload: String {
+        guard let last = lines.last, case let .output(element) = last.content else { return "" }
+        return element.payload
+    }
+
+    /// A tool call interrupts whatever text line was still open — the text
+    /// so far is a complete unit as far as the reader is concerned, so it is
+    /// announced and closed rather than left dangling under a row that is no
+    /// longer last.
+    private func closeOpenLineIfNeeded() {
+        defer { openLineID = nil }
+        guard openLineID != nil, let last = lines.last, case let .output(element) = last.content else { return }
+        announceIfMeaningful(element.payload)
+    }
+
+    /// Finds the line whose ``SessionConsoleToolCall/callID`` matches and
+    /// updates its `approval` in place. The row's own `id` never changes —
+    /// this is the single-row diff the file's own perf note keeps to.
+    @discardableResult
+    private func updateToolCall(callID: String, approval: SessionConsoleToolCallApproval) -> Bool {
+        guard let index = lines.firstIndex(where: { line in
+            if case let .toolCall(call) = line.content {
+                return call.callID == callID
+            }
+            return false
+        }) else { return false }
+        guard case var .toolCall(call) = lines[index].content else { return false }
+        call.approval = approval
+        lines[index].content = .toolCall(call)
+        return true
+    }
+
+    /// The row currently at ``SessionConsoleToolCallApproval/pending(request:action:tier:)``,
+    /// if any — at most one, per ``present(_:action:tier:)``'s own guarantee.
+    private var currentPendingApproval: PendingApprovalInfo? {
+        for line in lines {
+            guard case let .toolCall(call) = line.content,
+                  case let .pending(_, action, tier) = call.approval
+            else { continue }
+            return PendingApprovalInfo(callID: call.callID, action: action, tier: tier)
+        }
+        return nil
+    }
+
+    /// Upgrades the correlated ``SessionConsoleToolCall`` row to pending, or
+    /// synthesizes one when no `.toolCall` ever preceded this request — a
+    /// defensive fallback rather than a crash, carrying every field the
+    /// prompt itself has. Announces the pending approval once either way —
+    /// "VoiceOver announces a pending approval".
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is
+    private func beginPendingApproval(
+        request: AgentPermissionRequest,
+        action: SafeguardsActionType,
+        tier: SafeguardsTier
+    ) {
+        let approval = SessionConsoleToolCallApproval.pending(request: request, action: action, tier: tier)
+        if !updateToolCall(callID: request.id, approval: approval) {
+            lines.append(SessionConsoleLine(
+                id: makeNextID(),
+                content: .toolCall(SessionConsoleToolCall(
+                    callID: request.id,
+                    name: request.toolName ?? "",
+                    targets: [],
+                    approval: approval
+                ))
+            ))
+        }
+        announcer.announce(request.prompt.isEmpty ? "Approval needed." : "Approval needed. \(request.prompt)")
+    }
+
+    /// The gate can no longer obtain a decision — the session is being torn
+    /// down. Resolved as denied, attributed to Talos rather than the user,
+    /// same as ``ApprovalPromptCenter``'s own cancellation path.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#the-gate-fails-closed
+    private func cancelPendingApproval(requestID: String) {
+        guard let continuation = pendingApprovalContinuation else { return }
+        pendingApprovalContinuation = nil
+        if let pending = currentPendingApproval, pending.callID == requestID {
+            updateToolCall(
+                callID: requestID,
+                approval: .resolved(action: pending.action, tier: pending.tier, outcome: .denied)
+            )
+        }
+        continuation.resume(returning: nil)
     }
 
     private func makeNextID() -> Int {
@@ -197,4 +377,15 @@ public final class SessionConsoleViewModel {
         guard !payload.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         announcer.announce(payload)
     }
+}
+
+/// What ``SessionConsoleViewModel/currentPendingApproval`` reports about the
+/// one row currently pending — a named type rather than a tuple, since it
+/// crosses back into ``SessionConsoleViewModel/resolvePendingApproval(with:)``
+/// and ``SessionConsoleViewModel/cancelPendingApproval(requestID:)`` as a
+/// single value.
+private struct PendingApprovalInfo {
+    let callID: String
+    let action: SafeguardsActionType
+    let tier: SafeguardsTier
 }

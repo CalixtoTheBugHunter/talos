@@ -219,6 +219,90 @@ final class TalosUITests: XCTestCase {
         return app
     }
 
+    /// Asserts AC1 and AC6 of
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is —
+    /// a read-tier call renders as a distinct, scannable element naming its
+    /// target, and is a real accessibility element rather than one that
+    /// "never prompts" also meaning "never announced".
+    @MainActor
+    func testSessionConsoleReadTierToolCallIsVisibleAndPassesAccessibilityAudit() throws {
+        let app = launchWithSessionConsoleTranscript(state: "tool-call-read")
+        XCTAssertTrue(
+            app.staticTexts["Read Sources/Talos/Legacy/Old.swift"].waitForExistence(timeout: 5),
+            "the tool and its target are both named, not just the tool"
+        )
+        try assertNoTalosOwnAccessibilityIssues(on: app)
+    }
+
+    /// Asserts AC3 of
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is —
+    /// the pending approval is reachable inside the console's own window,
+    /// never a second, detached window the way `.sheet` presents one. Also
+    /// asserts AC2: the tier is visible, so the user can see why it prompted.
+    @MainActor
+    func testSessionConsolePendingApprovalIsInlineNotADetachedWindow() {
+        let app = launchWithSessionConsoleTranscript(state: "tool-call-pending-write")
+        let deny = app.buttons["Deny"]
+        XCTAssertTrue(deny.waitForExistence(timeout: 5))
+
+        // The console itself is always hosted in its own sheet (see
+        // `seedSessionConsoleTranscriptForUITestingIfRequested`), so `1` here
+        // is that sheet alone — a second, detached approval sheet stacked on
+        // top of it would make this `2`.
+        XCTAssertEqual(app.sheets.count, 1, "the approval is a row in the transcript, never a second, detached sheet")
+        XCTAssertTrue(
+            app.staticTexts["The agent wants to modify Sources/Talos/Legacy/Old.swift."].exists,
+            "the sentence naming the operation and target is visible, not hidden behind a disclosure"
+        )
+        XCTAssertTrue(
+            app.staticTexts["Write · This can be undone."].exists,
+            "the tier is visible, not only inferable from the reversibility statement alone"
+        )
+    }
+
+    /// Asserts AC5 for the approved outcome: resolving inline leaves the row
+    /// visible with its outcome rather than dismissing it — the same
+    /// "denied and approved calls remain visible" line, exercised on the
+    /// side that is easy to mistake for "done, so it can disappear".
+    @MainActor
+    func testSessionConsoleApprovingAPendingToolCallLeavesTheOutcomeVisible() throws {
+        let app = launchWithSessionConsoleTranscript(state: "tool-call-pending-write")
+        let approve = app.buttons["Create or modify a file"]
+        XCTAssertTrue(approve.waitForExistence(timeout: 5))
+
+        approve.click()
+
+        XCTAssertFalse(app.buttons["Deny"].waitForExistence(timeout: 1), "the pending controls are gone once resolved")
+        XCTAssertTrue(
+            app.staticTexts["Write Sources/Talos/Legacy/Old.swift"].waitForExistence(timeout: 5),
+            "the row itself remains, now showing its outcome"
+        )
+        XCTAssertTrue(app.staticTexts["Write · Allowed"].waitForExistence(timeout: 5))
+        try assertNoTalosOwnAccessibilityIssues(on: app)
+    }
+
+    /// Asserts AC5 for the denied outcome, and AC2/AC3/AC4 for the
+    /// irreversible tier specifically: no keyboard shortcut approves it, and
+    /// denying inline still leaves the outcome visible rather than an error
+    /// treatment.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#denial-is-not-failure
+    @MainActor
+    func testSessionConsoleDenyingAPendingIrreversibleToolCallLeavesTheOutcomeVisible() throws {
+        let app = launchWithSessionConsoleTranscript(state: "tool-call-pending-irreversible")
+        let deny = app.buttons["Deny"]
+        XCTAssertTrue(deny.waitForExistence(timeout: 5))
+
+        deny.click()
+
+        XCTAssertFalse(app.buttons["Deny"].waitForExistence(timeout: 1), "the pending controls are gone once resolved")
+        XCTAssertTrue(
+            app.staticTexts["Delete Sources/Talos/Legacy/Old.swift"].waitForExistence(timeout: 5),
+            "the row itself remains, now showing its outcome"
+        )
+        XCTAssertTrue(app.staticTexts["Irreversible · Denied"].waitForExistence(timeout: 5))
+        try assertNoTalosOwnAccessibilityIssues(on: app)
+    }
+
     /// Every issue is accepted here (always `true`), so the audit enumerates
     /// the whole tree instead of stopping at the first rejection.
     /// `talosOwnIssues` is the real count this test asserts against — the CI
