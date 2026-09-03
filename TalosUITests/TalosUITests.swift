@@ -158,6 +158,67 @@ final class TalosUITests: XCTestCase {
         return app
     }
 
+    /// Asserts AC5 and the structural half of AC7 of
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is —
+    /// the seeded transcript's own rows carry real labels and roles.
+    @MainActor
+    func testSessionConsoleTranscriptPassesAccessibilityAuditWhilePresented() throws {
+        let app = launchWithSessionConsoleTranscript()
+        try assertNoTalosOwnAccessibilityIssues(on: app)
+    }
+
+    /// Asserts AC6's "follows new output" half through the real, mounted
+    /// view: the seeded transcript's last line is visible with no manual
+    /// scrolling, which only holds if the view auto-scrolled past the
+    /// seeded 120k-character line ahead of it.
+    @MainActor
+    func testSessionConsoleTranscriptScrollsToLatestOutputByDefault() {
+        let app = launchWithSessionConsoleTranscript()
+        XCTAssertTrue(
+            app.staticTexts["Done."].waitForExistence(timeout: 5),
+            "the transcript follows new output to the bottom by default"
+        )
+    }
+
+    /// Asserts ``SessionConsoleViewModel/State/loading``: the surface shows
+    /// activity plus the current step in words before the agent's first token.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback
+    @MainActor
+    func testSessionConsoleLoadingStatePassesAccessibilityAuditWhilePresented() throws {
+        let app = launchWithSessionConsoleTranscript(state: "loading")
+        XCTAssertTrue(app.staticTexts["Waiting for the agent to respond."].waitForExistence(timeout: 5))
+        try assertNoTalosOwnAccessibilityIssues(on: app)
+    }
+
+    /// Asserts ``SessionConsoleViewModel/State/failed(_:)``: a non-zero exit
+    /// is attributed to the agent, over the transcript it already produced —
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#errors.
+    @MainActor
+    func testSessionConsoleFailedStateShowsTheStatusBannerOverTheTranscript() throws {
+        let app = launchWithSessionConsoleTranscript(state: "failed")
+        XCTAssertTrue(app.staticTexts["Found 3 matches."].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Exited with status 1. Output above."].waitForExistence(timeout: 5))
+        try assertNoTalosOwnAccessibilityIssues(on: app)
+    }
+
+    /// Asserts ``SessionConsoleViewModel/State/denied(_:)``: neutral copy,
+    /// never an error treatment —
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#denial-is-not-failure.
+    @MainActor
+    func testSessionConsoleDeniedStateShowsTheStatusBanner() throws {
+        let app = launchWithSessionConsoleTranscript(state: "denied")
+        XCTAssertTrue(app.staticTexts["Denied. Session ended, nothing further ran."].waitForExistence(timeout: 5))
+        try assertNoTalosOwnAccessibilityIssues(on: app)
+    }
+
+    @MainActor
+    private func launchWithSessionConsoleTranscript(state: String = "1") -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchEnvironment["TALOS_UI_TEST_SESSION_CONSOLE_TRANSCRIPT"] = state
+        app.launch()
+        return app
+    }
+
     /// Every issue is accepted here (always `true`), so the audit enumerates
     /// the whole tree instead of stopping at the first rejection.
     /// `talosOwnIssues` is the real count this test asserts against — the CI

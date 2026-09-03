@@ -22,6 +22,8 @@ struct TalosApp: App {
     @State private var sessionStopCenter = SessionStopCenter()
     @State private var isGatedDecisionLogPresented = false
     @State private var gatedDecisionLogState: GatedDecisionLogViewModel.State = .loading
+    @State private var sessionConsoleViewModel = SessionConsoleViewModel()
+    @State private var isSessionConsoleTranscriptPresented = false
 
     var body: some Scene {
         WindowGroup {
@@ -35,11 +37,15 @@ struct TalosApp: App {
                         onRetry: { seedGatedDecisionLogForUITestingIfRequested() }
                     )
                 }
+                .sheet(isPresented: $isSessionConsoleTranscriptPresented) {
+                    SessionConsoleView(viewModel: sessionConsoleViewModel)
+                }
                 .task {
                     await seedApprovalPromptForUITestingIfRequested()
                     await seedDeniedActionNoticeForUITestingIfRequested()
                     seedGatedDecisionLogForUITestingIfRequested()
                     seedSessionStopForUITestingIfRequested()
+                    seedSessionConsoleTranscriptForUITestingIfRequested()
                 }
         }
         .commands {
@@ -148,6 +154,69 @@ struct TalosApp: App {
         gatedDecisionLogState = Self.seededGatedDecisionLogState(named: stateName)
         isGatedDecisionLogPresented = true
     }
+
+    /// Exists for the same reason as the two seeds above: `TalosUITests`
+    /// needs to drive the real, mounted session transcript before a real
+    /// session ever streams output into one. The env var's value names which
+    /// of ``SessionConsoleViewModel/State`` to seed, mirroring
+    /// ``seedGatedDecisionLogForUITestingIfRequested()``'s `stateName`
+    /// pattern — an unset var still means "don't seed", and an unrecognized
+    /// value falls to the same full transcript this key always seeded before
+    /// state names existed.
+    @MainActor
+    private func seedSessionConsoleTranscriptForUITestingIfRequested() {
+        guard let stateName = ProcessInfo.processInfo.environment["TALOS_UI_TEST_SESSION_CONSOLE_TRANSCRIPT"] else {
+            return
+        }
+        switch stateName {
+        case "empty":
+            break // `sessionStarted()` deliberately not called — nothing seeds `hasStarted`.
+        case "loading":
+            sessionConsoleViewModel.sessionStarted()
+        case "failed":
+            sessionConsoleViewModel.sessionStarted()
+            for chunk in Self.seededSessionConsoleTerminationChunks {
+                sessionConsoleViewModel.appendOutput(chunk)
+            }
+            sessionConsoleViewModel.handle(.terminated(AgentTermination(reason: .exited(code: 1))))
+        case "denied":
+            sessionConsoleViewModel.sessionStarted()
+            for chunk in Self.seededSessionConsoleTerminationChunks {
+                sessionConsoleViewModel.appendOutput(chunk)
+            }
+            sessionConsoleViewModel.handle(.terminated(AgentTermination(reason: .denied)))
+        default:
+            sessionConsoleViewModel.sessionStarted()
+            for chunk in Self.seededSessionConsoleTranscriptChunks {
+                sessionConsoleViewModel.appendOutput(chunk)
+            }
+        }
+        isSessionConsoleTranscriptPresented = true
+    }
+
+    /// Three short lines plus one 100k+ character line with no newline, so a
+    /// UI test and a manual scroll-performance pass both have a transcript
+    /// long enough, and pathological enough, to exercise the active-memory
+    /// and frame-rate budgets.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Vision-and-Principles#budgets-that-make-the-above-testable
+    private static let seededSessionConsoleTranscriptChunks: [AgentOutputChunk] = [
+        AgentOutputChunk(channel: .standardOutput, text: "Reading the file tree.\n"),
+        AgentOutputChunk(channel: .standardOutput, text: "Found 3 matches.\n"),
+        AgentOutputChunk(
+            channel: .standardOutput,
+            text: String(repeating: "a", count: seededTranscriptLongLineLength)
+        ),
+        AgentOutputChunk(channel: .standardOutput, text: "\nDone.\n")
+    ]
+    private static let seededTranscriptLongLineLength = 120_000
+
+    /// The two lines a Failed or Denied seed shows above its status banner —
+    /// short, since these seeds prove the banner renders over a real
+    /// transcript rather than exercising scroll or memory budgets again.
+    private static let seededSessionConsoleTerminationChunks: [AgentOutputChunk] = [
+        AgentOutputChunk(channel: .standardOutput, text: "Reading the file tree.\n"),
+        AgentOutputChunk(channel: .standardOutput, text: "Found 3 matches.\n")
+    ]
 
     private static func seededGatedDecisionLogState(named name: String) -> GatedDecisionLogViewModel.State {
         switch name {
