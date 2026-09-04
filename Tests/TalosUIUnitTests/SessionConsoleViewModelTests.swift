@@ -1,5 +1,6 @@
 import SwiftUI
 import TalosAdapters
+import TalosOrchestration
 import TalosUI
 import Testing
 
@@ -194,6 +195,37 @@ struct SessionConsoleViewModelTests {
 
         viewModel.appendOutput(AgentOutputChunk(channel: .standardOutput, text: "token.\nNext line.\n"))
         #expect(announcer.announced == ["Still streaming this token by token.", "Next line."])
+    }
+
+    @Test("updateTokenUsage stores the report and the overhead ratio")
+    @MainActor
+    func updateTokenUsageStoresReportAndOverheadRatio() {
+        let viewModel = SessionConsoleViewModel()
+        viewModel.sessionStarted()
+        #expect(viewModel.tokenUsage == nil)
+        #expect(viewModel.contextOverheadRatio == nil)
+
+        let report = TokenReport.measured(TokenCounts(input: 10, output: 4), model: "test-model")
+        viewModel.updateTokenUsage(SessionTokenUpdate(report: report, contextOverheadRatio: 0.12))
+
+        #expect(viewModel.tokenUsage == report)
+        #expect(viewModel.contextOverheadRatio == 0.12)
+    }
+
+    @Test("sessionStarted() clears a previous session's token usage and overhead ratio")
+    @MainActor
+    func sessionStartedClearsPreviousTokenUsage() {
+        let viewModel = SessionConsoleViewModel()
+        viewModel.sessionStarted()
+        viewModel.updateTokenUsage(SessionTokenUpdate(
+            report: .measured(TokenCounts(input: 10, output: 4), model: "test-model"),
+            contextOverheadRatio: 0.12
+        ))
+
+        viewModel.sessionStarted()
+
+        #expect(viewModel.tokenUsage == nil)
+        #expect(viewModel.contextOverheadRatio == nil)
     }
 
     @Test("A blank line finalizing is not announced")

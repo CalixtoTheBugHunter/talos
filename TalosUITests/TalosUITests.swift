@@ -211,6 +211,30 @@ final class TalosUITests: XCTestCase {
         try assertNoTalosOwnAccessibilityIssues(on: app)
     }
 
+    /// Asserts AC1 of https://github.com/CalixtoTheBugHunter/talos/issues/76 —
+    /// token usage is stated plainly, and the Talos-added overhead is a
+    /// distinct, named figure rather than folded into the agent's own count.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is
+    @MainActor
+    func testSessionConsoleShowsLiveTokenUsageWithOverheadDistinguished() throws {
+        let app = launchWithSessionConsoleTranscript(state: "token-usage")
+        XCTAssertTrue(
+            app.staticTexts["1200 input · 340 output tokens (claude-opus-5) — about 12% Talos-added token overhead"]
+                .waitForExistence(timeout: 5)
+        )
+        try assertNoTalosOwnAccessibilityIssues(on: app)
+    }
+
+    /// Asserts AC5 of https://github.com/CalixtoTheBugHunter/talos/issues/76 —
+    /// a token count Talos could not measure reads "Unavailable", never a
+    /// zero. https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#when-the-log-format-changes
+    @MainActor
+    func testSessionConsoleShowsTokenUsageUnavailableRatherThanZero() throws {
+        let app = launchWithSessionConsoleTranscript(state: "token-usage-unavailable")
+        XCTAssertTrue(app.staticTexts["Token usage unavailable — not yet reported"].waitForExistence(timeout: 5))
+        try assertNoTalosOwnAccessibilityIssues(on: app)
+    }
+
     @MainActor
     private func launchWithSessionConsoleTranscript(state: String = "1") -> XCUIApplication {
         let app = XCUIApplication()

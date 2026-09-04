@@ -20,6 +20,11 @@ actor ScriptedAgentAdapter: AgentAdapter {
     /// the gate deciding and the agent being told.
     private let resolveFailure: (any Error)?
     private var usage: TokenReport
+    /// When non-empty, ``tokenUsage()`` pops one value per call instead of
+    /// returning the fixed `usage` — how a test scripts the adapter's report
+    /// changing across the events the pipeline's `reportTokenUsage` polls it
+    /// against.
+    private var usageSequence: [TokenReport]
     private var openRequests: Set<String> = []
 
     private(set) var launchCount = 0
@@ -32,12 +37,14 @@ actor ScriptedAgentAdapter: AgentAdapter {
         events: [AgentEvent] = [],
         crash: (any Error)? = nil,
         resolveFailure: (any Error)? = nil,
-        usage: TokenReport = TestDefaults.usage
+        usage: TokenReport = TestDefaults.usage,
+        usageSequence: [TokenReport] = []
     ) {
         self.events = events
         self.crash = crash
         self.resolveFailure = resolveFailure
         self.usage = usage
+        self.usageSequence = usageSequence
     }
 
     func launch(_: AgentLaunchConfiguration) async throws -> AgentEventStream {
@@ -73,7 +80,8 @@ actor ScriptedAgentAdapter: AgentAdapter {
     }
 
     func tokenUsage() async -> TokenReport {
-        usage
+        guard !usageSequence.isEmpty else { return usage }
+        return usageSequence.removeFirst()
     }
 
     func stop() async {
@@ -334,6 +342,7 @@ func runTestSession(
     intent: Intent = makeTestIntent(),
     agentName: String = testAgentName,
     observer: (@Sendable (AgentEvent) async -> Void)? = nil,
+    tokenObserver: (@Sendable (SessionTokenUpdate) async -> Void)? = nil,
     onDenial: (@Sendable (SafeguardsActionType, String) async -> Void)? = nil
 ) async -> SessionRecord {
     await pipeline.run(
@@ -343,6 +352,7 @@ func runTestSession(
         connectors: makeTestConnectors(),
         launch: SessionLaunch(agentName: agentName, configuration: TestLaunch.configuration()),
         observer: observer,
+        tokenObserver: tokenObserver,
         onDenial: onDenial
     )
 }
