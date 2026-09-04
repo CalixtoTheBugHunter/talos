@@ -46,6 +46,7 @@ public struct SafeguardsApproved: Sendable {
         decisionLog: any GatedDecisionLog,
         now: @escaping @Sendable () -> Date = Date.init,
         observer: (@Sendable (AgentEvent) async -> Void)? = nil,
+        tokenObserver: (@Sendable (SessionTokenUpdate) async -> Void)? = nil,
         onDenial: (@Sendable (SafeguardsActionType, String) async -> Void)? = nil
     ) async -> SessionRunOutcome {
         if Task.isCancelled {
@@ -72,7 +73,7 @@ public struct SafeguardsApproved: Sendable {
             now: now,
             onDenial: onDenial
         )
-        return await consume(stream, collaborators: collaborators, observer: observer)
+        return await consume(stream, collaborators: collaborators, observer: observer, tokenObserver: tokenObserver)
     }
 
     /// Stages 6-8 over a launched agent's stream, ending on the first event
@@ -85,14 +86,17 @@ public struct SafeguardsApproved: Sendable {
     private func consume(
         _ stream: AgentEventStream,
         collaborators: SessionRunCollaborators<some AgentAdapter, some SafeguardsGate>,
-        observer: (@Sendable (AgentEvent) async -> Void)?
+        observer: (@Sendable (AgentEvent) async -> Void)?,
+        tokenObserver: (@Sendable (SessionTokenUpdate) async -> Void)?
     ) async -> SessionRunOutcome {
         var lastOutput = ""
         var metrics = SessionRunMetrics()
         var retries = RetryTracker()
+        await reportTokenUsage(collaborators: collaborators, tokenObserver: tokenObserver)
         do {
             for try await event in stream {
                 await observer?(event)
+                await reportTokenUsage(collaborators: collaborators, tokenObserver: tokenObserver)
                 switch event {
                 case let .output(chunk):
                     // The last chunk only, never a buffer of the run: a crash
@@ -292,73 +296,17 @@ public struct SafeguardsApproved: Sendable {
     }
 }
 
-/// One tool call's identity for retry detection — the tool it named and the
-/// targets it stated, exactly as the agent stated them. Two calls with this
-/// pair equal are "the same action" for
-/// ``SessionRunMetrics/retryCount``'s purposes.
-private struct ToolCallSignature: Hashable, Sendable {
-    let name: String
-    let targets: [String]
-}
-
-/// Everything ``SafeguardsApproved/run(sessionID:launchConfiguration:adapter:gate:decisionLog:now:observer:onDenial:)``
-/// needs to route one session, bundled so `consume`/`carry` take one
-/// parameter for all six instead of six — the shape this module's own
-/// `function_parameter_count` limit forces, and a reasonable one: the six
-/// never vary independently within a single run.
-private struct SessionRunCollaborators<Adapter: AgentAdapter, Gate: SafeguardsGate> {
+/// Everything ``SafeguardsApproved/run`` needs to route one session, bundled
+/// so `consume`/`carry` take one parameter for all six instead of six — the
+/// shape this module's own `function_parameter_count` limit forces, and a
+/// reasonable one: the six never vary independently within a single run.
+struct SessionRunCollaborators<Adapter: AgentAdapter, Gate: SafeguardsGate> {
     let adapter: Adapter
     let gate: Gate
     let decisionLog: any GatedDecisionLog
     let sessionID: UUID
     let now: @Sendable () -> Date
     let onDenial: (@Sendable (SafeguardsActionType, String) async -> Void)?
-}
-
-/// Tracks which tool-call signatures have been denied this session, so a
-/// later `.toolCall` repeating one can be counted as a retry and a later
-/// `.permissionRequest` repeating one can be blocked without asking again.
-/// Two calls contribute to this: `noteToolCall` remembers a call's own
-/// signature by its id, and `noteDenial` — given the id and decision a
-/// `.permissionRequest` denial answers — promotes that remembered signature
-/// into the denied set, carrying the decision's own action and
-/// classification so a later block can log honestly without re-classifying.
-private struct RetryTracker {
-    private var signaturesByCallID: [String: ToolCallSignature] = [:]
-    private var deniedSignatures: [ToolCallSignature: SafeguardsDecision] = [:]
-
-    /// Records `call`'s signature and reports whether it repeats one already
-    /// denied this session.
-    mutating func noteToolCall(_ call: AgentToolCall) -> Bool {
-        let signature = ToolCallSignature(name: call.name, targets: call.targets)
-        signaturesByCallID[call.id] = signature
-        return deniedSignatures.keys.contains(signature)
-    }
-
-    /// The permission request `requestID` was denied by `action`/`classification`.
-    /// If it correlates to an observed `.toolCall` (the adapter contract does
-    /// not guarantee one does), that call's signature is now a denied one.
-    mutating func noteDenial(
-        of requestID: String,
-        action: SafeguardsActionType,
-        classification: SafeguardsClassification
-    ) {
-        guard let signature = signaturesByCallID[requestID] else { return }
-        deniedSignatures[signature] = SafeguardsDecision(
-            outcome: .denied,
-            action: action,
-            classification: classification,
-            actor: .talos
-        )
-    }
-
-    /// A synthesized denial for `requestID`, if it correlates to a `.toolCall`
-    /// signature already denied this session — the gate is not consulted for
-    /// this decision, so the user is never asked about the same action twice.
-    func blockedDecision(for requestID: String) -> SafeguardsDecision? {
-        guard let signature = signaturesByCallID[requestID] else { return nil }
-        return deniedSignatures[signature]
-    }
 }
 
 /// What one session accumulated while stages 5-8 ran: tool calls observed,

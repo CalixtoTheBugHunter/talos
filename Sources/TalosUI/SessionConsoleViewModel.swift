@@ -2,6 +2,7 @@ import Foundation
 import Observation
 import TalosAdapters
 import TalosCore
+import TalosOrchestration
 import TalosSafeguards
 
 /// Accumulates an agent's streamed output into ``SessionConsoleLine``s and
@@ -47,6 +48,15 @@ public final class SessionConsoleViewModel: SafeguardsApprovalPrompt {
     /// by the view, from a real scroll-phase event — never by a timer.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#nothing-polls
     public private(set) var isFollowingOutput = true
+
+    /// The agent's live token report, or `nil` before the first
+    /// ``updateTokenUsage(_:)`` — never rendered as a zero.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#when-the-log-format-changes
+    public private(set) var tokenUsage: TokenReport?
+    /// Talos-added token overhead for this run, shown alongside ``tokenUsage``
+    /// as a distinct figure.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Vision-and-Principles#budgets-that-make-the-above-testable
+    public private(set) var contextOverheadRatio: Double?
 
     /// Set once by ``sessionStarted()``, before the first event ever arrives —
     /// what tells ``state`` apart ``State/empty`` (no session at all) from
@@ -113,6 +123,16 @@ public final class SessionConsoleViewModel: SafeguardsApprovalPrompt {
     public func sessionStarted() {
         hasStarted = true
         termination = nil
+        tokenUsage = nil
+        contextOverheadRatio = nil
+    }
+
+    /// The seam this plugs into as `SafeguardsApproved.run`'s `tokenObserver:`
+    /// — event-driven, never a timer.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#nothing-polls
+    public func updateTokenUsage(_ update: SessionTokenUpdate) {
+        tokenUsage = update.report
+        contextOverheadRatio = update.contextOverheadRatio
     }
 
     /// The seam this view model plugs into directly as
@@ -377,15 +397,4 @@ public final class SessionConsoleViewModel: SafeguardsApprovalPrompt {
         guard !payload.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         announcer.announce(payload)
     }
-}
-
-/// What ``SessionConsoleViewModel/currentPendingApproval`` reports about the
-/// one row currently pending — a named type rather than a tuple, since it
-/// crosses back into ``SessionConsoleViewModel/resolvePendingApproval(with:)``
-/// and ``SessionConsoleViewModel/cancelPendingApproval(requestID:)`` as a
-/// single value.
-private struct PendingApprovalInfo {
-    let callID: String
-    let action: SafeguardsActionType
-    let tier: SafeguardsTier
 }

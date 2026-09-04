@@ -112,8 +112,8 @@ public enum SafeguardsPreCheckStageOutcome: Sendable {
 
 /// What a session launches with: the `agents.yaml` entry it runs on, bundled
 /// with where and in what environment it runs. Bundled into one value rather
-/// than two parameters on ``SessionPipeline/run(intent:guideline:safeguards:connectors:launch:observer:onDenial:)``
-/// because the caller always knows both at once — it already resolved
+/// than two parameters on ``SessionPipeline/run``'s launch-configuration
+/// arguments — because the caller always knows both at once — it already resolved
 /// `agentName` to build `configuration` — and because keeping them apart
 /// would be the parameter this module's own `function_parameter_count` limit
 /// rejects.
@@ -192,6 +192,7 @@ public struct SessionPipeline<
         connectors: ConnectorsManifest,
         launch: SessionLaunch,
         observer: (@Sendable (AgentEvent) async -> Void)? = nil,
+        tokenObserver: (@Sendable (SessionTokenUpdate) async -> Void)? = nil,
         onDenial: (@Sendable (SafeguardsActionType, String) async -> Void)? = nil
     ) async -> SessionRecord {
         let bookkeeping = SessionRunBookkeeping(
@@ -236,6 +237,7 @@ public struct SessionPipeline<
             decisionLog: decisionLog,
             now: now,
             observer: observer,
+            tokenObserver: tokenObserver,
             onDenial: onDenial
         )
         return await finish(

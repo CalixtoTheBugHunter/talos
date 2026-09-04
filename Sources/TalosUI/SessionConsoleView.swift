@@ -17,12 +17,23 @@ public struct SessionConsoleView: View {
     /// How close to the bottom edge still counts as "at the bottom" — a
     /// small tolerance for layout rounding, not a debounce interval.
     private static let bottomProximityTolerance: CGFloat = 24
+    private static let tokenUsageBadgeTopPadding: CGFloat = 8
 
     public init(viewModel: SessionConsoleViewModel) {
         self.viewModel = viewModel
     }
 
     public var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if let tokenUsage = viewModel.tokenUsage {
+                tokenUsageBadge(tokenUsage, overheadRatio: viewModel.contextOverheadRatio)
+            }
+            content
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
         switch viewModel.state {
         case .empty:
             emptyState
@@ -44,6 +55,44 @@ public struct SessionConsoleView: View {
                 }
                 statusBanner(Self.deniedCopy, symbol: "hand.raised")
             }
+        }
+    }
+
+    /// "Token usage for the running session" — the one line the console owes
+    /// beside the transcript. Token counts "may be stated plainly", and an
+    /// unmeasured report reads "Unavailable" rather than a zero; the overhead
+    /// ratio, when known, is named so it reads as distinct from the agent's
+    /// own count rather than folded into it.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Content-and-Voice#cost-copy
+    private func tokenUsageBadge(_ report: TokenReport, overheadRatio: Double?) -> some View {
+        Text(verbatim: Self.tokenUsageCopy(report, overheadRatio: overheadRatio))
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal)
+            .padding(.top, Self.tokenUsageBadgeTopPadding)
+    }
+
+    private static func tokenUsageCopy(_ report: TokenReport, overheadRatio: Double?) -> String {
+        switch report {
+        case let .measured(counts, model):
+            let base = "\(counts.input) input · \(counts.output) output tokens (\(model))"
+            guard let overheadRatio else { return base }
+            let percent = Int((overheadRatio * 100).rounded())
+            return "\(base) — about \(percent)% Talos-added token overhead"
+        case let .unavailable(unavailable):
+            return "Token usage unavailable — \(Self.unavailableReasonCopy(unavailable.reason))"
+        }
+    }
+
+    private static func unavailableReasonCopy(_ reason: TokenUsageUnavailableReason) -> String {
+        switch reason {
+        case .notReported:
+            "not yet reported"
+        case .unrecognizedFormat:
+            "session log format not recognized"
         }
     }
 

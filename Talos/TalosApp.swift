@@ -183,6 +183,9 @@ struct TalosApp: App {
         case "tool-call-pending-write", "tool-call-pending-irreversible":
             sessionConsoleViewModel.sessionStarted()
             seedPendingToolCallApproval(irreversible: stateName == "tool-call-pending-irreversible")
+        case "token-usage", "token-usage-unavailable":
+            sessionConsoleViewModel.sessionStarted()
+            seedTokenUsage(unavailable: stateName == "token-usage-unavailable")
         default:
             sessionConsoleViewModel.sessionStarted()
             for chunk in Self.seededSessionConsoleTranscriptChunks {
@@ -228,6 +231,33 @@ struct TalosApp: App {
         )
         Task { _ = await sessionConsoleViewModel.present(request, action: action, tier: tier) }
     }
+
+    /// Exists only so `TalosUITests` can drive the real, mounted token-usage
+    /// badge before a live session ever reports usage — `unavailable` seeds
+    /// the "Unavailable" state rather than a zero.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#when-the-log-format-changes
+    @MainActor
+    private func seedTokenUsage(unavailable: Bool) {
+        guard !unavailable else {
+            sessionConsoleViewModel.updateTokenUsage(SessionTokenUpdate(
+                report: .unavailable(TokenUsageUnavailable(reason: .notReported)),
+                contextOverheadRatio: 0
+            ))
+            return
+        }
+        let counts = TokenCounts(input: Self.seededTokenInputCount, output: Self.seededTokenOutputCount)
+        sessionConsoleViewModel.updateTokenUsage(SessionTokenUpdate(
+            report: .measured(counts, model: "claude-opus-5"),
+            contextOverheadRatio: Self.seededTokenOverheadRatio
+        ))
+        for chunk in Self.seededSessionConsoleTranscriptChunks {
+            sessionConsoleViewModel.appendOutput(chunk)
+        }
+    }
+
+    private static let seededTokenInputCount = 1200
+    private static let seededTokenOutputCount = 340
+    private static let seededTokenOverheadRatio = 0.12
 
     /// A read-tier call never reaches the gate as a held request, so this
     /// row never moves past ``SessionConsoleToolCallApproval/notGated`` — the
