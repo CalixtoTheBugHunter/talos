@@ -47,6 +47,11 @@ actor ClaudeCodeAdapter: AgentAdapter {
         self.executablePath = executablePath
         self.hooks = hooks
         self.mcpConfig = mcpConfig
+        // Seeds the first turn's own `--resume`, per `runTurn`'s
+        // `sessionID.map { .resume } ?? .launch` choice — a resumed launch
+        // never sends a fresh conversation. Overwritten with the same value
+        // once the CLI's own `initialized` event confirms it.
+        sessionID = configuration.resumeToken
 
         let (stream, continuation) = AgentEventStream.makeStream()
         self.continuation = continuation
@@ -199,10 +204,19 @@ actor ClaudeCodeAdapter: AgentAdapter {
         continuation?.yield(.output(AgentOutputChunk(channel: .standardError, text: message)))
     }
 
+    /// The single choke point every termination path already passes through,
+    /// so it is also the single place that attaches this run's own resume
+    /// identifier — every caller above continues to construct a plain
+    /// ``AgentTermination`` and never has to know `sessionID`.
     private func finish(_ termination: AgentTermination) {
         guard !hasFinished else { return }
         hasFinished = true
-        continuation?.yield(.terminated(termination))
+        let withResumeToken = AgentTermination(
+            reason: termination.reason,
+            lastOutput: termination.lastOutput,
+            resumeToken: sessionID
+        )
+        continuation?.yield(.terminated(withResumeToken))
         continuation?.finish()
         hooks?.cleanUp()
         mcpConfig?.cleanUp()

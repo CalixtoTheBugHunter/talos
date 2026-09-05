@@ -20,6 +20,10 @@ public struct StoredSessionRecord: Identifiable, Equatable, Sendable {
     public let denialCount: Int
     public let retryCount: Int
     public let tokenOverheadRatio: Double
+    /// This session's own opaque continuation identifier, when the agent
+    /// adapter reported one at the time — what a resume launches into.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is
+    public let resumeToken: String?
 
     public init(
         id: UUID,
@@ -33,7 +37,8 @@ public struct StoredSessionRecord: Identifiable, Equatable, Sendable {
         approvalCount: Int,
         denialCount: Int,
         retryCount: Int,
-        tokenOverheadRatio: Double
+        tokenOverheadRatio: Double,
+        resumeToken: String? = nil
     ) {
         self.id = id
         self.project = project
@@ -47,5 +52,6 @@ public struct StoredSessionRecord: Identifiable, Equatable, Sendable {
         self.denialCount = denialCount
         self.retryCount = retryCount
         self.tokenOverheadRatio = tokenOverheadRatio
+        self.resumeToken = resumeToken
     }
 }

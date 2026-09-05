@@ -144,10 +144,17 @@ public struct AgentTermination: Equatable, Hashable, Sendable {
     /// The last output the agent produced before ending, shown as-is. Empty
     /// when it produced none.
     public let lastOutput: String
+    /// This run's own opaque continuation identifier, when the adapter has
+    /// one — carried forward as a later run's own
+    /// ``AgentLaunchConfiguration/resumeToken``. `nil` for an adapter with no
+    /// resume mechanism, or a run that never reached one.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is
+    public let resumeToken: String?
 
-    public init(reason: AgentTerminationReason, lastOutput: String = "") {
+    public init(reason: AgentTerminationReason, lastOutput: String = "", resumeToken: String? = nil) {
         self.reason = reason
         self.lastOutput = lastOutput
+        self.resumeToken = resumeToken
     }
 }
 
