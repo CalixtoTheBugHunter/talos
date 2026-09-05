@@ -47,10 +47,13 @@ public enum SessionRecordsSchema {
 
 /// Persists ``SessionRecord`` to the local SQLite database, and answers the
 /// two questions the Monitor Screen and Chat History Management need:
-/// "queryable by project and by time range", and real deletion.
+/// "queryable by project and by time range", and real deletion. The
+/// transcript and resume-token side of this store — ``SessionTranscriptSchema``
+/// and the methods reading and writing it — live in
+/// `SessionTranscriptPersistence.swift`.
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary#the-shared-session-model
 public actor SQLiteSessionRecordStore: SessionRecordWriter {
-    private let database: Database
+    let database: Database
 
     public init(database: Database) {
         self.database = database
@@ -76,8 +79,8 @@ public actor SQLiteSessionRecordStore: SessionRecordWriter {
             INSERT INTO session_records (
                 id, project_id, sub_function, agent_name, outcome, failure_reason,
                 started_at, duration, tool_call_count, approval_count, denial_count,
-                retry_count, token_overhead_ratio
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                retry_count, token_overhead_ratio, resume_token
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
             """,
             bindings: [
                 .text(record.id.uuidString),
@@ -92,9 +95,12 @@ public actor SQLiteSessionRecordStore: SessionRecordWriter {
                 .int(Int64(record.approvalCount)),
                 .int(Int64(record.denialCount)),
                 .int(Int64(record.retryCount)),
-                .double(record.tokenOverheadRatio)
+                .double(record.tokenOverheadRatio),
+                record.resumeToken.map(DatabaseValue.text) ?? .null
             ]
         )
+
+        try await insertTranscript(record.transcript, project: record.project, sessionID: record.id)
 
         guard let tokenReport = record.outcome.tokenReport else { return }
         try await insertTokenReport(tokenReport, project: record.project, sessionID: record.id)
@@ -149,7 +155,7 @@ public actor SQLiteSessionRecordStore: SessionRecordWriter {
             """
             SELECT id, sub_function, agent_name, outcome, started_at, duration,
                    tool_call_count, approval_count, denial_count, retry_count,
-                   token_overhead_ratio
+                   token_overhead_ratio, resume_token
             FROM session_records
             WHERE project_id = ? AND started_at >= ? AND started_at <= ?
             ORDER BY started_at ASC;
@@ -164,8 +170,9 @@ public actor SQLiteSessionRecordStore: SessionRecordWriter {
     }
 
     /// "Deleting a session really deletes it and its token records." The
-    /// dependent `session_token_records` rows are removed by the schema's own
-    /// `ON DELETE CASCADE`, never by a second statement this store could skip.
+    /// dependent `session_token_records` and `session_transcript_entries` rows
+    /// are removed by the schema's own `ON DELETE CASCADE`, never by a second
+    /// statement this store could skip.
     public func delete(_ id: SessionRecord.ID) async throws {
         try await database.run(
             "DELETE FROM session_records WHERE id = ?;",
@@ -178,7 +185,7 @@ public actor SQLiteSessionRecordStore: SessionRecordWriter {
     /// a bare number nobody can trace back to a column.
     private enum RecordColumn: Int, CaseIterable {
         case id, subFunction, agentName, outcome, startedAt, duration
-        case toolCallCount, approvalCount, denialCount, retryCount, tokenOverheadRatio
+        case toolCallCount, approvalCount, denialCount, retryCount, tokenOverheadRatio, resumeToken
     }
 
     private static func storedRecord(
@@ -216,8 +223,16 @@ public actor SQLiteSessionRecordStore: SessionRecordWriter {
             approvalCount: Int(approvalCount),
             denialCount: Int(denialCount),
             retryCount: Int(retryCount),
-            tokenOverheadRatio: tokenOverheadRatio
+            tokenOverheadRatio: tokenOverheadRatio,
+            resumeToken: Self.optionalText(row[RecordColumn.resumeToken.rawValue])
         )
+    }
+
+    /// A nullable `TEXT` column: `.null` reads back as `nil`, never as an
+    /// empty string standing in for absence.
+    private static func optionalText(_ value: DatabaseValue) -> String? {
+        guard case let .text(text) = value else { return nil }
+        return text
     }
 }
 

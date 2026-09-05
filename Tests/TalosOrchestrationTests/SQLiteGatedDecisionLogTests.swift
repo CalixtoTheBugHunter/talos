@@ -143,6 +143,25 @@ struct SQLiteGatedDecisionLogTests {
         #expect(found.map(\.requestID) == ["r1", "r2"])
     }
 
+    /// What a resume or an export joins a stored ``SessionTranscriptEntry``
+    /// against, by call id — never a duplicated write path for what this log
+    /// already records.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is
+    @Test("Entries scoped to one session exclude another session's, even in the same project")
+    func sessionScopedQueryExcludesAnotherSessionsEntries() async throws {
+        let (database, _) = try await Self.temporaryDatabase()
+        let log = SQLiteGatedDecisionLog(database: database)
+        let project = ProjectIdentifier(rawValue: "p1")
+        let sessionID = UUID()
+        let otherSessionID = UUID()
+        await log.record(Self.makeEntry(project: project, sessionID: sessionID, requestID: "r1"))
+        await log.record(Self.makeEntry(project: project, sessionID: otherSessionID, requestID: "r2"))
+
+        let found = try await log.entries(project: project, sessionID: sessionID)
+
+        #expect(found.map(\.requestID) == ["r1"])
+    }
+
     @Test("A record from a different project is not returned")
     func recordFromAnotherProjectIsExcluded() async throws {
         let (database, _) = try await Self.temporaryDatabase()

@@ -110,6 +110,18 @@ public struct SessionRecord: Identifiable, Equatable, Sendable {
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Talos-Guidelines#when-assembled-context-exceeds-the-ceiling
     public let droppedContextParts: [DroppedContextPart]
     public let unavailableContextParts: [UnavailableContextPart]
+    /// This session's transcript, in arrival order — "output is copyable and
+    /// exportable", and, on ``SQLiteSessionRecordStore``, what a resume or an
+    /// export reads back. Empty for the two stages that never reach
+    /// ``SafeguardsApproved`` — a context-assembly failure or a pre-check
+    /// denial never launched an agent to have one.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is
+    public let transcript: [SessionTranscriptEntry]
+    /// This session's own opaque continuation identifier, when the agent
+    /// adapter reported one — "resuming uses the agent's own resume mechanism
+    /// where available." `nil` for an adapter with none, and for the two
+    /// stages that never launch an agent.
+    public let resumeToken: String?
 
     public init(
         id: UUID,
@@ -125,7 +137,9 @@ public struct SessionRecord: Identifiable, Equatable, Sendable {
         retryCount: Int,
         tokenOverheadRatio: Double,
         droppedContextParts: [DroppedContextPart] = [],
-        unavailableContextParts: [UnavailableContextPart] = []
+        unavailableContextParts: [UnavailableContextPart] = [],
+        transcript: [SessionTranscriptEntry] = [],
+        resumeToken: String? = nil
     ) {
         self.id = id
         self.project = project
@@ -141,6 +155,8 @@ public struct SessionRecord: Identifiable, Equatable, Sendable {
         self.tokenOverheadRatio = tokenOverheadRatio
         self.droppedContextParts = droppedContextParts
         self.unavailableContextParts = unavailableContextParts
+        self.transcript = transcript
+        self.resumeToken = resumeToken
     }
 }
 

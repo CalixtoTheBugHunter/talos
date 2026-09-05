@@ -56,15 +56,24 @@ public struct AgentLaunchConfiguration: Equatable, Hashable, Sendable {
     /// other MCP configuration — the project's own, or the user's — reaches
     /// it in that case.
     public let mcpServers: [MCPServerLaunchConfiguration]
+    /// A prior run's own opaque continuation identifier — the value a
+    /// previous ``AgentTermination/resumeToken`` carried — or `nil` for a
+    /// fresh conversation. An adapter with no resume mechanism of its own
+    /// ignores this; one that has one launches into it instead of starting
+    /// over. "Resuming uses the agent's own resume mechanism where available."
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is
+    public let resumeToken: String?
 
     public init(
         workingDirectory: URL,
         environment: [String: String] = [:],
-        mcpServers: [MCPServerLaunchConfiguration] = []
+        mcpServers: [MCPServerLaunchConfiguration] = [],
+        resumeToken: String? = nil
     ) {
         self.workingDirectory = workingDirectory
         self.environment = environment
         self.mcpServers = mcpServers
+        self.resumeToken = resumeToken
     }
 }
 

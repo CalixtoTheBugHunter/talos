@@ -20,10 +20,8 @@ import TalosSafeguards
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback
 ///
 /// Conforms to ``SafeguardsApprovalPrompt`` so a pending approval renders
-/// "inline, where the work is happening" rather than as a detached modal —
-/// the console is given the gate's own `action`/`tier` directly through
-/// `present(_:action:tier:)`, which is the only place that data exists; core
-/// never derives a tier by reading ``AgentToolCall/name``.
+/// "inline, where the work is happening" rather than as a detached modal;
+/// core never derives a tier by reading ``AgentToolCall/name``.
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is
 @Observable
 @MainActor
@@ -185,10 +183,8 @@ public final class SessionConsoleViewModel: SafeguardsApprovalPrompt {
     /// attributes to Talos rather than to a decision the user never made.
     ///
     /// ``beginPendingApproval(request:action:tier:)`` runs only once the task
-    /// is confirmed not already cancelled, mirroring ``ApprovalPromptCenter/present(_:action:tier:)``'s
-    /// own ordering — never before, so a task already cancelled at entry
-    /// never shows a row it cannot resolve: `cancelPendingApproval` only acts
-    /// on a `pendingApprovalContinuation` this method has stored.
+    /// is confirmed not already cancelled, mirroring ``ApprovalPromptCenter/present(_:action:tier:)``:
+    /// a task already cancelled at entry never shows a row it cannot resolve.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#the-gate-fails-closed
     public func present(
         _ request: AgentPermissionRequest,
@@ -316,8 +312,11 @@ public final class SessionConsoleViewModel: SafeguardsApprovalPrompt {
     /// Finds the line whose ``SessionConsoleToolCall/callID`` matches and
     /// updates its `approval` in place. The row's own `id` never changes —
     /// this is the single-row diff the file's own perf note keeps to.
+    ///
+    /// Not `private`: `SessionConsoleViewModel+Resume.swift`'s
+    /// `resolvePreloadedToolCall(_:with:)` calls it too.
     @discardableResult
-    private func updateToolCall(callID: String, approval: SessionConsoleToolCallApproval) -> Bool {
+    func updateToolCall(callID: String, approval: SessionConsoleToolCallApproval) -> Bool {
         guard let index = lines.firstIndex(where: { line in
             if case let .toolCall(call) = line.content {
                 return call.callID == callID
