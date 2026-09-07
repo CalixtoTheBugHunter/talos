@@ -3,13 +3,14 @@ import Testing
 
 /// Asserts no file in the repository references a PTY-allocation primitive.
 ///
-/// > It is deliberately **not** a PTY. There is no embedded shell tab.
+/// > It is deliberately **not a PTY**. There is no embedded shell tab.
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is-not
 ///
-/// Unconditional, unlike the subprocess-spawn rule: `spec-guard.sh` exempts
-/// `Sources/TalosAdapters/` from its own subprocess-spawn check because the
-/// adapter is the one layer allowed to spawn, but it exempts nothing from
-/// this one, and neither does this test — the adapter streams a spawned
+/// `spec-guard.sh` exempts `Sources/TalosAdapters/` from its own PTY check the
+/// same way it exempts that module from the subprocess-spawn check — its own
+/// header states it plainly: "It does not check for PTY allocation *inside*
+/// the adapter module." This test carries no such exemption, so it is what
+/// actually makes "not a PTY" unconditional: the adapter streams a spawned
 /// agent's output over pipes, and nothing anywhere needs a PTY.
 ///
 /// Walks the repository rather than a fixed file list, so a PTY primitive
