@@ -8,11 +8,10 @@ import TalosProjectLibrary
 import TalosSafeguards
 import TalosUI
 
-/// Otherwise deliberately empty except for the approval-prompt and
-/// denied-notice hosts — log and transcript export are File-menu commands
-/// rather than bespoke controls, so VoiceOver, keyboard reach, and contrast
-/// come from `NSSavePanel`/`NSAlert`; the approval prompt is the first
-/// Talos-authored surface, so its menu commands are wired here too.
+/// Otherwise deliberately empty except for the approval-prompt and denied-notice hosts — log and transcript
+/// export, and the terminal/IDE hand-off, are File-menu commands rather than bespoke controls, so VoiceOver,
+/// keyboard reach, and contrast come from `NSSavePanel`/`NSAlert`/`NSOpenPanel`; the approval prompt is the
+/// first Talos-authored surface, so its menu commands are wired here too.
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Interaction-and-Keyboard#menus-carry-the-shortcuts
 @main
 struct TalosApp: App {
@@ -61,6 +60,7 @@ struct TalosApp: App {
                 denyCommand
                 stopCommand
             }
+            HandOffCommands()
         }
     }
 
