@@ -4,6 +4,7 @@ import SwiftUI
 import TalosAdapters
 import TalosCore
 import TalosOrchestration
+import TalosPersistence
 import TalosProjectLibrary
 import TalosSafeguards
 import TalosUI
@@ -22,29 +23,59 @@ struct TalosApp: App {
     @State private var gatedDecisionLogState: GatedDecisionLogViewModel.State = .loading
     @State private var sessionConsoleViewModel = SessionConsoleViewModel()
     @State private var isSessionConsoleTranscriptPresented = false
+    /// `nil` until the local database has opened — the one real entry point
+    /// Assistant's composition root needs. Absent rather than defaulted on
+    /// failure, so `ContentView` can disable starting a session instead of
+    /// starting one against a database that never opened.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Sub-function-Assistant#pipeline
+    @State private var assistantSessionComposer: AssistantSessionComposer?
+    @State private var databaseOpenErrorMessage: String?
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .approvalPromptHost(approvalPromptCenter)
-                .deniedActionNoticeHost(deniedActionNoticeCenter)
-                .sessionStopHost(sessionStopCenter)
-                .sheet(isPresented: $isGatedDecisionLogPresented) {
-                    GatedDecisionLogView(
-                        state: gatedDecisionLogState,
-                        onRetry: { seedGatedDecisionLogForUITestingIfRequested() }
-                    )
-                }
-                .sheet(isPresented: $isSessionConsoleTranscriptPresented) {
-                    SessionConsoleView(viewModel: sessionConsoleViewModel)
-                }
-                .task {
-                    await seedApprovalPromptForUITestingIfRequested()
-                    await seedDeniedActionNoticeForUITestingIfRequested()
-                    seedGatedDecisionLogForUITestingIfRequested()
-                    seedSessionStopForUITestingIfRequested()
-                    seedSessionConsoleTranscriptForUITestingIfRequested()
-                }
+            ContentView(
+                composer: assistantSessionComposer,
+                composerUnavailableReason: databaseOpenErrorMessage,
+                consoleViewModel: sessionConsoleViewModel,
+                deniedActionNoticeCenter: deniedActionNoticeCenter,
+                isSessionConsolePresented: $isSessionConsoleTranscriptPresented
+            )
+            .approvalPromptHost(approvalPromptCenter)
+            .deniedActionNoticeHost(deniedActionNoticeCenter)
+            .sessionStopHost(sessionStopCenter)
+            .sheet(isPresented: $isGatedDecisionLogPresented) {
+                GatedDecisionLogView(
+                    state: gatedDecisionLogState,
+                    onRetry: {
+                        TalosAppUITestSeeding.seedGatedDecisionLog(
+                            state: $gatedDecisionLogState,
+                            isPresented: $isGatedDecisionLogPresented
+                        )
+                    }
+                )
+            }
+            .sheet(isPresented: $isSessionConsoleTranscriptPresented) {
+                SessionConsoleView(viewModel: sessionConsoleViewModel)
+            }
+            .task {
+                // Opened on its own, unawaited task: this does real disk I/O
+                // (directory creation, `sqlite3_open_v2`, migrations) that
+                // has nothing to do with the seeds below, and awaiting it
+                // first measurably delayed every one of them past the fixed
+                // waits `TalosUITests` seeds against.
+                Task { await openLocalDatabase() }
+                await TalosAppUITestSeeding.seedApprovalPrompt(into: approvalPromptCenter)
+                await TalosAppUITestSeeding.seedDeniedActionNotice(into: deniedActionNoticeCenter)
+                TalosAppUITestSeeding.seedGatedDecisionLog(
+                    state: $gatedDecisionLogState,
+                    isPresented: $isGatedDecisionLogPresented
+                )
+                TalosAppUITestSeeding.seedSessionStop(into: sessionStopCenter)
+                TalosAppUITestSeeding.seedSessionConsoleTranscript(
+                    viewModel: sessionConsoleViewModel,
+                    isPresented: $isSessionConsoleTranscriptPresented
+                )
+            }
         }
         .commands {
             CommandGroup(after: .saveItem) {
@@ -105,252 +136,27 @@ struct TalosApp: App {
         .disabled(!sessionStopCenter.isSessionRunning)
     }
 
-    /// Exists only so `TalosUITests` can drive the real, mounted approval
-    /// prompt before a Session Console or a live gate exists to raise one —
-    /// the launch-environment key it reads is never set by a normal launch.
+    /// Opens the one local SQLite database every session record and gated
+    /// decision is written to, applying every migration in the order each
+    /// schema's own comment declares, then hands it to a fresh
+    /// ``AssistantSessionComposer``. A failure here disables starting a
+    /// session rather than starting one with nowhere to record it.
     @MainActor
-    private func seedApprovalPromptForUITestingIfRequested() async {
-        guard let tierName = ProcessInfo.processInfo.environment["TALOS_UI_TEST_PENDING_APPROVAL"] else { return }
-        let tier: SafeguardsTier = tierName == "irreversible" ? .irreversible : .write
-        let action: SafeguardsActionType = tier == .irreversible ? .fileDelete : .fileWrite
-        let request = AgentPermissionRequest(
-            id: "ui-test-\(tierName)",
-            prompt: "The agent wants to delete build/ and 3 cache files in Sources/Talos/Legacy/."
-        )
-        _ = await approvalPromptCenter.present(request, action: action, tier: tier)
-    }
-
-    /// Exists for the same reason as the seed above, and for the same
-    /// reason: `TalosUITests` needs to drive the real, mounted notice before
-    /// a session ever runs one for real.
-    @MainActor
-    private func seedDeniedActionNoticeForUITestingIfRequested() async {
-        guard let tierName = ProcessInfo.processInfo.environment["TALOS_UI_TEST_DENIED_NOTICE"] else { return }
-        let action: SafeguardsActionType = tierName == "irreversible" ? .fileDelete : .fileWrite
-        await deniedActionNoticeCenter.notify(
-            action: action,
-            requestPrompt: "The agent wants to delete build/ and 3 cache files in Sources/Talos/Legacy/."
-        )
-    }
-
-    /// Exists for the same reason as the two seeds above: `TalosUITests`
-    /// needs to drive the real, mounted Stop control before a real session
-    /// ever starts one. The stop handler ends the tracked session rather than
-    /// running a real process — proving the control is present, activates
-    /// with no confirmation, is keyboard-reachable, and is VoiceOver-labeled
-    /// does not require a process behind it, which the real adapter and
-    /// process-tree tests own.
-    @MainActor
-    private func seedSessionStopForUITestingIfRequested() {
-        guard ProcessInfo.processInfo.environment["TALOS_UI_TEST_SESSION_RUNNING"] != nil else { return }
-        sessionStopCenter.beginTracking(stopping: { await sessionStopCenter.sessionEnded() })
-    }
-
-    /// Exists for the same reason as the two seeds above: `TalosUITests`
-    /// needs to drive the real, mounted gated-decision-log view before any
-    /// screen exists to host it — mounting behind real navigation is
-    /// explicitly out of scope until one does.
-    @MainActor
-    private func seedGatedDecisionLogForUITestingIfRequested() {
-        guard let stateName = ProcessInfo.processInfo.environment["TALOS_UI_TEST_GATED_DECISION_LOG"] else { return }
-        gatedDecisionLogState = Self.seededGatedDecisionLogState(named: stateName)
-        isGatedDecisionLogPresented = true
-    }
-
-    /// Exists for the same reason as the two seeds above: `TalosUITests`
-    /// needs to drive the real, mounted session transcript before a real
-    /// session ever streams output into one. The env var's value names which
-    /// of ``SessionConsoleViewModel/State`` to seed, mirroring
-    /// ``seedGatedDecisionLogForUITestingIfRequested()``'s `stateName`
-    /// pattern — an unset var still means "don't seed", and an unrecognized
-    /// value falls to the same full transcript this key always seeded before
-    /// state names existed.
-    @MainActor
-    private func seedSessionConsoleTranscriptForUITestingIfRequested() {
-        guard let stateName = ProcessInfo.processInfo.environment["TALOS_UI_TEST_SESSION_CONSOLE_TRANSCRIPT"] else {
-            return
-        }
-        switch stateName {
-        case "empty":
-            break // `sessionStarted()` deliberately not called — nothing seeds `hasStarted`.
-        case "loading":
-            sessionConsoleViewModel.sessionStarted()
-        case "failed":
-            seedTerminatedTranscript(reason: .exited(code: 1))
-        case "denied":
-            seedTerminatedTranscript(reason: .denied)
-        case "tool-call-read":
-            sessionConsoleViewModel.sessionStarted()
-            sessionConsoleViewModel.handle(.toolCall(Self.seededReadTierToolCall))
-        case "tool-call-pending-write", "tool-call-pending-irreversible":
-            sessionConsoleViewModel.sessionStarted()
-            seedPendingToolCallApproval(irreversible: stateName == "tool-call-pending-irreversible")
-        case "token-usage", "token-usage-unavailable":
-            sessionConsoleViewModel.sessionStarted()
-            seedTokenUsage(unavailable: stateName == "token-usage-unavailable")
-        default:
-            sessionConsoleViewModel.sessionStarted()
-            for chunk in Self.seededSessionConsoleTranscriptChunks {
-                sessionConsoleViewModel.appendOutput(chunk)
-            }
-        }
-        isSessionConsoleTranscriptPresented = true
-    }
-
-    /// The "failed" and "denied" seeds share everything but the termination
-    /// reason.
-    @MainActor
-    private func seedTerminatedTranscript(reason: AgentTerminationReason) {
-        sessionConsoleViewModel.sessionStarted()
-        for chunk in Self.seededSessionConsoleTerminationChunks {
-            sessionConsoleViewModel.appendOutput(chunk)
-        }
-        sessionConsoleViewModel.handle(.terminated(AgentTermination(reason: reason)))
-    }
-
-    /// Exists only so `TalosUITests` can drive the real, mounted pending
-    /// approval row before a live gate exists to raise one — the same reason
-    /// `seedApprovalPromptForUITestingIfRequested()` exists, but for the
-    /// inline row rather than the sheet. `present` is spawned on its own
-    /// `Task` rather than awaited here, exactly as a real
-    /// `TieredSafeguardsGate` would call it without blocking the caller that
-    /// launched the session.
-    @MainActor
-    private func seedPendingToolCallApproval(irreversible: Bool) {
-        let tier: SafeguardsTier = irreversible ? .irreversible : .write
-        let action: SafeguardsActionType = irreversible ? .fileDelete : .fileWrite
-        let call = AgentToolCall(
-            id: "ui-test-tool-call",
-            name: irreversible ? "Delete" : "Write",
-            targets: ["Sources/Talos/Legacy/Old.swift"]
-        )
-        sessionConsoleViewModel.handle(.toolCall(call))
-        let request = AgentPermissionRequest(
-            id: call.id,
-            prompt: irreversible
-                ? "The agent wants to delete Sources/Talos/Legacy/Old.swift."
-                : "The agent wants to modify Sources/Talos/Legacy/Old.swift."
-        )
-        Task { _ = await sessionConsoleViewModel.present(request, action: action, tier: tier) }
-    }
-
-    /// Exists only so `TalosUITests` can drive the real, mounted token-usage
-    /// badge before a live session ever reports usage — `unavailable` seeds
-    /// the "Unavailable" state rather than a zero.
-    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#when-the-log-format-changes
-    @MainActor
-    private func seedTokenUsage(unavailable: Bool) {
-        guard !unavailable else {
-            sessionConsoleViewModel.updateTokenUsage(SessionTokenUpdate(
-                report: .unavailable(TokenUsageUnavailable(reason: .notReported)),
-                contextOverheadRatio: 0
-            ))
-            return
-        }
-        let counts = TokenCounts(input: Self.seededTokenInputCount, output: Self.seededTokenOutputCount)
-        sessionConsoleViewModel.updateTokenUsage(SessionTokenUpdate(
-            report: .measured(counts, model: "claude-opus-5"),
-            contextOverheadRatio: Self.seededTokenOverheadRatio
-        ))
-        for chunk in Self.seededSessionConsoleTranscriptChunks {
-            sessionConsoleViewModel.appendOutput(chunk)
-        }
-    }
-
-    private static let seededTokenInputCount = 1200
-    private static let seededTokenOutputCount = 340
-    private static let seededTokenOverheadRatio = 0.12
-
-    /// A read-tier call never reaches the gate as a held request, so this
-    /// row never moves past ``SessionConsoleToolCallApproval/notGated`` — the
-    /// seed for "visible but visually de-emphasized, since they never
-    /// prompt".
-    private static let seededReadTierToolCall = AgentToolCall(
-        id: "ui-test-read-call",
-        name: "Read",
-        targets: ["Sources/Talos/Legacy/Old.swift"]
-    )
-
-    /// Three short lines plus one 100k+ character line with no newline, so a
-    /// UI test and a manual scroll-performance pass both have a transcript
-    /// long enough, and pathological enough, to exercise the active-memory
-    /// and frame-rate budgets.
-    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Vision-and-Principles#budgets-that-make-the-above-testable
-    private static let seededSessionConsoleTranscriptChunks: [AgentOutputChunk] = [
-        AgentOutputChunk(channel: .standardOutput, text: "Reading the file tree.\n"),
-        AgentOutputChunk(channel: .standardOutput, text: "Found 3 matches.\n"),
-        AgentOutputChunk(
-            channel: .standardOutput,
-            text: String(repeating: "a", count: seededTranscriptLongLineLength)
-        ),
-        AgentOutputChunk(channel: .standardOutput, text: "\nDone.\n")
-    ]
-    private static let seededTranscriptLongLineLength = 120_000
-
-    /// The two lines a Failed or Denied seed shows above its status banner —
-    /// short, since these seeds prove the banner renders over a real
-    /// transcript rather than exercising scroll or memory budgets again.
-    private static let seededSessionConsoleTerminationChunks: [AgentOutputChunk] = [
-        AgentOutputChunk(channel: .standardOutput, text: "Reading the file tree.\n"),
-        AgentOutputChunk(channel: .standardOutput, text: "Found 3 matches.\n")
-    ]
-
-    private static func seededGatedDecisionLogState(named name: String) -> GatedDecisionLogViewModel.State {
-        switch name {
-        case "loading":
-            .loading
-        case "empty":
-            .empty
-        case "failed":
-            .failed("The decision log could not be read: the file is unreadable.")
-        default:
-            .ready(seededGatedDecisionLogEntries)
-        }
-    }
-
-    /// A first and a second decision, spaced two minutes apart, so a UI test
-    /// can see more than one row and both an irreversible denial and an
-    /// allowlisted write-tier pass.
-    private static let seededGatedDecisionLogEntries: [StoredGatedDecisionEntry] = {
-        let project = ProjectIdentifier(rawValue: "ui-test-project")
-        let firstTimestamp = Date(timeIntervalSince1970: seededGatedDecisionLogEpoch)
-        let secondTimestamp = firstTimestamp.addingTimeInterval(seededGatedDecisionLogEntrySpacing)
-        return [
-            StoredGatedDecisionEntry(
-                id: seededGatedDecisionLogFirstEntryID,
-                project: project,
-                sessionID: UUID(),
-                timestamp: firstTimestamp,
-                subFunction: .automator,
-                requestID: "ui-test-1",
-                requestPrompt: "The agent wants to delete build/ and 3 cache files in Sources/Talos/Legacy/.",
-                action: .fileDelete,
-                classification: .tier(.irreversible),
-                actor: .user,
-                outcome: .denied
-            ),
-            StoredGatedDecisionEntry(
-                id: seededGatedDecisionLogSecondEntryID,
-                project: project,
-                sessionID: UUID(),
-                timestamp: secondTimestamp,
-                subFunction: .automator,
-                requestID: "ui-test-2",
-                requestPrompt: "The agent wants to commit Sources/App/Secrets.swift.",
-                action: .gitCommit,
-                classification: .tier(.write),
-                actor: .allowlist,
-                outcome: .allowed
+    private func openLocalDatabase() async {
+        do {
+            let database = try await Database(
+                url: DatabaseLocation.defaultDatabaseURL(),
+                migrations: [
+                    SessionRecordsSchema.migration,
+                    GatedDecisionLogSchema.migration,
+                    SessionTranscriptSchema.migration
+                ]
             )
-        ]
-    }()
-
-    /// An arbitrary but fixed instant, so a UI test sees a stable timestamp
-    /// rather than the moment it happened to run.
-    private static let seededGatedDecisionLogEpoch: TimeInterval = 1_700_000_000
-    private static let seededGatedDecisionLogEntrySpacing: TimeInterval = 120
-    private static let seededGatedDecisionLogFirstEntryID = 1
-    private static let seededGatedDecisionLogSecondEntryID = 2
+            assistantSessionComposer = AssistantSessionComposer(database: database)
+        } catch {
+            databaseOpenErrorMessage = "Talos could not open its local database: \(error)"
+        }
+    }
 }
 
 /// The export flow behind the "Export Logs for Bug Report…" menu command.
@@ -384,17 +190,5 @@ enum LogExportCommand {
             : "Talos could not read or save the local logs."
         alert.alertStyle = succeeded ? .informational : .warning
         alert.runModal()
-    }
-}
-
-/// Placeholder content. Carries no values of its own — no palette, type scale,
-/// or spacing grid exists to pick from:
-/// https://github.com/CalixtoTheBugHunter/talos/wiki/Design-System#the-platform-is-the-design-system
-struct ContentView: View {
-    var body: some View {
-        Text(verbatim: "Talos")
-            .font(.largeTitle)
-            .padding()
-            .accessibilityLabel("Talos")
     }
 }

@@ -39,6 +39,7 @@ struct NoAgentOrProviderReferenceTests {
         "WaitStatus.swift",
         "TokenReport.swift",
         "AgentAdapterRegistry.swift",
+        "AnyAgentAdapterBox.swift",
         "TalosAdapters.swift"
     ]
 

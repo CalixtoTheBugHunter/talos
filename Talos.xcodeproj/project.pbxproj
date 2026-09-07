@@ -15,6 +15,9 @@
 		7A10000000000000000A000A /* OpenInTerminalCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B000B /* OpenInTerminalCommand.swift */; };
 		7A10000000000000000A000B /* OpenInIDECommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B000C /* OpenInIDECommand.swift */; };
 		7A10000000000000000A000C /* HandOffCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B000D /* HandOffCommands.swift */; };
+		7A10000000000000000A000D /* AssistantSessionComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B000E /* AssistantSessionComposer.swift */; };
+		7A10000000000000000A000E /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B000F /* ContentView.swift */; };
+		7A10000000000000000A000F /* TalosAppUITestSeeding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B0010 /* TalosAppUITestSeeding.swift */; };
 		7A10000000000000000A0002 /* TalosCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A10000000000000000E0001 /* TalosCore */; };
 		7A10000000000000000A0005 /* TalosUI in Frameworks */ = {isa = PBXBuildFile; productRef = 7A1000000000000000170001 /* TalosUI */; };
 		7A10000000000000000A0003 /* MinimumSupportedOSTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B0005 /* MinimumSupportedOSTests.swift */; };
@@ -41,6 +44,9 @@
 		7A10000000000000000B000B /* OpenInTerminalCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenInTerminalCommand.swift; sourceTree = "<group>"; };
 		7A10000000000000000B000C /* OpenInIDECommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenInIDECommand.swift; sourceTree = "<group>"; };
 		7A10000000000000000B000D /* HandOffCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandOffCommands.swift; sourceTree = "<group>"; };
+		7A10000000000000000B000E /* AssistantSessionComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantSessionComposer.swift; sourceTree = "<group>"; };
+		7A10000000000000000B000F /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		7A10000000000000000B0010 /* TalosAppUITestSeeding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalosAppUITestSeeding.swift; sourceTree = "<group>"; };
 		7A10000000000000000B0002 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		7A10000000000000000B0003 /* Talos.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Talos.entitlements; sourceTree = "<group>"; };
 		7A10000000000000000B0004 /* Talos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Talos.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -115,6 +121,9 @@
 				7A10000000000000000B000B /* OpenInTerminalCommand.swift */,
 				7A10000000000000000B000C /* OpenInIDECommand.swift */,
 				7A10000000000000000B000D /* HandOffCommands.swift */,
+				7A10000000000000000B000E /* AssistantSessionComposer.swift */,
+				7A10000000000000000B000F /* ContentView.swift */,
+				7A10000000000000000B0010 /* TalosAppUITestSeeding.swift */,
 				7A10000000000000000B0002 /* Info.plist */,
 				7A10000000000000000B0003 /* Talos.entitlements */,
 			);
@@ -262,6 +271,9 @@
 				7A10000000000000000A000A /* OpenInTerminalCommand.swift in Sources */,
 				7A10000000000000000A000B /* OpenInIDECommand.swift in Sources */,
 				7A10000000000000000A000C /* HandOffCommands.swift in Sources */,
+				7A10000000000000000A000D /* AssistantSessionComposer.swift in Sources */,
+				7A10000000000000000A000E /* ContentView.swift in Sources */,
+				7A10000000000000000A000F /* TalosAppUITestSeeding.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
