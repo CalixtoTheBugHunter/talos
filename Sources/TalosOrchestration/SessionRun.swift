@@ -50,7 +50,7 @@ public struct SafeguardsApproved: Sendable {
         onDenial: (@Sendable (SafeguardsActionType, String) async -> Void)? = nil
     ) async -> SessionRunOutcome {
         if Task.isCancelled {
-            return await stop(adapter: adapter, metrics: SessionRunMetrics())
+            return await stop(adapter: adapter, metrics: SessionRunMetrics(), transcript: [])
         }
 
         let stream: AgentEventStream
@@ -61,7 +61,8 @@ public struct SafeguardsApproved: Sendable {
             return await abandon(
                 reason: launchFailureReason(error),
                 adapter: adapter,
-                metrics: SessionRunMetrics()
+                metrics: SessionRunMetrics(),
+                transcript: []
             )
         }
 
@@ -89,8 +90,13 @@ public struct SafeguardsApproved: Sendable {
         observer: (@Sendable (AgentEvent) async -> Void)?,
         tokenObserver: (@Sendable (SessionTokenUpdate) async -> Void)?
     ) async -> SessionRunOutcome {
+        // The last chunk only, never a buffer of the run: a crash has no
+        // `AgentTermination` to carry the agent's own final words, and
+        // retaining the stream would spend the active-memory budget on a
+        // fast agent.
         var lastOutput = ""
         var metrics = SessionRunMetrics()
+        var transcript: [SessionTranscriptEntry] = []
         var retries = RetryTracker()
         await reportTokenUsage(collaborators: collaborators, tokenObserver: tokenObserver)
         do {
@@ -99,29 +105,26 @@ public struct SafeguardsApproved: Sendable {
                 await reportTokenUsage(collaborators: collaborators, tokenObserver: tokenObserver)
                 switch event {
                 case let .output(chunk):
-                    // The last chunk only, never a buffer of the run: a crash
-                    // has no `AgentTermination` to carry the agent's own final
-                    // words, and retaining the stream would spend the
-                    // active-memory budget on a fast agent.
                     lastOutput = chunk.text
+                    transcript.append(.output(chunk.text))
                 case let .toolCall(call):
-                    metrics.toolCallCount += 1
-                    if retries.noteToolCall(call) {
-                        metrics.retryCount += 1
-                    }
+                    note(call, metrics: &metrics, transcript: &transcript, retries: &retries)
                 case let .permissionRequest(request):
                     if let stopped = try await carry(
                         request,
                         collaborators: collaborators,
                         metrics: &metrics,
-                        retries: &retries
+                        retries: &retries,
+                        transcript: transcript
                     ) {
                         return stopped
                     }
                 case let .terminated(termination):
                     return await SessionRunOutcome(
                         outcome: outcome(for: termination, adapter: collaborators.adapter),
-                        metrics: metrics
+                        metrics: metrics,
+                        transcript: transcript,
+                        resumeToken: termination.resumeToken
                     )
                 }
             }
@@ -132,7 +135,8 @@ public struct SafeguardsApproved: Sendable {
                 reason: crashReason(error),
                 lastOutput: lastOutput,
                 adapter: collaborators.adapter,
-                metrics: metrics
+                metrics: metrics,
+                transcript: transcript
             )
         }
 
@@ -142,8 +146,25 @@ public struct SafeguardsApproved: Sendable {
             reason: "The agent stopped producing output without terminating.",
             lastOutput: lastOutput,
             adapter: collaborators.adapter,
-            metrics: metrics
+            metrics: metrics,
+            transcript: transcript
         )
+    }
+
+    /// Tallies a `.toolCall` into `metrics` and `transcript` — pulled out of
+    /// `consume(_:collaborators:observer:tokenObserver:)`'s own switch only to
+    /// keep that function under this module's `function_body_length` limit.
+    private func note(
+        _ call: AgentToolCall,
+        metrics: inout SessionRunMetrics,
+        transcript: inout [SessionTranscriptEntry],
+        retries: inout RetryTracker
+    ) {
+        metrics.toolCallCount += 1
+        if retries.noteToolCall(call) {
+            metrics.retryCount += 1
+        }
+        transcript.append(.toolCall(id: call.id, name: call.name, targets: call.targets))
     }
 
     /// Gates one held action, logs the decision, tallies it into `metrics`,
@@ -151,6 +172,16 @@ public struct SafeguardsApproved: Sendable {
     /// session was stopped while the prompt was pending: the decision is
     /// logged and tallied either way, and the agent it would have been told
     /// is about to be killed.
+    ///
+    /// The cancelled branch builds the outcome directly here rather than
+    /// letting `consume(_:collaborators:observer:tokenObserver:)`'s own loop
+    /// read a further event off `stream`: nothing guarantees the next
+    /// buffered event is `adapter.stop()`'s own termination rather than
+    /// something already queued ahead of it — a fake adapter that pre-yields
+    /// its whole script at launch is one concrete case where it is not. So
+    /// `resumeToken` is `nil` on this path even for an adapter that does have
+    /// one, the same best-effort gap already accepted for `tokenUsage()` and
+    /// `lastOutput` on every other degraded ending here.
     ///
     /// A request whose originating `.toolCall` signature was already denied
     /// this session is answered from `retries` without consulting `gate` —
@@ -170,7 +201,8 @@ public struct SafeguardsApproved: Sendable {
         _ request: AgentPermissionRequest,
         collaborators: SessionRunCollaborators<some AgentAdapter, some SafeguardsGate>,
         metrics: inout SessionRunMetrics,
-        retries: inout RetryTracker
+        retries: inout RetryTracker,
+        transcript: [SessionTranscriptEntry]
     ) async throws -> SessionRunOutcome? {
         let decision = if let blocked = retries.blockedDecision(for: request.id) {
             blocked
@@ -199,7 +231,7 @@ public struct SafeguardsApproved: Sendable {
         }
         if Task.isCancelled {
             await collaborators.decisionLog.record(entry)
-            return await stop(adapter: collaborators.adapter, metrics: metrics)
+            return await stop(adapter: collaborators.adapter, metrics: metrics, transcript: transcript)
         }
         // Resolved before logged: a slow write never delays the agent's answer.
         try await collaborators.adapter.resolve(request.id, with: decision.outcome)
@@ -214,12 +246,19 @@ public struct SafeguardsApproved: Sendable {
         reason: String,
         lastOutput: String,
         adapter: some AgentAdapter,
-        metrics: SessionRunMetrics
+        metrics: SessionRunMetrics,
+        transcript: [SessionTranscriptEntry]
     ) async -> SessionRunOutcome {
         if Task.isCancelled {
-            return await stop(adapter: adapter, metrics: metrics)
+            return await stop(adapter: adapter, metrics: metrics, transcript: transcript)
         }
-        return await abandon(reason: reason, lastOutput: lastOutput, adapter: adapter, metrics: metrics)
+        return await abandon(
+            reason: reason,
+            lastOutput: lastOutput,
+            adapter: adapter,
+            metrics: metrics,
+            transcript: transcript
+        )
     }
 
     /// Ends a session the user stopped, killing the agent before recording the
@@ -227,11 +266,24 @@ public struct SafeguardsApproved: Sendable {
     ///
     /// `stop()` is awaited from an already-cancelled task deliberately: the
     /// adapter completes it regardless, because "a surviving child is a failed
-    /// stop, not a partial one."
+    /// stop, not a partial one." Only reached once `stream` has already ended
+    /// without a `.terminated` event of its own, so — unlike the cancellation
+    /// ``carry(_:collaborators:metrics:retries:)`` handles mid-stream — there
+    /// is no live loop left to hand a resume token to; `resumeToken` is `nil`
+    /// here, the same best-effort gap ``abandon(reason:lastOutput:adapter:metrics:transcript:)``
+    /// already accepts for `tokenUsage()`.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#stop-kills-the-tree
-    private func stop(adapter: some AgentAdapter, metrics: SessionRunMetrics) async -> SessionRunOutcome {
+    private func stop(
+        adapter: some AgentAdapter,
+        metrics: SessionRunMetrics,
+        transcript: [SessionTranscriptEntry]
+    ) async -> SessionRunOutcome {
         await adapter.stop()
-        return await SessionRunOutcome(outcome: .stopped(adapter.tokenUsage()), metrics: metrics)
+        return await SessionRunOutcome(
+            outcome: .stopped(adapter.tokenUsage()),
+            metrics: metrics,
+            transcript: transcript
+        )
     }
 
     /// Ends a session that stopped without a `.terminated` event, killing the
@@ -245,13 +297,15 @@ public struct SafeguardsApproved: Sendable {
         reason: String,
         lastOutput: String = "",
         adapter: some AgentAdapter,
-        metrics: SessionRunMetrics
+        metrics: SessionRunMetrics,
+        transcript: [SessionTranscriptEntry]
     ) async -> SessionRunOutcome {
         await adapter.stop()
         let tokens = await adapter.tokenUsage()
         return SessionRunOutcome(
             outcome: .failed(reason: reason, lastOutput: lastOutput, tokenReport: tokens),
-            metrics: metrics
+            metrics: metrics,
+            transcript: transcript
         )
     }
 
@@ -293,56 +347,5 @@ public struct SafeguardsApproved: Sendable {
 
     private func crashReason(_ error: any Error) -> String {
         (error as? AgentNotRunningError)?.fix ?? "The agent stopped responding: \(error)."
-    }
-}
-
-/// Everything ``SafeguardsApproved/run`` needs to route one session, bundled
-/// so `consume`/`carry` take one parameter for all six instead of six — the
-/// shape this module's own `function_parameter_count` limit forces, and a
-/// reasonable one: the six never vary independently within a single run.
-struct SessionRunCollaborators<Adapter: AgentAdapter, Gate: SafeguardsGate> {
-    let adapter: Adapter
-    let gate: Gate
-    let decisionLog: any GatedDecisionLog
-    let sessionID: UUID
-    let now: @Sendable () -> Date
-    let onDenial: (@Sendable (SafeguardsActionType, String) async -> Void)?
-}
-
-/// What one session accumulated while stages 5-8 ran: tool calls observed,
-/// gated decisions carried back, and retries of an already-denied action.
-/// Zero for the two stages that never reach ``SafeguardsApproved`` at all —
-/// a context-assembly failure or a pre-check denial has nothing here to
-/// count.
-/// https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#monitor-screen
-public struct SessionRunMetrics: Equatable, Sendable {
-    public var toolCallCount = 0
-    public var approvalCount = 0
-    public var denialCount = 0
-    public var retryCount = 0
-
-    public init(
-        toolCallCount: Int = 0,
-        approvalCount: Int = 0,
-        denialCount: Int = 0,
-        retryCount: Int = 0
-    ) {
-        self.toolCallCount = toolCallCount
-        self.approvalCount = approvalCount
-        self.denialCount = denialCount
-        self.retryCount = retryCount
-    }
-}
-
-/// What ``SafeguardsApproved/run(launchConfiguration:adapter:gate:decisionLog:observer:onDenial:)``
-/// produces: the terminal ``SessionOutcome`` and the metrics accumulated
-/// reaching it.
-public struct SessionRunOutcome: Sendable {
-    public let outcome: SessionOutcome
-    public let metrics: SessionRunMetrics
-
-    public init(outcome: SessionOutcome, metrics: SessionRunMetrics) {
-        self.outcome = outcome
-        self.metrics = metrics
     }
 }

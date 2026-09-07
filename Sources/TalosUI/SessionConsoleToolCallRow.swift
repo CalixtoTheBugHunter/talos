@@ -43,6 +43,7 @@ struct SessionConsoleToolCallRow: View {
             Image(systemName: "arrow.right.circle")
                 .accessibilityHidden(true)
             Text(verbatim: summary)
+                .textSelection(.enabled)
         }
         .foregroundStyle(.secondary)
         .padding(.vertical)
@@ -61,9 +62,11 @@ struct SessionConsoleToolCallRow: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading) {
                 Text(verbatim: summary)
+                    .textSelection(.enabled)
                 Text(verbatim: "\(tierLabel(tier)) · \(outcomeLabel(outcome))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
             }
         }
         .padding(.vertical)

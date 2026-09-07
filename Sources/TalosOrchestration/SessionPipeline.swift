@@ -207,12 +207,7 @@ public struct SessionPipeline<
         case let .assembled(stage):
             assembled = stage
         case let .failed(failure):
-            return await finish(
-                .contextAssemblyFailed(failure),
-                bookkeeping: bookkeeping,
-                for: intent,
-                metrics: SessionRunMetrics()
-            )
+            return await finish(.contextAssemblyFailed(failure), bookkeeping: bookkeeping, for: intent)
         }
 
         let approved: SafeguardsApproved
@@ -224,7 +219,6 @@ public struct SessionPipeline<
                 .safeguardsPreCheckDenied(reason: reason),
                 bookkeeping: bookkeeping,
                 for: intent,
-                metrics: SessionRunMetrics(),
                 context: assembled.context
             )
         }
@@ -245,7 +239,9 @@ public struct SessionPipeline<
             bookkeeping: bookkeeping,
             for: intent,
             metrics: runOutcome.metrics,
-            context: approved.context
+            context: approved.context,
+            transcript: runOutcome.transcript,
+            resumeToken: runOutcome.resumeToken
         )
     }
 
@@ -268,8 +264,10 @@ public struct SessionPipeline<
         _ outcome: SessionOutcome,
         bookkeeping: SessionRunBookkeeping,
         for intent: Intent,
-        metrics: SessionRunMetrics,
-        context: AssembledContext? = nil
+        metrics: SessionRunMetrics = SessionRunMetrics(),
+        context: AssembledContext? = nil,
+        transcript: [SessionTranscriptEntry] = [],
+        resumeToken: String? = nil
     ) async -> SessionRecord {
         let record = SessionRecord(
             id: bookkeeping.sessionID,
@@ -285,7 +283,9 @@ public struct SessionPipeline<
             retryCount: metrics.retryCount,
             tokenOverheadRatio: context?.overheadRatio ?? 0,
             droppedContextParts: context?.droppedParts ?? [],
-            unavailableContextParts: context?.unavailableParts ?? []
+            unavailableContextParts: context?.unavailableParts ?? [],
+            transcript: transcript,
+            resumeToken: resumeToken
         )
         await recordWriter.write(record)
         await memories.updateMemories(for: record)

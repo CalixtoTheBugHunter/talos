@@ -119,4 +119,8 @@ private final class FixedGatedDecisionLogReader: GatedDecisionLogReader, @unchec
     func entries(project _: ProjectIdentifier, from _: Date, to _: Date) async throws -> [StoredGatedDecisionEntry] {
         try result.get()
     }
+
+    func entries(project _: ProjectIdentifier, sessionID _: UUID) async throws -> [StoredGatedDecisionEntry] {
+        try result.get()
+    }
 }

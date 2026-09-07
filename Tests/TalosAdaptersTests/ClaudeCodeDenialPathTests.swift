@@ -32,14 +32,19 @@ enum ClaudeCodeFakeExecutable {
         return path
     }
 
-    static func configuration(launchResponse: String, resumeResponse: String) -> AgentLaunchConfiguration {
+    static func configuration(
+        launchResponse: String,
+        resumeResponse: String,
+        resumeToken: String? = nil
+    ) -> AgentLaunchConfiguration {
         AgentLaunchConfiguration(
             workingDirectory: URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true),
             environment: [
                 "PATH": "/usr/bin:/bin",
                 launchResponseKey: launchResponse,
                 resumeResponseKey: resumeResponse
-            ]
+            ],
+            resumeToken: resumeToken
         )
     }
 }

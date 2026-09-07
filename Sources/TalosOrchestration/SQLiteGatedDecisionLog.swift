@@ -183,6 +183,26 @@ public actor SQLiteGatedDecisionLog: GatedDecisionLog {
         return try rows.map { try Self.storedEntry(from: $0, project: project) }
     }
 
+    /// Every entry for one session, oldest first — what a resume or an export
+    /// joins against a stored ``SessionTranscriptEntry/toolCall(id:name:targets:)``
+    /// by its `id` to recover that call's resolved outcome, rather than a
+    /// second, duplicated write path for approvals reaching this log already
+    /// records.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is
+    public func entries(project: ProjectIdentifier, sessionID: UUID) async throws -> [StoredGatedDecisionEntry] {
+        let rows = try await database.query(
+            """
+            SELECT id, session_id, timestamp, sub_function, request_id, request_prompt,
+                   action, classification_kind, classification_tier, actor, outcome
+            FROM gated_decision_log
+            WHERE project_id = ? AND session_id = ?
+            ORDER BY timestamp ASC;
+            """,
+            bindings: [.text(project.rawValue), .text(sessionID.uuidString)]
+        )
+        return try rows.map { try Self.storedEntry(from: $0, project: project) }
+    }
+
     private enum EntryColumn: Int, CaseIterable {
         case id, sessionID, timestamp, subFunction, requestID, requestPrompt
         case action, classificationKind, classificationTier, actor, outcome

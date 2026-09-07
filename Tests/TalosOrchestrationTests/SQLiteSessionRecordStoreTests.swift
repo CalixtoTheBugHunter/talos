@@ -13,7 +13,8 @@ struct SQLiteSessionRecordStoreTests {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
             .appendingPathComponent("test.sqlite", isDirectory: false)
-        return try await Database(url: url, migrations: [SessionRecordsSchema.migration])
+        let migrations = [SessionRecordsSchema.migration, SessionTranscriptSchema.migration]
+        return try await Database(url: url, migrations: migrations)
     }
 
     private static func makeRecord(

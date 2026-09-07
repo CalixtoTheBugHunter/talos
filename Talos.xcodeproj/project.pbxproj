@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		7A10000000000000000A0001 /* TalosApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B0001 /* TalosApp.swift */; };
+		7A10000000000000000A0006 /* SessionTranscriptExportCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B0007 /* SessionTranscriptExportCommand.swift */; };
 		7A10000000000000000A0002 /* TalosCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A10000000000000000E0001 /* TalosCore */; };
 		7A10000000000000000A0005 /* TalosUI in Frameworks */ = {isa = PBXBuildFile; productRef = 7A1000000000000000170001 /* TalosUI */; };
 		7A10000000000000000A0003 /* MinimumSupportedOSTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B0005 /* MinimumSupportedOSTests.swift */; };
@@ -27,6 +28,7 @@
 
 /* Begin PBXFileReference section */
 		7A10000000000000000B0001 /* TalosApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalosApp.swift; sourceTree = "<group>"; };
+		7A10000000000000000B0007 /* SessionTranscriptExportCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionTranscriptExportCommand.swift; sourceTree = "<group>"; };
 		7A10000000000000000B0002 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		7A10000000000000000B0003 /* Talos.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Talos.entitlements; sourceTree = "<group>"; };
 		7A10000000000000000B0004 /* Talos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Talos.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -94,6 +96,7 @@
 			isa = PBXGroup;
 			children = (
 				7A10000000000000000B0001 /* TalosApp.swift */,
+				7A10000000000000000B0007 /* SessionTranscriptExportCommand.swift */,
 				7A10000000000000000B0002 /* Info.plist */,
 				7A10000000000000000B0003 /* Talos.entitlements */,
 			);
@@ -234,6 +237,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				7A10000000000000000A0001 /* TalosApp.swift in Sources */,
+				7A10000000000000000A0006 /* SessionTranscriptExportCommand.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

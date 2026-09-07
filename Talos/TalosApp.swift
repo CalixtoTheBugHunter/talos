@@ -9,11 +9,10 @@ import TalosSafeguards
 import TalosUI
 
 /// Otherwise deliberately empty except for the approval-prompt and
-/// denied-notice hosts — log export as a File-menu command rather than a
-/// bespoke control means VoiceOver, keyboard reach, and contrast come from
-/// `NSSavePanel`/`NSAlert` rather than from a Talos-authored surface there;
-/// the approval prompt is the first Talos-authored one, so its menu commands
-/// are wired here too.
+/// denied-notice hosts — log and transcript export are File-menu commands
+/// rather than bespoke controls, so VoiceOver, keyboard reach, and contrast
+/// come from `NSSavePanel`/`NSAlert`; the approval prompt is the first
+/// Talos-authored surface, so its menu commands are wired here too.
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Interaction-and-Keyboard#menus-carry-the-shortcuts
 @main
 struct TalosApp: App {
@@ -53,6 +52,9 @@ struct TalosApp: App {
                 Button("Export Logs for Bug Report…") {
                     LogExportCommand.run()
                 }
+                Button("Export Session Transcript…") {
+                    SessionTranscriptExportCommand.run(markdown: sessionConsoleViewModel.exportMarkdown())
+                }.disabled(sessionConsoleViewModel.lines.isEmpty)
             }
             CommandGroup(after: .toolbar) {
                 approveCommand

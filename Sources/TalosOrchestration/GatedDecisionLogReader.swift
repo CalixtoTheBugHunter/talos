@@ -6,6 +6,7 @@ import TalosProjectLibrary
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#rules
 public protocol GatedDecisionLogReader: Sendable {
     func entries(project: ProjectIdentifier, from start: Date, to end: Date) async throws -> [StoredGatedDecisionEntry]
+    func entries(project: ProjectIdentifier, sessionID: UUID) async throws -> [StoredGatedDecisionEntry]
 }
 
 extension SQLiteGatedDecisionLog: GatedDecisionLogReader {}
