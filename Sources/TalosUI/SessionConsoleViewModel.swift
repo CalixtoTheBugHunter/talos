@@ -60,9 +60,10 @@ public final class SessionConsoleViewModel: SafeguardsApprovalPrompt {
     /// what tells ``state`` apart ``State/empty`` (no session at all) from
     /// ``State/loading`` (a session is running; the agent has not answered
     /// yet).
-    private var hasStarted = false
-    /// How the most recent session ended, or `nil` while it is still running.
-    private var termination: AgentTermination?
+    var hasStarted = false
+    /// How the most recent session ended, or `nil` while still running (not
+    /// `private`: the `+Lifecycle` extension reads and writes it too).
+    var termination: AgentTermination?
     private let announcer: any SessionConsoleAnnouncing
     /// The `id` of the last line, while it is still open to more text.
     /// `nil` means every line so far is finalized — true only before the

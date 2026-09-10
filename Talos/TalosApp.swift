@@ -55,13 +55,15 @@ struct TalosApp: App {
                 )
             }
             .sheet(isPresented: $isSessionConsoleTranscriptPresented) {
-                // The console is presented over the root view, occluding the
-                // root's own stop overlay while a session runs. Hosting the
-                // control here keeps Stop visible on the surface the session is
-                // shown on — not only at ⌘. — per § The stop guarantee is an
-                // interaction rule (Foundations-Interaction-and-Keyboard).
-                SessionConsoleView(viewModel: sessionConsoleViewModel)
-                    .sessionStopHost(sessionStopCenter)
+                // The console hosts its own Stop control — visible whenever the
+                // session is running, on the surface the session is shown on,
+                // not only at ⌘. (the root's stop overlay is occluded by this
+                // sheet). Per § The stop guarantee is an interaction rule.
+                SessionConsoleView(
+                    viewModel: sessionConsoleViewModel,
+                    onStop: sessionStopCenter.requestStop,
+                    onClose: { isSessionConsoleTranscriptPresented = false }
+                )
             }
             .task {
                 // Opened on its own, unawaited task: this does real disk I/O

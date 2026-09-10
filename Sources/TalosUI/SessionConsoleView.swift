@@ -10,6 +10,8 @@ import TalosAdapters
 @MainActor
 public struct SessionConsoleView: View {
     private let viewModel: SessionConsoleViewModel
+    private let onStop: () -> Void
+    private let onClose: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var scrollPhase: ScrollPhase = .idle
@@ -19,17 +21,51 @@ public struct SessionConsoleView: View {
     private static let bottomProximityTolerance: CGFloat = 24
     private static let tokenUsageBadgeTopPadding: CGFloat = 8
 
-    public init(viewModel: SessionConsoleViewModel) {
+    public init(
+        viewModel: SessionConsoleViewModel,
+        onStop: @escaping () -> Void,
+        onClose: @escaping () -> Void
+    ) {
         self.viewModel = viewModel
+        self.onStop = onStop
+        self.onClose = onClose
     }
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            dismissControl
             if let tokenUsage = viewModel.tokenUsage {
                 tokenUsageBadge(tokenUsage, overheadRatio: viewModel.contextOverheadRatio)
             }
             content
         }
+    }
+
+    /// A top-right ✕ that stops the session while it is running, and closes the
+    /// console once it has ended so the user can start another — a single
+    /// click either way, never behind a confirmation. The label names the
+    /// action so VoiceOver reads "Stop session" while running rather than
+    /// "Close". See § The stop guarantee is an interaction rule
+    /// (Foundations-Interaction-and-Keyboard).
+    private var dismissControl: some View {
+        HStack {
+            Spacer()
+            Button(action: viewModel.isRunning ? onStop : onClose) {
+                Image(systemName: "xmark.circle.fill")
+                    .imageScale(.large)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text(verbatim: viewModel.isRunning ? "Stop session" : "Close"))
+            .accessibilityHint(Text(verbatim: dismissHint))
+        }
+        .padding([.horizontal, .top])
+    }
+
+    private var dismissHint: String {
+        viewModel.isRunning
+            ? "Ends the running session immediately. The agent process is killed."
+            : "Closes this session so you can start another."
     }
 
     @ViewBuilder
