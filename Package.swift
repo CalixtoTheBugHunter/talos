@@ -55,7 +55,12 @@ let package = Package(
         .target(name: "TalosAdapters", dependencies: ["TalosCore"]),
         .testTarget(
             name: "TalosAdaptersTests",
-            dependencies: ["TalosAdapters"],
+            // "TalosOrchestration" is here for one file only —
+            // AssistantSessionEndToEndTests.swift — which needs the shared
+            // pipeline's own real collaborators alongside the real
+            // ClaudeCodeAdapter this target already fixtures; nothing else
+            // here depends on it.
+            dependencies: ["TalosAdapters", "TalosOrchestration"],
             // Real, scrubbed CLI captures a concrete adapter's tests decode —
             // https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#the-suite-installs-nothing
             resources: [.copy("Fixtures")]
