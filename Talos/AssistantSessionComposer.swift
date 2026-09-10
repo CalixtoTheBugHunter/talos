@@ -32,10 +32,12 @@ final class AssistantSessionComposer {
     }
 
     private let database: Database
+    private let stopCenter: SessionStopCenter
     private var adapterRegistry = AgentAdapterRegistry()
 
-    init(database: Database) {
+    init(database: Database, stopCenter: SessionStopCenter) {
         self.database = database
+        self.stopCenter = stopCenter
         ClaudeCodeAdapterRegistration.register(into: &adapterRegistry)
     }
 
@@ -70,22 +72,38 @@ final class AssistantSessionComposer {
         )
         let launch = SessionLaunch(
             agentName: project.declaration.name,
-            configuration: AgentLaunchConfiguration(workingDirectory: root)
+            // The process environment, so the agent CLI resolves on `PATH`; a
+            // child launched with an empty environment cannot find `claude`.
+            configuration: AgentLaunchConfiguration(
+                workingDirectory: root,
+                environment: ProcessInfo.processInfo.environment
+            )
         )
 
         console.sessionStarted()
-        _ = await pipeline.run(
-            intent: intent,
-            guideline: project.guideline,
-            safeguards: project.safeguards,
-            connectors: project.connectors,
-            launch: launch,
-            observer: { [console] event in await console.handle(event) },
-            tokenObserver: { [console] update in await console.updateTokenUsage(update) },
-            onDenial: { [deniedNotices] action, prompt in
-                await deniedNotices.notify(action: action, requestPrompt: prompt)
-            }
-        )
+        // Run the pipeline in a task the Stop control cancels: a stop reaches
+        // the pipeline as cancellation, which kills the agent at any suspension
+        // the session can be sitting at — including "Waiting for the agent to
+        // respond." Tracking begins before the first await and ends however the
+        // session does, so Stop is reachable throughout and never after.
+        // https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#rules
+        let sessionTask = Task {
+            await pipeline.run(
+                intent: intent,
+                guideline: project.guideline,
+                safeguards: project.safeguards,
+                connectors: project.connectors,
+                launch: launch,
+                observer: { [console] event in await console.handle(event) },
+                tokenObserver: { [console] update in await console.updateTokenUsage(update) },
+                onDenial: { [deniedNotices] action, prompt in
+                    await deniedNotices.notify(action: action, requestPrompt: prompt)
+                }
+            )
+        }
+        stopCenter.beginTracking { sessionTask.cancel() }
+        defer { stopCenter.sessionEnded() }
+        _ = await sessionTask.value
     }
 
     private static func loadProject(at root: URL) throws -> LoadedProject {

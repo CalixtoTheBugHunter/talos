@@ -152,7 +152,7 @@ struct TalosApp: App {
                     SessionTranscriptSchema.migration
                 ]
             )
-            assistantSessionComposer = AssistantSessionComposer(database: database)
+            assistantSessionComposer = AssistantSessionComposer(database: database, stopCenter: sessionStopCenter)
         } catch {
             databaseOpenErrorMessage = "Talos could not open its local database: \(error)"
         }

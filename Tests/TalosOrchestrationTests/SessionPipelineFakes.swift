@@ -332,8 +332,14 @@ func terminated(_ reason: AgentTerminationReason, lastOutput: String = "done") -
 /// is not about overflow never trips it.
 private let sessionTokenCeiling = 10000
 
-func makeSessionGuideline() -> GuidelineDocument {
-    makeTestGuideline(context: ["memories"], tokenCeiling: sessionTokenCeiling)
+func makeSessionGuideline(
+    responseLivenessTimeout: Duration = GuidelineDocument.defaultResponseLivenessTimeout
+) -> GuidelineDocument {
+    makeTestGuideline(
+        context: ["memories"],
+        tokenCeiling: sessionTokenCeiling,
+        responseLivenessTimeout: responseLivenessTimeout
+    )
 }
 
 /// Runs one session with the fixture documents, shared by the pipeline suites.

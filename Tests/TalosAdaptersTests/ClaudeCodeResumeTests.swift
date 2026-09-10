@@ -23,12 +23,8 @@ struct ClaudeCodeResumeTests {
 
         try await adapter.send(AgentPrompt(text: "Continue."))
 
-        // A turn that exits 0 does not finish the outer stream on its own —
-        // an ordinary turn and a deferred permission request both end that
-        // way, and either could be followed by another `send`/`resolve`.
-        // `stop()` is what actually ends this session.
-        await adapter.stop()
-
+        // The resumed turn exits cleanly with nothing pending, so it ends the
+        // session on its own — no external `stop()` (Decision 80).
         var events: [AgentEvent] = []
         for try await event in stream {
             events.append(event)

@@ -88,15 +88,18 @@ public enum ProjectLibraryScaffolder {
         # https://github.com/CalixtoTheBugHunter/talos/wiki/Talos-Guidelines#editable-talos-guidelines
         #
         # Per Talos Guidelines § Editable Talos Guidelines, each file declares
-        # its purpose, the context it wants assembled, its token ceiling, and
-        # its output expectations. Edit any value below — Talos never
-        # overwrites this file once it exists.
+        # its purpose, the context it wants assembled, its token ceiling, its
+        # output expectations, and its response-liveness timeout. Edit any value
+        # below — Talos never overwrites this file once it exists.
         purpose: >-
           \(defaults.purpose)
         context:\(contextYAML)
         tokenCeiling: \(defaults.tokenCeiling)
         outputExpectations: >-
           \(defaults.outputExpectations)
+        # Seconds of no stream activity before the session ends as Failed; the
+        # gate wait is never counted. 60 by default, per decision 81.
+        responseLivenessTimeout: 60
         ---
 
         Notes are yours to add below this line.

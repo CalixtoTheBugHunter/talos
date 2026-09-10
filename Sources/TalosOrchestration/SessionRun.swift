@@ -44,6 +44,7 @@ public struct SafeguardsApproved: Sendable {
         adapter: some AgentAdapter,
         gate: some SafeguardsGate,
         decisionLog: any GatedDecisionLog,
+        responseLivenessTimeout: Duration = GuidelineDocument.defaultResponseLivenessTimeout,
         now: @escaping @Sendable () -> Date = Date.init,
         observer: (@Sendable (AgentEvent) async -> Void)? = nil,
         tokenObserver: (@Sendable (SessionTokenUpdate) async -> Void)? = nil,
@@ -72,7 +73,8 @@ public struct SafeguardsApproved: Sendable {
             decisionLog: decisionLog,
             sessionID: sessionID,
             now: now,
-            onDenial: onDenial
+            onDenial: onDenial,
+            responseLivenessTimeout: responseLivenessTimeout
         )
         return await consume(stream, collaborators: collaborators, observer: observer, tokenObserver: tokenObserver)
     }
@@ -94,38 +96,40 @@ public struct SafeguardsApproved: Sendable {
         // `AgentTermination` to carry the agent's own final words, and
         // retaining the stream would spend the active-memory budget on a
         // fast agent.
-        var lastOutput = ""
-        var metrics = SessionRunMetrics()
-        var transcript: [SessionTranscriptEntry] = []
-        var retries = RetryTracker()
+        var progress = SessionRunProgress()
+        let reader = AgentEventReader(stream)
         await reportTokenUsage(collaborators: collaborators, tokenObserver: tokenObserver)
         do {
-            for try await event in stream {
-                await observer?(event)
-                await reportTokenUsage(collaborators: collaborators, tokenObserver: tokenObserver)
-                switch event {
-                case let .output(chunk):
-                    lastOutput = chunk.text
-                    transcript.append(.output(chunk.text))
-                case let .toolCall(call):
-                    note(call, metrics: &metrics, transcript: &transcript, retries: &retries)
-                case let .permissionRequest(request):
-                    if let stopped = try await carry(
-                        request,
-                        collaborators: collaborators,
-                        metrics: &metrics,
-                        retries: &retries,
-                        transcript: transcript
-                    ) {
-                        return stopped
-                    }
-                case let .terminated(termination):
-                    return await SessionRunOutcome(
-                        outcome: outcome(for: termination, adapter: collaborators.adapter),
-                        metrics: metrics,
-                        transcript: transcript,
-                        resumeToken: termination.resumeToken
+            while true {
+                switch try await reader.next(timeout: collaborators.responseLivenessTimeout) {
+                case .timedOut:
+                    // No stream activity for the whole interval, and not waiting
+                    // on the gate — that wait happens in this loop's body, never
+                    // inside `reader.next`, so it was never on this clock. The
+                    // session is genuinely producing nothing. Decision 81.
+                    return await abandon(
+                        reason: timedOutReason(collaborators.responseLivenessTimeout),
+                        lastOutput: progress.lastOutput,
+                        adapter: collaborators.adapter,
+                        metrics: progress.metrics,
+                        transcript: progress.transcript
                     )
+                case .ended:
+                    // The stream finished without a `.terminated` event, which
+                    // the adapter contract says is always last — a crash too.
+                    return await endWithoutTermination(
+                        reason: "The agent stopped producing output without terminating.",
+                        lastOutput: progress.lastOutput,
+                        adapter: collaborators.adapter,
+                        metrics: progress.metrics,
+                        transcript: progress.transcript
+                    )
+                case let .event(event):
+                    await observer?(event)
+                    await reportTokenUsage(collaborators: collaborators, tokenObserver: tokenObserver)
+                    if let outcome = try await process(event, progress: &progress, collaborators: collaborators) {
+                        return outcome
+                    }
                 }
             }
         } catch {
@@ -133,22 +137,46 @@ public struct SafeguardsApproved: Sendable {
             // an agent crash. The session is failed, and still recorded.
             return await endWithoutTermination(
                 reason: crashReason(error),
-                lastOutput: lastOutput,
+                lastOutput: progress.lastOutput,
                 adapter: collaborators.adapter,
-                metrics: metrics,
-                transcript: transcript
+                metrics: progress.metrics,
+                transcript: progress.transcript
             )
         }
+    }
 
-        // The stream finished without a `.terminated` event, which the adapter
-        // contract says is always last. Treated as a crash for the same reason.
-        return await endWithoutTermination(
-            reason: "The agent stopped producing output without terminating.",
-            lastOutput: lastOutput,
-            adapter: collaborators.adapter,
-            metrics: metrics,
-            transcript: transcript
-        )
+    /// Handles one received event, returning a terminal ``SessionRunOutcome``
+    /// when it ends the session — a `.terminated`, or a stop while a prompt was
+    /// pending — and `nil` when the session continues. Pulled out of `consume`
+    /// only to keep both under this module's `function_body_length` limit.
+    private func process(
+        _ event: AgentEvent,
+        progress: inout SessionRunProgress,
+        collaborators: SessionRunCollaborators<some AgentAdapter, some SafeguardsGate>
+    ) async throws -> SessionRunOutcome? {
+        switch event {
+        case let .output(chunk):
+            progress.lastOutput = chunk.text
+            progress.transcript.append(.output(chunk.text))
+        case let .toolCall(call):
+            note(call, metrics: &progress.metrics, transcript: &progress.transcript, retries: &progress.retries)
+        case let .permissionRequest(request):
+            return try await carry(
+                request,
+                collaborators: collaborators,
+                metrics: &progress.metrics,
+                retries: &progress.retries,
+                transcript: progress.transcript
+            )
+        case let .terminated(termination):
+            return await SessionRunOutcome(
+                outcome: outcome(for: termination, adapter: collaborators.adapter),
+                metrics: progress.metrics,
+                transcript: progress.transcript,
+                resumeToken: termination.resumeToken
+            )
+        }
+        return nil
     }
 
     /// Tallies a `.toolCall` into `metrics` and `transcript` — pulled out of

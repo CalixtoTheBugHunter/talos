@@ -95,8 +95,13 @@ actor ClaudeCodeAdapter: AgentAdapter {
     /// session already has a `session_id` — and drains it into the session's
     /// stream until it exits.
     ///
-    /// A clean exit (code 0) does not end the stream: both an ordinary turn
-    /// and a deferred permission request end that way. Anything else does.
+    /// A clean exit (code 0) ends the session, *except* while a deferred
+    /// permission request is still pending — that exit is a turn boundary, and
+    /// the session resumes when the gate's decision is carried back via
+    /// `resolve`. Any other exit ends it. The deferred tool-use is drained from
+    /// the `result` line before the exit event, so the two are distinguishable
+    /// here by whether any request is still open.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions
     private func runTurn(prompt: AgentPrompt) async throws {
         guard let configuration, let hooks, let mcpConfig, let executablePath, !hasFinished else {
             throw AgentNotRunningError(fix: "Launch the adapter before sending a prompt.")
@@ -134,7 +139,9 @@ actor ClaudeCodeAdapter: AgentAdapter {
                     handle(chunk)
                 case let .terminated(termination):
                     currentProcess = nil
-                    if case .exited(0) = termination.reason {
+                    // A turn boundary only while a permission is pending;
+                    // otherwise a clean exit ends the session.
+                    if case .exited(0) = termination.reason, !openRequestIDs.isEmpty {
                         break
                     }
                     finish(termination)

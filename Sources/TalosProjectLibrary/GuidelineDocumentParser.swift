@@ -2,7 +2,7 @@ import Foundation
 import Yams
 
 /// Parses one `.talos/guidelines/*.md` file against ``GuidelineDocument``.
-/// The four declared elements live in a `---`-delimited YAML front matter
+/// The declared elements live in a `---`-delimited YAML front matter
 /// block that must open the file — the body below it is free-form,
 /// human-only documentation this parser never requires and never discards
 /// (see ``GuidelineDocument/rawText``). All `Yams` usage is contained to
@@ -16,6 +16,7 @@ public enum GuidelineDocumentParser {
     private static let contextKey = "context"
     private static let tokenCeilingKey = "tokenCeiling"
     private static let outputExpectationsKey = "outputExpectations"
+    private static let responseLivenessTimeoutKey = "responseLivenessTimeout"
 
     /// Parses `contents` as one `.talos/guidelines/<subFunction>.md` file.
     /// `file` is only used to label a thrown ``GuidelineDocumentError`` —
@@ -30,6 +31,7 @@ public enum GuidelineDocumentParser {
             context: parseContext(mapping: mapping, lineOffset: lineOffset, file: file),
             tokenCeiling: parseTokenCeiling(mapping: mapping, lineOffset: lineOffset, file: file),
             outputExpectations: parseOutputExpectations(mapping: mapping, lineOffset: lineOffset, file: file),
+            responseLivenessTimeout: parseResponseLivenessTimeout(mapping: mapping, lineOffset: lineOffset, file: file),
             rawText: contents
         )
     }
@@ -169,6 +171,28 @@ public enum GuidelineDocumentParser {
             )
         }
         return value
+    }
+
+    /// Optional: absent means the 60-second default, per decision 81. When
+    /// present it must be a whole number of seconds greater than zero — a
+    /// zero-or-negative bound could never let a live turn finish.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions
+    private static func parseResponseLivenessTimeout(
+        mapping: Node.Mapping,
+        lineOffset: Int,
+        file: String
+    ) throws -> Duration {
+        guard let node = mapping[responseLivenessTimeoutKey] else {
+            return GuidelineDocument.defaultResponseLivenessTimeout
+        }
+        guard let seconds = node.int, seconds > 0 else {
+            throw GuidelineDocumentError(
+                file: file,
+                line: node.mark.map { $0.line + lineOffset },
+                fix: "'\(responseLivenessTimeoutKey)' must be a whole number of seconds greater than zero."
+            )
+        }
+        return .seconds(seconds)
     }
 
     /// The line a composer/parser/scanner `YamlError` points at, offset back
