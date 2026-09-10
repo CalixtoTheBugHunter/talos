@@ -14,8 +14,11 @@ enum ClaudeCodeFakeExecutable {
     /// `exitCode` is baked into every branch of the script, for the one test
     /// that needs to simulate a crash rather than Claude Code's own normal
     /// clean exit.
-    static func write(exitCode: Int32 = 0) throws -> String {
+    static func write(exitCode: Int32 = 0, hangAfterLaunch: Bool = false) throws -> String {
         let path = NSTemporaryDirectory() + "talos-claude-code-fake-\(UUID().uuidString)"
+        // A launch turn that stays alive after emitting, for a test proving
+        // `send` returns before the turn ends rather than draining it inline.
+        let launchTail = hangAfterLaunch ? "sleep 10" : "exit \(exitCode)"
         let script = """
         #!/bin/sh
         for arg in "$@"; do
@@ -25,7 +28,7 @@ enum ClaudeCodeFakeExecutable {
           fi
         done
         cat "$\(launchResponseKey)"
-        exit \(exitCode)
+        \(launchTail)
         """
         try script.write(toFile: path, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: path)
@@ -125,6 +128,46 @@ struct ClaudeCodeCleanExitTests {
             return
         }
         #expect(termination.reason == .exited(code: 0))
+    }
+}
+
+/// Guards the adapter contract the pipeline relies on: `send` transports the
+/// prompt and returns *while the turn is still running*, so the session stream
+/// is consumed live rather than after the whole turn has already ended. A
+/// `send` that drained the turn inline — the bug behind a real session that
+/// hangs on "Waiting for the agent to respond" with no live output, no
+/// response-liveness timeout, and a stop that cannot engage — would block on
+/// this fake's `sleep` rather than return.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary#agent-adapters
+@Suite("Send does not block on the turn")
+struct ClaudeCodeNonBlockingSendTests {
+    /// Generous enough to never trip on a slow machine, far below the fake's
+    /// 10-second post-emit sleep that a blocking `send` would wait out.
+    private static let maxSendSeconds: TimeInterval = 3
+
+    @Test("send returns while the turn is still running, and output streams live")
+    func sendReturnsWhileTheTurnRuns() async throws {
+        let executablePath = try ClaudeCodeFakeExecutable.write(hangAfterLaunch: true)
+        let configuration = ClaudeCodeFakeExecutable.configuration(
+            launchResponse: ClaudeCodeFixture.path("tool-call.jsonl"),
+            resumeResponse: ClaudeCodeFixture.path("tool-call.jsonl")
+        )
+        let adapter = ClaudeCodeAdapter(executableOverride: executablePath)
+        let stream = try await adapter.launch(configuration)
+
+        let start = Date()
+        try await adapter.send(AgentPrompt(text: "What does the README say?"))
+        #expect(Date().timeIntervalSince(start) < Self.maxSendSeconds)
+
+        // The turn's output reaches the stream while the process is still alive
+        // (mid-sleep), which a buffered-until-exit drain could not deliver.
+        var iterator = stream.makeAsyncIterator()
+        guard case .toolCall = try await iterator.next() else {
+            Issue.record("Expected the turn's tool call to stream before it ended")
+            return
+        }
+
+        await adapter.stop()
     }
 }
 

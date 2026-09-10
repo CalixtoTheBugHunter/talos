@@ -18,20 +18,29 @@ struct ClaudeCodePendingRequestTests {
         let adapter = ClaudeCodeAdapter(executableOverride: executablePath)
         let stream = try await adapter.launch(configuration)
 
+        // `send` transports the prompt and returns; the turn's events arrive on
+        // the stream. Reading to the pending request proves the turn ran and
+        // its result line was drained.
         try await adapter.send(AgentPrompt(text: "Write a file."))
+        var iterator = stream.makeAsyncIterator()
+        guard case .toolCall = try await iterator.next() else {
+            Issue.record("Expected a tool call first")
+            return
+        }
+        guard case .permissionRequest = try await iterator.next() else {
+            Issue.record("Expected a permission request second")
+            return
+        }
 
+        // The request is left unresolved: the session neither ends nor blocks a
+        // further call, and the turn's usage is readable.
         let usage = await adapter.tokenUsage()
         #expect(usage == .measured(TokenCounts(input: 2, output: 89), model: "global.anthropic.claude-opus-5"))
 
+        // Only a stop ends it — "a pending prompt has no timer."
         await adapter.stop()
-
-        var events: [AgentEvent] = []
-        for try await event in stream {
-            events.append(event)
-        }
-
-        guard case .toolCall = events[0], case .permissionRequest = events[1], case .terminated = events[2] else {
-            Issue.record("Expected [toolCall, permissionRequest, terminated], got \(events)")
+        guard case .terminated = try await iterator.next() else {
+            Issue.record("Expected a terminated event once stopped")
             return
         }
     }
