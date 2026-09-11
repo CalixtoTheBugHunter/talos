@@ -56,6 +56,13 @@ public final class SessionConsoleViewModel: SafeguardsApprovalPrompt {
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Vision-and-Principles#budgets-that-make-the-above-testable
     public private(set) var contextOverheadRatio: Double?
 
+    /// Human-readable names of the context parts a session asked for but had
+    /// nothing to assemble — a declared-absent Spec Drive is the case DoD
+    /// criterion 4 turns on. Empty when nothing was missing, so a session that dropped
+    /// nothing reports nothing.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback
+    public private(set) var missingContextLabels: [String] = []
+
     /// Set once by ``sessionStarted()``, before the first event ever arrives —
     /// what tells ``state`` apart ``State/empty`` (no session at all) from
     /// ``State/loading`` (a session is running; the agent has not answered
@@ -78,31 +85,6 @@ public final class SessionConsoleViewModel: SafeguardsApprovalPrompt {
     /// at a time.
     private var pendingApprovalContinuation: CheckedContinuation<AgentPermissionDecision?, Never>?
 
-    /// What ``SessionConsoleView`` renders right now — derived rather than
-    /// stored, so it can never drift from ``lines`` and ``termination``.
-    /// A termination is checked before an empty transcript, so a session that
-    /// failed or was denied before producing any output still reads as
-    /// ``State/failed(_:)`` / ``State/denied(_:)`` rather than as stuck in
-    /// ``State/loading``.
-    public var state: State {
-        if let termination {
-            switch termination.reason {
-            case let .exited(code):
-                return code == 0 ? (lines.isEmpty ? .empty : .ready) : .failed(termination)
-            case .failedToLaunch:
-                return .failed(termination)
-            case .denied:
-                return .denied(termination)
-            case .stopped:
-                return lines.isEmpty ? .empty : .ready
-            }
-        }
-        if lines.isEmpty {
-            return hasStarted ? .loading : .empty
-        }
-        return .ready
-    }
-
     /// `renderers` defaults to the registry a console starts from — Markdown
     /// registered as data — and `announcer` defaults to the real VoiceOver
     /// announcer; a test injects a spy for either.
@@ -124,6 +106,19 @@ public final class SessionConsoleViewModel: SafeguardsApprovalPrompt {
         termination = nil
         tokenUsage = nil
         contextOverheadRatio = nil
+        missingContextLabels = []
+    }
+
+    /// Records the context parts that had nothing to assemble, so the output
+    /// carries the label rather than reading as complete — "the user cannot
+    /// weigh an answer whose absent input is invisible." Announced once for
+    /// VoiceOver, since the label is meaning the sighted badge also carries.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback
+    public func noteUnavailableContext(_ parts: [UnavailableContextPart]) {
+        let labels = parts.map { Self.contextPartLabel($0.kind) }
+        missingContextLabels = labels
+        guard !labels.isEmpty else { return }
+        announcer.announce("Answered without \(labels.joined(separator: ", ")) context.")
     }
 
     /// The seam this plugs into as `SafeguardsApproved.run`'s `tokenObserver:`

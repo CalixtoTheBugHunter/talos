@@ -238,6 +238,45 @@ struct SessionConsoleViewModelTests {
 
         #expect(announcer.announced == ["Real line."])
     }
+
+    @Test("An unavailable Spec Drive part is labeled on the output and announced once")
+    @MainActor
+    func unavailableContextIsLabeledAndAnnounced() {
+        let announcer = SpyAnnouncer()
+        let viewModel = SessionConsoleViewModel(announcer: announcer)
+
+        viewModel.noteUnavailableContext([
+            UnavailableContextPart(kind: .specDrive, reason: "This project declares no Spec Drive.")
+        ])
+
+        #expect(viewModel.missingContextLabels == ["Spec Drive"])
+        #expect(announcer.announced == ["Answered without Spec Drive context."])
+    }
+
+    @Test("No unavailable parts leaves the label empty and announces nothing")
+    @MainActor
+    func noUnavailableContextIsSilent() {
+        let announcer = SpyAnnouncer()
+        let viewModel = SessionConsoleViewModel(announcer: announcer)
+
+        viewModel.noteUnavailableContext([])
+
+        #expect(viewModel.missingContextLabels.isEmpty)
+        #expect(announcer.announced.isEmpty)
+    }
+
+    @Test("sessionStarted() clears a previous session's missing-context labels")
+    @MainActor
+    func sessionStartedClearsMissingContext() {
+        let viewModel = SessionConsoleViewModel()
+        viewModel.noteUnavailableContext([
+            UnavailableContextPart(kind: .specDrive, reason: "This project declares no Spec Drive.")
+        ])
+
+        viewModel.sessionStarted()
+
+        #expect(viewModel.missingContextLabels.isEmpty)
+    }
 }
 
 extension SessionConsoleLine {

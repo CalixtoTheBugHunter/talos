@@ -14,6 +14,31 @@ public extension SessionConsoleViewModel {
         hasStarted && termination == nil
     }
 
+    /// What ``SessionConsoleView`` renders right now — derived rather than
+    /// stored, so it can never drift from ``lines`` and ``termination``.
+    /// A termination is checked before an empty transcript, so a session that
+    /// failed or was denied before producing any output still reads as
+    /// ``State/failed(_:)`` / ``State/denied(_:)`` rather than as stuck in
+    /// ``State/loading``.
+    var state: State {
+        if let termination {
+            switch termination.reason {
+            case let .exited(code):
+                return code == 0 ? (lines.isEmpty ? .empty : .ready) : .failed(termination)
+            case .failedToLaunch:
+                return .failed(termination)
+            case .denied:
+                return .denied(termination)
+            case .stopped:
+                return lines.isEmpty ? .empty : .ready
+            }
+        }
+        if lines.isEmpty {
+            return hasStarted ? .loading : .empty
+        }
+        return .ready
+    }
+
     /// Reflects the pipeline's final outcome for a session that ended without a
     /// `.terminated` ever reaching the stream — a launch that failed, a
     /// context-assembly overflow, or a pre-check denial, none of which produce

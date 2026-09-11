@@ -37,6 +37,9 @@ public struct SessionConsoleView: View {
             if let tokenUsage = viewModel.tokenUsage {
                 tokenUsageBadge(tokenUsage, overheadRatio: viewModel.contextOverheadRatio)
             }
+            if !viewModel.missingContextLabels.isEmpty {
+                missingContextBadge(viewModel.missingContextLabels)
+            }
             content
         }
     }
@@ -130,6 +133,22 @@ public struct SessionConsoleView: View {
         case .unrecognizedFormat:
             "session log format not recognized"
         }
+    }
+
+    /// Names the context parts an answer was produced without — a
+    /// declared-absent Spec Drive is the case DoD criterion 4 turns on. On the output
+    /// itself, not a banner the user leaves, and naming the part rather than
+    /// calling the answer degraded. Carried by text, never colour or an error
+    /// treatment: a missing input is not a failure.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback
+    private func missingContextBadge(_ labels: [String]) -> some View {
+        Text(verbatim: "Answered without \(labels.joined(separator: ", ")) context.")
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal)
+            .padding(.top, Self.tokenUsageBadgeTopPadding)
     }
 
     private var emptyState: some View {

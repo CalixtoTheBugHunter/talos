@@ -24,6 +24,28 @@ public enum ProjectLibraryScaffolder {
         """
     }
 
+    /// A scaffolded `spec.yaml` records the **declared absence** of a Spec
+    /// Drive, not an empty placeholder: a new project usually has none yet, and
+    /// absence is a state the file states rather than one inferred from a
+    /// missing key. Talos offers to create a Spec Drive separately; it is never
+    /// scaffolded silently.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#when-a-project-has-no-spec-drive
+    private static let specContents = """
+    # Spec Drive location(s) and sync rules
+    # https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#where-it-lives
+    #
+    # To point at an existing GitHub Wiki, replace the block below with:
+    #   specDrive:
+    #     status: present
+    #     locations:
+    #       - provider: github-wiki
+    #         url: https://github.com/<org>/<repo>/wiki
+    #         syncRule: read-only
+    specDrive:
+      status: absent
+
+    """
+
     /// `safeguards.md` deliberately carries no context priority order — the
     /// generated header quotes Talos Guidelines § Where the order is
     /// declared verbatim rather than paraphrasing it, so this file is never
@@ -116,8 +138,7 @@ public enum ProjectLibraryScaffolder {
               contents: yamlHeader(purpose: "project identity, which agents, which sub-functions enabled")),
         Entry(relativePath: "agents.yaml", isDirectory: false,
               contents: yamlHeader(purpose: "agent adapters + MCP/CLI wiring (references to secrets, never secrets)")),
-        Entry(relativePath: "spec.yaml", isDirectory: false,
-              contents: yamlHeader(purpose: "Spec Drive location(s) and sync rules")),
+        Entry(relativePath: "spec.yaml", isDirectory: false, contents: specContents),
         Entry(relativePath: "connectors.yaml", isDirectory: false,
               contents: yamlHeader(purpose: "repo, monitoring, deployment, testing connections")),
         Entry(relativePath: "board.yaml", isDirectory: false,

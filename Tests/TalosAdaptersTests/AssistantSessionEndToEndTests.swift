@@ -194,15 +194,56 @@ struct AssistantSessionEndToEndTests {
         #expect(logged.map(\.classification) == [.tier(.irreversible)])
     }
 
+    @Test("With no Spec Drive the answer is produced and the output carries the missing-context label")
+    func absentSpecDriveProducesAnswerAndLabelsIt() async throws {
+        let project = try AssistantEndToEndProject.make()
+        let executablePath = try ClaudeCodeFakeExecutable.write()
+        let launch = SessionLaunch(
+            agentName: "claude-code",
+            configuration: ClaudeCodeFakeExecutable.configuration(
+                launchResponse: ClaudeCodeFixture.path("tool-call.jsonl"),
+                resumeResponse: ClaudeCodeFixture.path("tool-call.jsonl")
+            )
+        )
+        let adapter = ClaudeCodeAdapter(executableOverride: executablePath)
+        let approvalPrompt = RecordingApprovalPrompt(outcome: .allowed)
+        let decisionLog = RecordingGatedDecisionLog()
+        let pipeline = Self.makePipeline(
+            adapter: adapter,
+            approvalPrompt: approvalPrompt,
+            decisionLog: decisionLog,
+            specDriveSource: SpecDriveRetrieval(specDrive: .absent)
+        )
+
+        let record = await pipeline.run(
+            intent: project.intent(content: "What does the spec say?"),
+            guideline: project.guideline,
+            safeguards: project.safeguards,
+            connectors: project.connectors,
+            launch: launch
+        )
+
+        // The answer is produced — a declared-absent Spec Drive is not an error —
+        // and the Spec Drive part is recorded unavailable so the output can be
+        // labeled where it is read, per DoD criterion 4 and
+        // https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback
+        guard case .succeeded = record.outcome else {
+            Issue.record("Expected an answer even with no Spec Drive, got \(record.outcome)")
+            return
+        }
+        #expect(record.unavailableContextParts.contains { $0.kind == .specDrive })
+    }
+
     private static func makePipeline(
         adapter: ClaudeCodeAdapter,
         approvalPrompt: RecordingApprovalPrompt,
-        decisionLog: RecordingGatedDecisionLog
+        decisionLog: RecordingGatedDecisionLog,
+        specDriveSource: any SpecDriveContextSource = InertContextSource.specDrive
     ) -> SessionPipeline<AlwaysApprovedSafeguardsPreCheck, ClaudeCodeAdapter, TieredSafeguardsGate> {
         let allowlist = InMemoryEmptyAllowlist()
         let gate = TieredSafeguardsGate(allowlist: allowlist, approvalPrompt: approvalPrompt)
         let assembler = ContextAssembler(
-            specDriveSource: InertContextSource.specDrive,
+            specDriveSource: specDriveSource,
             boardSource: InertContextSource.board,
             memoriesSource: InertContextSource.memories
         )

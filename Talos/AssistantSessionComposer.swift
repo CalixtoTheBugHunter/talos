@@ -28,6 +28,7 @@ final class AssistantSessionComposer {
         let connectors: ConnectorsManifest
         let safeguards: SafeguardsDocument
         let guideline: GuidelineDocument
+        let spec: SpecManifest
         let declaration: AgentDeclaration
     }
 
@@ -62,7 +63,12 @@ final class AssistantSessionComposer {
             changeLog: NoOpAllowlistChangeLog()
         )
         let gate = TieredSafeguardsGate(allowlist: allowlist, approvalPrompt: console, connectors: project.connectors)
-        let pipeline = Self.makePipeline(adapter: adapter, gate: gate, database: database)
+        let pipeline = Self.makePipeline(
+            adapter: adapter,
+            gate: gate,
+            database: database,
+            specDrive: project.spec.specDrive
+        )
 
         let intent = Intent(
             content: intentText,
@@ -102,6 +108,11 @@ final class AssistantSessionComposer {
         stopCenter.beginTracking { sessionTask.cancel() }
         defer { stopCenter.sessionEnded() }
         let record = await sessionTask.value
+        // A requested context part that had nothing to assemble — a declared-absent
+        // Spec Drive, or one not indexed yet — is labeled on the output, never left
+        // silent: "missing context is labeled where the output is read."
+        // https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback
+        console.noteUnavailableContext(record.unavailableContextParts)
         // The pipeline's pre-stream terminal paths (a launch that failed, a
         // pre-check denial) emit no `.terminated` to the observer, so tell the
         // console the final outcome directly; a no-op once the stream reported
@@ -120,6 +131,7 @@ final class AssistantSessionComposer {
             connectors: readConnectorsManifest(root: root),
             safeguards: SafeguardsLoader.load(projectRoot: root),
             guideline: readGuideline(root: root, subFunction: .assistant),
+            spec: SpecLoader.load(projectRoot: root),
             declaration: resolveAgent(project: manifest, agents: agents)
         )
     }
@@ -127,10 +139,11 @@ final class AssistantSessionComposer {
     private static func makePipeline(
         adapter: AnyAgentAdapterBox,
         gate: TieredSafeguardsGate,
-        database: Database
+        database: Database,
+        specDrive: SpecDrive
     ) -> SessionPipeline<AlwaysApprovedSafeguardsPreCheck, AnyAgentAdapterBox, TieredSafeguardsGate> {
         let assembler = ContextAssembler(
-            specDriveSource: InertContextSource.specDrive,
+            specDriveSource: SpecDriveRetrieval(specDrive: specDrive),
             boardSource: InertContextSource.board,
             memoriesSource: InertContextSource.memories
         )
