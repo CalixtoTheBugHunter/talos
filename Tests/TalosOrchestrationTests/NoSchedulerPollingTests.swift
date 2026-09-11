@@ -111,10 +111,10 @@ struct NoSchedulerPollingTests {
             }
 
             for spelling in Self.sleepSpellings {
-                // The one Decision-81 `Task.sleep(for:)` in `SessionRun.swift`
-                // accounts for exactly one of each sleep spelling — `sleep(`
-                // matches within `Task.sleep(`. Anything more is a wait this
-                // layer does not get.
+                // The one Decision-81 `Task.sleep(for:)` in `AgentEventReader.swift`
+                // (see `responseLivenessDeadlineFile`) accounts for exactly one
+                // of each sleep spelling — `sleep(` matches within `Task.sleep(`.
+                // Anything more is a wait this layer does not get.
                 let occurrences = source.components(separatedBy: spelling).count - 1
                 let allowed = isDeadlineFile ? 1 : 0
                 #expect(

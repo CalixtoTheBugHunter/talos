@@ -74,7 +74,7 @@ final class AssistantSessionComposer {
             agentName: project.declaration.name,
             configuration: AgentLaunchConfiguration(
                 workingDirectory: root,
-                environment: Self.agentEnvironment()
+                environment: SpawnedAgentEnvironment.resolve()
             )
         )
 
@@ -107,25 +107,6 @@ final class AssistantSessionComposer {
         // console the final outcome directly; a no-op once the stream reported
         // the end, so a streamed session keeps what it observed.
         console.sessionConcluded(record.outcome)
-    }
-
-    /// The child's environment: the process environment, with common user and
-    /// package `bin` directories added to `PATH`. A GUI app launched from
-    /// Finder inherits only a minimal `PATH` (no `~/.local/bin`, no Homebrew),
-    /// so the agent CLI is otherwise not found — the launch fails before it
-    /// spawns. No credential is added here: the agent uses its own existing
-    /// authentication.
-    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary#agent-adapters
-    private static func agentEnvironment() -> [String: String] {
-        var environment = ProcessInfo.processInfo.environment
-        let home = NSHomeDirectory()
-        let candidates = ["\(home)/.local/bin", "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"]
-        var entries = (environment["PATH"] ?? "").split(separator: ":").map(String.init)
-        for candidate in candidates where !entries.contains(candidate) {
-            entries.append(candidate)
-        }
-        environment["PATH"] = entries.joined(separator: ":")
-        return environment
     }
 
     private static func loadProject(at root: URL) throws -> LoadedProject {
