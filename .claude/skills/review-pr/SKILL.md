@@ -1,6 +1,6 @@
 ---
 name: review-pr
-description: Reviewing a pull request against the SPEC. Use this whenever a PR is to be reviewed, approved, rejected, or assessed as mergeable — "review this PR", "review #N", "is this mergeable", "look over this diff", "can this merge", "what do you think of this change", "approve this", "LGTM?", "check my PR before I ask for review". Also use it before merging anything, and when a PR is moved out of the In review status. Enforces the adversarial posture: the reviewer tries to REFUTE the change rather than confirm it, and an approval is a claim that someone tried to break it and could not. Verifies every acceptance criterion on the linked issue against the DIFF and never against the PR description, because a checked box with no code behind it is the defect; verifies the tests assert the SPEC's stated behavior and would FAIL if that behavior regressed; re-reads every constraint page the change touches in the order Contributing lists them; enforces step 4 of the spec-driven loop, so a PR whose code and wiki disagree is not mergeable unless the wiki was fixed in the same PR; checks the PR body carries the issue reference, each wiki page linked with its binding line quoted verbatim, and the DoD criterion or an explicit justification; requires the git and CI conventions by link; reports every finding rather than silently fixing it; and sends a SPEC gap found in review to a human and the Decision Log rather than settling it with the reviewer's judgement. States that an agent's review is a self-check and never the 1 approval the protection rules require; moves an item with findings against it back to In progress, the one backwards edge in the dev cycle; and permits approving a partly satisfying PR only when every unmet criterion is named and carries a filed follow-up item, never for a hard constraint, a release gate, or a Safeguards behavior.
+description: Reviewing a pull request against the SPEC. Use this whenever a PR is to be reviewed, approved, rejected, or assessed as mergeable — "review this PR", "review #N", "is this mergeable", "look over this diff", "can this merge", "what do you think of this change", "approve this", "LGTM?", "check my PR before I ask for review". Also use it before merging anything, and when a PR is moved out of the In review status. Enforces the adversarial posture: the reviewer tries to REFUTE the change rather than confirm it, and an approval is a claim that someone tried to break it and could not. Verifies every acceptance criterion on the linked issue against the DIFF and never against the PR description, because a checked box with no code behind it is the defect; verifies the tests assert the SPEC's stated behavior and would FAIL if that behavior regressed; re-reads every constraint page the change touches in the order Contributing lists them; enforces step 4 of the spec-driven loop, so a PR whose code and wiki disagree is not mergeable unless the wiki was fixed in the same PR; checks the PR body carries the issue reference, each wiki page linked with its binding line quoted verbatim, and the DoD criterion or an explicit justification; requires the git and CI conventions by link; reports every finding rather than silently fixing it; and sends a SPEC gap found in review to a human and the Decision Log rather than settling it with the reviewer's judgement. States that an agent's review is a self-check and never the 1 approval the protection rules require; moves an item with findings against it back to In progress, the one backwards edge in the dev cycle; and permits approving a partly satisfying PR only when every unmet criterion is named and carries a filed follow-up item, never for a hard constraint, a release gate, or a Safeguards behavior. Before the item leaves In review for Done, it exercises every acceptance criterion against the running change — driving the app where the change is observable there, a regression plus a simple test where it is not — and pauses for a human functional verification, recording the one-line outcome on the item; that human gate is distinct from the adversarial pass on the diff and binds everyone including the owner.
 ---
 
 # Review PR
@@ -426,6 +426,43 @@ A reviewer's guess is worse than an author's, because it arrives with the author
 
 ---
 
+## Rule 9 — A human runs the change before the item leaves `In review`
+
+This skill's verdict is a [self-check](#who-reviews-and-what-this-skill-is-not) and every required
+check is mechanical; neither runs the change the way a person using it would. So before the item leaves
+`In review` for `Done`, the change is
+[functionally verified by a human](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#a-human-verifies-the-change-before-it-advances) —
+the wiki owns the rule and
+[Decision 81](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#process-decisions) records
+it. The reviewer runs it as the last step before approving or letting the item close, in the order the
+SPEC fixes:
+
+1. **Exercise every acceptance criterion against the running change, as the reviewer.** Where the
+   change is observable by running the app, drive the criteria in the running app
+   ([`run`](../run/SKILL.md)); where it is not — a skills, CI, or docs PR — it is a regression check
+   and a simple test proportional to the diff. This runs the result, not the diff
+   [Rule 1](#rule-1--every-acceptance-criterion-met-in-the-diff) already read.
+2. **Pause and hand the human concise test guidance** — what changed, and the few steps to exercise it
+   — then wait. Do not approve, and do not let the item close to `Done`, until the human confirms
+   against the running result. The guidance stays short: a twelve-step script is skimmed, per the wiki.
+3. **Record the one-line outcome on the item** — what was tested, the result, the date — per
+   [Verification](https://github.com/CalixtoTheBugHunter/talos/wiki/Verification#the-result-is-recorded-not-asserted).
+
+Two things this gate is not:
+
+- **It is not this skill's adversarial pass.** Rule 1 reads the diff to refute it; this runs the
+  change, and a PR can pass Rule 1 and still fail here.
+- **It binds the owner.**
+  [Decision 46](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#process-decisions)'s
+  bypass skips the reviewer reading the diff, not the human running the change — so a bypassed merge
+  does not skip it.
+
+A gap this exposes — the running change does something the wiki does not cover — is
+[Rule 8](#rule-8--a-spec-gap-found-in-review-goes-to-a-human-never-to-the-reviewers-judgement)'s
+`Blocked`, not a finding.
+
+---
+
 ## Who reviews, and what this skill is not
 
 **An agent's review is a self-check, not the approval `main` requires.** This is settled, not open —
@@ -490,6 +527,10 @@ Refutations attempted: <what you tried to break, and how>
 ## Step 4 of the loop
 
 <does the diff now contradict any wiki page — and if so, was the wiki fixed in this PR>
+
+## Human verification
+
+<every criterion exercised against the running change · guidance handed to the human · confirmed · one-line outcome recorded on the item — before approve/close>
 
 ## PR body
 
@@ -578,6 +619,9 @@ meet is in [`references/verification.md`](references/verification.md).
 - [ ] Every finding is reported with openable evidence, and nothing was fixed on the branch.
 - [ ] No comment in the diff narrates a thread, an issue/PR reference, or superseded history instead
       of a hidden constraint or invariant.
+- [ ] Every acceptance criterion was exercised against the running change, the change was
+      [functionally verified by a human](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#a-human-verifies-the-change-before-it-advances)
+      before approve/close, and the one-line outcome was recorded on the item.
 - [ ] Any SPEC gap went to a human and the Decision Log, and nothing gap-dependent was approved.
 - [ ] The verdict states what was attempted, and an approval names a refutation that failed.
 - [ ] The review says it is **not** the required approval.

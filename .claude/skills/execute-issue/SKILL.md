@@ -1,6 +1,6 @@
 ---
 name: execute-issue
-description: Implementing a board item on the Talos board. Use this whenever a ticket is to be built, picked up, or worked on — "work on issue #N", "implement this ticket", "pick up the next board item", "build #N", "start on #N", "let's do this issue", "execute #N", "take the top of the backlog", "finish the item I'm on". Also use it when resuming work already in progress, and when a failed review sends an item back to In progress. Enforces RIPER-5: the agent works in five DECLARED modes — Research, Innovate, Plan, Execute, Review — states which mode it is entering, and never acts outside that mode's mandate. Execute never starts without an approved Plan, so no file is created or edited until a numbered file-by-file plan exists and has been approved; a deviation discovered mid-Execute stops the work and returns to Plan rather than being absorbed. Research completes before the first edit and includes fetching the wiki pages the issue cites, which is how step 1 of the spec-driven loop becomes auditable rather than assumed. Moves the item through the board's Status transitions naming the owner and the gate for each, and sends a SPEC gap to Blocked for a human decision and the Decision Log instead of staying In progress and settling an open question by writing code. Runs every constraint skill whose trigger the change matches, reading the mapping from the wiki rather than hardcoding it. Review mode verifies the result against the plan and against every acceptance criterion on the issue and does not fix what it finds, because a fix is a new Plan and a new Execute — and it is a self-check, never the approval the protection rules require.
+description: Implementing a board item on the Talos board. Use this whenever a ticket is to be built, picked up, or worked on — "work on issue #N", "implement this ticket", "pick up the next board item", "build #N", "start on #N", "let's do this issue", "execute #N", "take the top of the backlog", "finish the item I'm on". Also use it when resuming work already in progress, and when a failed review sends an item back to In progress. Enforces RIPER-5: the agent works in five DECLARED modes — Research, Innovate, Plan, Execute, Review — states which mode it is entering, and never acts outside that mode's mandate. Execute never starts without an approved Plan, so no file is created or edited until a numbered file-by-file plan exists and has been approved; a deviation discovered mid-Execute stops the work and returns to Plan rather than being absorbed. Research completes before the first edit and includes fetching the wiki pages the issue cites, which is how step 1 of the spec-driven loop becomes auditable rather than assumed. Moves the item through the board's Status transitions naming the owner and the gate for each, and sends a SPEC gap to Blocked for a human decision and the Decision Log instead of staying In progress and settling an open question by writing code. Runs every constraint skill whose trigger the change matches, reading the mapping from the wiki rather than hardcoding it. Review mode verifies the result against the plan and against every acceptance criterion on the issue and does not fix what it finds, because a fix is a new Plan and a new Execute — and it is a self-check, never the approval the protection rules require. Before it commits, pushes, or opens the PR, it exercises the acceptance criteria against the running change — launching the app where the change is observable there, a regression plus a simple test where it is not — and then pauses for a human functional verification, recording the one-line outcome on the item; that human gate binds everyone including the owner and is distinct from the self-check.
 ---
 
 # Execute issue
@@ -336,6 +336,37 @@ change — a different act, done against the diff.
 
 ---
 
+## Human verification before the PR
+
+Rule 8's Review is a **self-check**, and per [Rule 8](#rule-8--review-verifies-and-does-not-fix) it is
+not the approval the protection rules require. Before this skill commits, pushes, or opens the PR, the
+change is
+[functionally verified by a human](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#a-human-verifies-the-change-before-it-advances) —
+the wiki owns the rule,
+[Decision 81](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#process-decisions) records
+it, and this skill runs it. It is the gate on leaving `In progress`, and it comes after Review, never
+instead of it.
+
+The order the SPEC fixes, carried out here:
+
+1. **Exercise the acceptance criteria against the change first, as the agent.** Where the change is
+   observable by running the app, [`run`](../run/SKILL.md) launches it and the criteria are driven in
+   the running app; where it is not — a skills, CI, or docs change, like this file — it is a regression
+   check and a simple test proportional to the change. If the app cannot be launched, that is a blocker
+   to state, not a step to skip.
+2. **Pause and hand the human concise test guidance** — what changed, and the few steps to exercise it
+   — then wait. Do not commit, push, or open the PR until the human confirms against the running
+   result. The guidance stays short: a twelve-step script is skimmed, per the wiki.
+3. **Record the one-line outcome on the item** — what was tested, the result, the date — per
+   [Verification](https://github.com/CalixtoTheBugHunter/talos/wiki/Verification#the-result-is-recorded-not-asserted).
+   A verification asserted rather than recorded is one nobody can later see happened.
+
+This binds every contributor including the owner:
+[Decision 46](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#process-decisions)'s bypass
+skips the reviewer reading the diff, not the human running the change.
+
+---
+
 ## Opening the PR
 
 Branch prefixes, the commit format, the scope vocabulary, and everything required on `main` are on the
@@ -406,6 +437,7 @@ Traceability: <board item · Spec Page · DoD criterion or the stated justificat
 Step 4 of the loop: <does the change now contradict any wiki page — and if so, was the wiki fixed here>
 Findings: <each one, and the new PLAN it requires — not fixed in this mode>
 Board: <Status this implies>
+Human verification: <criteria exercised against the running change · guidance handed to the human · confirmed · one-line outcome recorded on the item — before any commit, push, or PR>
 This is a self-check, not the 1 approval the protection rules require.
 ```
 
@@ -503,6 +535,9 @@ Review:
 
 Board and PR:
 
+- [ ] The acceptance criteria were exercised against the running change, then the change was
+      [functionally verified by a human](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#a-human-verifies-the-change-before-it-advances)
+      before any commit, push, or PR — and the one-line outcome was recorded on the item.
 - [ ] The item's Status was moved when each thing became true, after re-reading its actual state.
 - [ ] Any SPEC gap sent the item to `Blocked` and went to a human and the Decision Log.
 - [ ] The branch prefix and the commit scope come from the item's kind and its **Area** field.
