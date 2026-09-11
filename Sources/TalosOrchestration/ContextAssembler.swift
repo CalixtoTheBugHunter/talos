@@ -46,6 +46,11 @@ public struct DroppedContextPart: Equatable, Sendable {
 public struct UnavailableContextPart: Equatable, Sendable {
     public let kind: ContextPartKind
     public let reason: String
+
+    public init(kind: ContextPartKind, reason: String) {
+        self.kind = kind
+        self.reason = reason
+    }
 }
 
 /// One pinned part's size and the file that declares it, named in a

@@ -159,4 +159,19 @@ struct ProjectLibraryScaffolderTests {
             try ProjectLibraryScaffolder.scaffold(projectRoot: root)
         }
     }
+
+    /// The scaffolded `spec.yaml` must be a *loadable* manifest, not a comment
+    /// placeholder: `SpecLoader` runs on every session start, and a header-only
+    /// file fails to parse. A new project records a declared-absent Spec Drive.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#when-a-project-has-no-spec-drive
+    @Test("A scaffolded project's spec.yaml loads as a declared-absent Spec Drive")
+    func scaffoldedSpecYAMLLoadsAsAbsent() throws {
+        let root = Self.temporaryProjectRoot()
+        try Self.makeGitRepository(at: root)
+
+        _ = try ProjectLibraryScaffolder.scaffold(projectRoot: root)
+
+        let manifest = try SpecLoader.load(projectRoot: root)
+        #expect(manifest.specDrive == .absent)
+    }
 }
