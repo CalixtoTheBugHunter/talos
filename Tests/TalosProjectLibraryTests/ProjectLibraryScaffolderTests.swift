@@ -142,6 +142,10 @@ struct ProjectLibraryScaffolderTests {
             #expect(document.tokenCeiling > 0)
             #expect(!document.purpose.isEmpty)
             #expect(!document.outputExpectations.isEmpty)
+            // The scaffolder emits the response-liveness timeout so it is a
+            // visibly editable field, and it round-trips as the 60-second
+            // default (decision 81).
+            #expect(document.responseLivenessTimeout == .seconds(60))
             #expect(document.subFunction.isActiveAtMVP == (subFunction == .assistant || subFunction == .automator))
         }
     }

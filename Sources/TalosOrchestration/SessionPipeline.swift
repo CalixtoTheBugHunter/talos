@@ -229,6 +229,7 @@ public struct SessionPipeline<
             adapter: adapter,
             gate: gate,
             decisionLog: decisionLog,
+            responseLivenessTimeout: guideline.responseLivenessTimeout,
             now: now,
             observer: observer,
             tokenObserver: tokenObserver,

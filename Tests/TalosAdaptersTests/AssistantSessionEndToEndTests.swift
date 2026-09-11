@@ -100,13 +100,13 @@ private actor RecordingGatedDecisionLog: GatedDecisionLog {
 /// per "the suite installs nothing":
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#the-suite-installs-nothing
 ///
-/// Claude Code's headless `-p` mode exits cleanly after every ordinary turn
-/// without that exit signalling the *session* is over — `ClaudeCodeAdapter`
-/// deliberately leaves its stream open on exit code 0, since an ordinary
-/// turn and a deferred permission request both end that way. So each test
-/// below stops the adapter itself once it has observed enough of the
-/// transcript to assert against, exactly as a real Stop would.
-/// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#stop-kills-the-tree
+/// A completed session terminates on its own: `ClaudeCodeAdapter` emits
+/// `.terminated(.exited(0))` on a clean exit with no pending permission, which
+/// the pipeline records as `.succeeded` — no external `stop()`. A clean exit
+/// *with* a pending deferred permission is a turn boundary, so the mutating
+/// case resumes past the denial and then completes on the resumed turn's own
+/// clean exit.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions
 @Suite("Assistant session, end to end")
 struct AssistantSessionEndToEndTests {
     @Test("A full read-only Assistant session completes with no approval prompts")
@@ -130,15 +130,11 @@ struct AssistantSessionEndToEndTests {
             guideline: project.guideline,
             safeguards: project.safeguards,
             connectors: project.connectors,
-            launch: launch,
-            observer: { event in
-                guard case .toolCall = event else { return }
-                Task { await adapter.stop() }
-            }
+            launch: launch
         )
 
-        guard case .stopped = record.outcome else {
-            Issue.record("Expected a read-only turn to end stopped once observed, got \(record.outcome)")
+        guard case .succeeded = record.outcome else {
+            Issue.record("Expected a completed read-only session to succeed, got \(record.outcome)")
             return
         }
         #expect(record.toolCallCount == 1)
@@ -169,19 +165,14 @@ struct AssistantSessionEndToEndTests {
             guideline: project.guideline,
             safeguards: project.safeguards,
             connectors: project.connectors,
-            launch: launch,
-            observer: { event in
-                // The resumed turn's own output, reached only once the
-                // denial was carried back and the agent continued — "a
-                // denial is a normal outcome... the agent is told it was
-                // denied and continues."
-                guard case let .output(chunk) = event, chunk.text.contains("pong") else { return }
-                Task { await adapter.stop() }
-            }
+            launch: launch
         )
 
-        guard case .stopped = record.outcome else {
-            Issue.record("Expected the resumed turn to end stopped once observed, got \(record.outcome)")
+        // The denial is carried back and the agent continues — "a denial is a
+        // normal outcome... the agent is told it was denied and continues" —
+        // and the resumed turn's own clean exit completes the session.
+        guard case .succeeded = record.outcome else {
+            Issue.record("Expected the resumed session to succeed, got \(record.outcome)")
             return
         }
         #expect(record.toolCallCount == 1)

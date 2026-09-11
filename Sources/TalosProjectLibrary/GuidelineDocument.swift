@@ -23,16 +23,27 @@ public extension SubFunction {
 }
 
 /// The parsed contents of one Editable Talos Guideline file. `rawText` is
-/// the file's exact, unmodified text, kept alongside the four typed fields
-/// so a hand edit round-trips without loss even though nothing in this
-/// module writes the file back.
+/// the file's exact, unmodified text, kept alongside the typed fields so a
+/// hand edit round-trips without loss even though nothing in this module
+/// writes the file back.
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Talos-Guidelines#editable-talos-guidelines
 public struct GuidelineDocument: Equatable, Sendable {
+    /// The response-liveness timeout a guideline file that declares none takes
+    /// — 60 seconds, per decision 81.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions
+    public static let defaultResponseLivenessTimeout: Duration = .seconds(defaultResponseLivenessSeconds)
+    private static let defaultResponseLivenessSeconds = 60
+
     public let subFunction: SubFunction
     public let purpose: String
     public let context: [String]
     public let tokenCeiling: Int
     public let outputExpectations: String
+    /// How long the session may produce no stream activity before it ends as
+    /// Failed — measured only while it is not waiting on the Safeguards gate.
+    /// 60 seconds by default, overridable per project.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions
+    public let responseLivenessTimeout: Duration
     public let rawText: String
 
     public init(
@@ -41,6 +52,7 @@ public struct GuidelineDocument: Equatable, Sendable {
         context: [String],
         tokenCeiling: Int,
         outputExpectations: String,
+        responseLivenessTimeout: Duration = Self.defaultResponseLivenessTimeout,
         rawText: String
     ) {
         self.subFunction = subFunction
@@ -48,6 +60,7 @@ public struct GuidelineDocument: Equatable, Sendable {
         self.context = context
         self.tokenCeiling = tokenCeiling
         self.outputExpectations = outputExpectations
+        self.responseLivenessTimeout = responseLivenessTimeout
         self.rawText = rawText
     }
 }

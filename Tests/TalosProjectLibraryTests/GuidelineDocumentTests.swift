@@ -128,4 +128,36 @@ struct GuidelineDocumentTests {
         #expect(document.context == ["spec-drive"])
         #expect(document.rawText == handEdited)
     }
+
+    // MARK: - Response-liveness timeout (decision 81): optional, defaulting to 60s
+
+    @Test("An absent response-liveness timeout defaults to 60 seconds")
+    func absentResponseLivenessTimeoutDefaultsToSixtySeconds() throws {
+        let document = try GuidelineDocumentParser.parse(
+            contents: Self.validContents, subFunction: .assistant, file: "assistant.md"
+        )
+
+        #expect(document.responseLivenessTimeout == .seconds(60))
+    }
+
+    @Test("An explicit response-liveness timeout overrides the default")
+    func explicitResponseLivenessTimeoutOverridesTheDefault() throws {
+        let contents = """
+        ---
+        purpose: >-
+          Purpose text.
+        context: []
+        tokenCeiling: 1000
+        outputExpectations: >-
+          Output text.
+        responseLivenessTimeout: 120
+        ---
+        """
+
+        let document = try GuidelineDocumentParser.parse(
+            contents: contents, subFunction: .assistant, file: "assistant.md"
+        )
+
+        #expect(document.responseLivenessTimeout == .seconds(120))
+    }
 }

@@ -7,6 +7,7 @@ func makeTestGuideline(
     subFunction: SubFunction = .assistant,
     context: [String] = [],
     tokenCeiling: Int,
+    responseLivenessTimeout: Duration = GuidelineDocument.defaultResponseLivenessTimeout,
     rawText: String = "Answer questions grounded in the project's own sources."
 ) -> GuidelineDocument {
     GuidelineDocument(
@@ -15,6 +16,7 @@ func makeTestGuideline(
         context: context,
         tokenCeiling: tokenCeiling,
         outputExpectations: "Test output expectations.",
+        responseLivenessTimeout: responseLivenessTimeout,
         rawText: rawText
     )
 }

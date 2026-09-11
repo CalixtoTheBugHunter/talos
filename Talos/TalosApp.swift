@@ -55,7 +55,15 @@ struct TalosApp: App {
                 )
             }
             .sheet(isPresented: $isSessionConsoleTranscriptPresented) {
-                SessionConsoleView(viewModel: sessionConsoleViewModel)
+                // The console hosts its own Stop control — visible whenever the
+                // session is running, on the surface the session is shown on,
+                // not only at ⌘. (the root's stop overlay is occluded by this
+                // sheet). Per § The stop guarantee is an interaction rule.
+                SessionConsoleView(
+                    viewModel: sessionConsoleViewModel,
+                    onStop: sessionStopCenter.requestStop,
+                    onClose: { isSessionConsoleTranscriptPresented = false }
+                )
             }
             .task {
                 // Opened on its own, unawaited task: this does real disk I/O
@@ -152,7 +160,7 @@ struct TalosApp: App {
                     SessionTranscriptSchema.migration
                 ]
             )
-            assistantSessionComposer = AssistantSessionComposer(database: database)
+            assistantSessionComposer = AssistantSessionComposer(database: database, stopCenter: sessionStopCenter)
         } catch {
             databaseOpenErrorMessage = "Talos could not open its local database: \(error)"
         }

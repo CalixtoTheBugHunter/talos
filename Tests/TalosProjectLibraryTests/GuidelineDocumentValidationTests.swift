@@ -134,6 +134,30 @@ struct GuidelineDocumentValidationTests {
         }
     }
 
+    // MARK: - Response-liveness timeout: present-but-invalid is rejected
+
+    @Test("A zero or negative response-liveness timeout fails validation")
+    func nonPositiveResponseLivenessTimeoutFailsValidation() {
+        let contents = """
+        ---
+        purpose: >-
+          Purpose text.
+        context: []
+        tokenCeiling: 1000
+        outputExpectations: >-
+          Output text.
+        responseLivenessTimeout: 0
+        ---
+        """
+
+        #expect {
+            try GuidelineDocumentParser.parse(contents: contents, subFunction: .assistant, file: "assistant.md")
+        } throws: { error in
+            guard let error = error as? GuidelineDocumentError else { return false }
+            return error.fix.contains("responseLivenessTimeout")
+        }
+    }
+
     // MARK: - The front matter block itself
 
     @Test("A file with no opening --- fails validation")

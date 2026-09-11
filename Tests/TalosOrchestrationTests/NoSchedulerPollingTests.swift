@@ -1,8 +1,11 @@
 import Foundation
 import Testing
 
-/// Asserts nothing in the orchestration layer waits on a clock, which is what an
-/// inert scheduler has to cost while it is inert.
+/// Asserts nothing in the orchestration layer polls — no timer, no scheduler,
+/// no interval wait — which is what an inert scheduler has to cost while it is
+/// inert. The one sanctioned clock use is the response-liveness deadline of
+/// decision 81 (see ``sleepSpellings``): a one-shot wait cancelled the instant
+/// an event arrives, not a poll.
 ///
 /// > A live indicator updates from an **event** — a streamed token, a tool call,
 /// > a session record — never from a timer that wakes to check. A spinner that
@@ -23,16 +26,15 @@ import Testing
 /// happened to be written against.
 @Suite("Nothing in the orchestration layer polls")
 struct NoSchedulerPollingTests {
-    /// Spellings that only appear in code that waits on a clock. Matched
-    /// case-sensitively: the SPEC line quoted above is itself the phrase "no
-    /// polling timers", and the module's comments cite it, so a
+    /// Periodic-wait spellings — a timer, a scheduler, an interval sleep.
+    /// Forbidden throughout the layer with no exception: these are the shape of
+    /// a poll. Matched case-sensitively, since the SPEC line quoted above is
+    /// itself "no polling timers" and the module's comments cite it, so a
     /// case-insensitive scan would flag the citation rather than a poll.
-    static let forbiddenSpellings = [
+    static let pollingSpellings = [
         "Timer",
         "DispatchSourceTimer",
         "makeTimerSource",
-        "Task.sleep",
-        "sleep(",
         "usleep",
         "nanosleep",
         "DispatchQueue.main.asyncAfter",
@@ -40,6 +42,16 @@ struct NoSchedulerPollingTests {
         "ContinuousClock",
         "SuspendingClock"
     ]
+
+    /// The one-shot-wait spellings. Forbidden everywhere too, except the single
+    /// response-liveness deadline decision 81 sanctions: a wait that races the
+    /// next event and is cancelled the instant it arrives, never a periodic
+    /// wake, and gone entirely when no session is open. The exception is
+    /// confined to one call in one file, so a second wait anywhere — including
+    /// elsewhere in that file — is still the finding.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions
+    static let sleepSpellings = ["Task.sleep", "sleep("]
+    static let responseLivenessDeadlineFile = "AgentEventReader.swift"
 
     static var moduleURL: URL {
         var url = URL(fileURLWithPath: #filePath)
@@ -89,10 +101,25 @@ struct NoSchedulerPollingTests {
 
         for file in files {
             let source = try Self.code(String(contentsOf: file, encoding: .utf8))
-            for spelling in Self.forbiddenSpellings {
+            let isDeadlineFile = file.lastPathComponent == Self.responseLivenessDeadlineFile
+
+            for spelling in Self.pollingSpellings {
                 #expect(
                     !source.contains(spelling),
                     "\(file.lastPathComponent) contains '\(spelling)' — this layer wakes on events, never on a clock"
+                )
+            }
+
+            for spelling in Self.sleepSpellings {
+                // The one Decision-81 `Task.sleep(for:)` in `AgentEventReader.swift`
+                // (see `responseLivenessDeadlineFile`) accounts for exactly one
+                // of each sleep spelling — `sleep(` matches within `Task.sleep(`.
+                // Anything more is a wait this layer does not get.
+                let occurrences = source.components(separatedBy: spelling).count - 1
+                let allowed = isDeadlineFile ? 1 : 0
+                #expect(
+                    occurrences == allowed,
+                    "\(file.lastPathComponent): unexpected '\(spelling)' — only decision 81's deadline waits here"
                 )
             }
         }

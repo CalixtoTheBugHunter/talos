@@ -4,9 +4,9 @@ import TalosCore
 import TalosSafeguards
 
 /// Everything ``SafeguardsApproved/run`` needs to route one session, bundled
-/// so `consume`/`carry` take one parameter for all six instead of six — the
-/// shape this module's own `function_parameter_count` limit forces, and a
-/// reasonable one: the six never vary independently within a single run.
+/// so `consume`/`carry` take one parameter for all of it instead of one each —
+/// the shape this module's own `function_parameter_count` limit forces, and a
+/// reasonable one: these never vary independently within a single run.
 struct SessionRunCollaborators<Adapter: AgentAdapter, Gate: SafeguardsGate> {
     let adapter: Adapter
     let gate: Gate
@@ -14,6 +14,11 @@ struct SessionRunCollaborators<Adapter: AgentAdapter, Gate: SafeguardsGate> {
     let sessionID: UUID
     let now: @Sendable () -> Date
     let onDenial: (@Sendable (SafeguardsActionType, String) async -> Void)?
+    /// How long the session may produce no stream activity before it ends as
+    /// Failed, from the sub-function's guideline. Measured only between events;
+    /// the gate wait happens outside the read that applies it, so it is never
+    /// counted. Decision 81.
+    let responseLivenessTimeout: Duration
 }
 
 /// What one session accumulated while stages 5-8 ran: tool calls observed,

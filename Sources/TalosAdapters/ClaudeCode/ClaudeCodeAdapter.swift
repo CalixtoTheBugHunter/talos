@@ -18,6 +18,10 @@ actor ClaudeCodeAdapter: AgentAdapter {
     private var reporter = ClaudeCodeTokenReporter()
     private var sessionID: String?
     private var currentProcess: AgentProcess?
+    /// The background task draining the current turn's process into the
+    /// session stream. Cancelled by ``stop()`` so a stop ends the turn even
+    /// while it is parked awaiting the next process event.
+    private var turnTask: Task<Void, Never>?
     private var openRequestIDs: Set<String> = []
     private var lastOutput = ""
     private var hasFinished = false
@@ -69,6 +73,14 @@ actor ClaudeCodeAdapter: AgentAdapter {
         guard openRequestIDs.contains(requestID) else {
             throw AgentNotRunningError(fix: "No permission request '\(requestID)' is waiting for a decision.")
         }
+        // Wait for the launching turn's drain to reach its turn boundary before
+        // recording the decision: that boundary is detected by the request
+        // still being open at the clean exit, so removing it first would make
+        // the drain read the exit as the session ending.
+        await turnTask?.value
+        guard !hasFinished else {
+            throw AgentNotRunningError(fix: "The session has already ended; start a new one.")
+        }
         let reason = decision == .allowed
             ? "Approved at the Talos Safeguards gate."
             : "Denied at the Talos Safeguards gate."
@@ -83,6 +95,7 @@ actor ClaudeCodeAdapter: AgentAdapter {
 
     func stop() async {
         guard !hasFinished else { return }
+        turnTask?.cancel()
         if let currentProcess {
             await currentProcess.stop()
         }
@@ -95,9 +108,19 @@ actor ClaudeCodeAdapter: AgentAdapter {
     /// session already has a `session_id` — and drains it into the session's
     /// stream until it exits.
     ///
-    /// A clean exit (code 0) does not end the stream: both an ordinary turn
-    /// and a deferred permission request end that way. Anything else does.
+    /// A clean exit (code 0) ends the session, *except* while a deferred
+    /// permission request is still pending — that exit is a turn boundary, and
+    /// the session resumes when the gate's decision is carried back via
+    /// `resolve`. Any other exit ends it. The deferred tool-use is drained from
+    /// the `result` line before the exit event, so the two are distinguishable
+    /// here by whether any request is still open.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions
     private func runTurn(prompt: AgentPrompt) async throws {
+        // Let the previous turn's drain finish before starting the next: a
+        // resume is carried back the moment the consumer reads the pending
+        // request, which can be before the prior turn's process has been torn
+        // down and its `currentProcess` cleared. Nil on the first turn.
+        await turnTask?.value
         guard let configuration, let hooks, let mcpConfig, let executablePath, !hasFinished else {
             throw AgentNotRunningError(fix: "Launch the adapter before sending a prompt.")
         }
@@ -127,6 +150,18 @@ actor ClaudeCodeAdapter: AgentAdapter {
             throw error
         }
 
+        // Drain in the background so `send`/`resolve` return once the turn is
+        // launched, not after it ends: the pipeline consumes the session
+        // stream live — streaming output, applying the response-liveness
+        // timeout, and honoring a stop — rather than only after the whole turn
+        // has already run.
+        turnTask = Task { await self.drainTurn(events) }
+    }
+
+    /// Drains one turn's process events into the session stream until the
+    /// process ends. Runs as ``turnTask`` off the `send`/`resolve` call that
+    /// started it, so the caller returns immediately.
+    private func drainTurn(_ events: AsyncThrowingStream<AgentProcessEvent, any Error>) async {
         do {
             for try await event in events {
                 switch event {
@@ -134,10 +169,14 @@ actor ClaudeCodeAdapter: AgentAdapter {
                     handle(chunk)
                 case let .terminated(termination):
                     currentProcess = nil
-                    if case .exited(0) = termination.reason {
-                        break
+                    // A turn boundary only while a permission is pending — the
+                    // stream stays open for the resume. Otherwise the exit ends
+                    // the session.
+                    if case .exited(0) = termination.reason, !openRequestIDs.isEmpty {
+                        return
                     }
                     finish(termination)
+                    return
                 }
             }
         } catch {
@@ -145,8 +184,8 @@ actor ClaudeCodeAdapter: AgentAdapter {
             guard !hasFinished else { return }
             hasFinished = true
             continuation?.finish(throwing: error)
-            hooks.cleanUp()
-            mcpConfig.cleanUp()
+            hooks?.cleanUp()
+            mcpConfig?.cleanUp()
         }
     }
 
