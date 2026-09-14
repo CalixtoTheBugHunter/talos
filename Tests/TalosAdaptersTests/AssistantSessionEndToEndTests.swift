@@ -234,6 +234,108 @@ struct AssistantSessionEndToEndTests {
         #expect(record.unavailableContextParts.contains { $0.kind == .specDrive })
     }
 
+    /// The Spec Drive location the seeded index was built from.
+    private static let wikiURL = "https://github.com/example/project/wiki"
+
+    /// What an out-of-band index build leaves behind: a section stating a fact
+    /// nothing outside the spec knows, a DRAFT section, and one unrelated
+    /// section retrieval must leave out.
+    private static func indexedSections() -> [SpecSection] {
+        func section(page: String, heading: String, body: String, draft: Bool, ordinal: Int) -> SpecSection {
+            SpecSection(
+                pageTitle: page,
+                headingPath: [page, heading],
+                anchor: GitHubHeadingSlug.slug(for: heading),
+                body: body,
+                isDraft: draft,
+                ordinal: ordinal
+            )
+        }
+        return [
+            section(
+                page: "Sessions",
+                heading: "Retention window",
+                body: "Session transcripts are retained for 42 days in this fixture project.",
+                draft: false,
+                ordinal: 0
+            ),
+            section(
+                page: "Sessions",
+                heading: "Transcript export (DRAFT)",
+                body: "Exporting a session transcript as a PDF is planned for a later release.",
+                draft: true,
+                ordinal: 1
+            ),
+            section(
+                page: "Board",
+                heading: "Board columns",
+                body: "Provider columns map onto the canonical internal states.",
+                draft: false,
+                ordinal: 2
+            )
+        ]
+    }
+
+    @Test("A question answerable only from the spec is answered from the local index, cited by anchor")
+    func indexedSpecDriveAnswerCitesTheSection() async throws {
+        let project = try AssistantEndToEndProject.make()
+        let projectRoot = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("talos-spec-index-e2e-\(UUID().uuidString)", isDirectory: true)
+        let store = try await SpecIndexStore.open(projectRoot: projectRoot)
+        try await store.replaceSections(Self.indexedSections(), project: project.id, locationURL: Self.wikiURL)
+        // Read back from disk rather than reusing what was written: a session
+        // retrieves from the index built out of band and never re-fetches.
+        let indexed = try await store.allSections(project: project.id)
+
+        let capturePath = NSTemporaryDirectory() + "talos-prompt-capture-\(UUID().uuidString)"
+        // The fake appends to this file for the life of the session, so it
+        // outlives the test unless the test that owns it removes it.
+        defer { try? FileManager.default.removeItem(atPath: capturePath) }
+        let executablePath = try ClaudeCodeFakeExecutable.write()
+        let launch = SessionLaunch(
+            agentName: "claude-code",
+            configuration: ClaudeCodeFakeExecutable.configuration(
+                launchResponse: ClaudeCodeFixture.path("tool-call.jsonl"),
+                resumeResponse: ClaudeCodeFixture.path("tool-call.jsonl"),
+                promptCapturePath: capturePath
+            )
+        )
+        let specDrive = SpecDrive.locations([
+            SpecDriveLocation(provider: .githubWiki, url: Self.wikiURL, syncRule: .readOnly)
+        ])
+        let pipeline = Self.makePipeline(
+            adapter: ClaudeCodeAdapter(executableOverride: executablePath),
+            approvalPrompt: RecordingApprovalPrompt(outcome: .allowed),
+            decisionLog: RecordingGatedDecisionLog(),
+            specDriveSource: SpecDriveRetrieval(specDrive: specDrive, sections: indexed)
+        )
+
+        let record = await pipeline.run(
+            intent: project.intent(content: "How long are session transcripts retained?"),
+            guideline: project.guideline,
+            safeguards: project.safeguards,
+            connectors: project.connectors,
+            launch: launch
+        )
+
+        guard case .succeeded = record.outcome else {
+            Issue.record("Expected a session answering from the spec index to succeed, got \(record.outcome)")
+            return
+        }
+        #expect(!record.unavailableContextParts.contains { $0.kind == .specDrive })
+        #expect(!record.droppedContextParts.contains { $0.kind == .specDrive })
+
+        // The fake agent answers from a fixture, so what is checkable here is
+        // the citable section Talos delivered: its heading, the anchor every
+        // SPEC link targets, and the fact only the spec states.
+        let delivered = try String(contentsOfFile: capturePath, encoding: .utf8)
+        #expect(delivered.contains("Retention window"))
+        #expect(delivered.contains("#retention-window"))
+        #expect(delivered.contains("42 days"))
+        #expect(delivered.contains("DRAFT: planned, not current"))
+        #expect(!delivered.contains("Board columns"))
+    }
+
     private static func makePipeline(
         adapter: ClaudeCodeAdapter,
         approvalPrompt: RecordingApprovalPrompt,

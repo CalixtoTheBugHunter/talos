@@ -63,11 +63,8 @@ final class AssistantSessionComposer {
             changeLog: NoOpAllowlistChangeLog()
         )
         let gate = TieredSafeguardsGate(allowlist: allowlist, approvalPrompt: console, connectors: project.connectors)
-        let pipeline = Self.makePipeline(
-            adapter: adapter,
-            gate: gate,
-            database: database,
-            specDrive: project.spec.specDrive
+        let pipeline = await Self.makePipeline(
+            adapter: adapter, gate: gate, database: database, project: project, root: root
         )
 
         let intent = Intent(
@@ -136,14 +133,38 @@ final class AssistantSessionComposer {
         )
     }
 
+    /// The Spec Drive index for this project, read once into memory so the
+    /// pipeline's synchronous retrieval never touches disk. Empty when the Spec
+    /// Drive is declared absent or the index has not been built yet — building
+    /// it is the agent's out-of-band work, tracked separately. A read that
+    /// fails is treated as an empty index rather than a session failure: the
+    /// index is derived and rebuildable, and retrieval labels the absence.
+    private static func loadSpecSections(
+        projectRoot: URL,
+        project: ProjectIdentifier,
+        spec: SpecManifest
+    ) async -> [SpecSection] {
+        guard case .locations = spec.specDrive else { return [] }
+        let databaseURL = SpecIndexSchema.databaseURL(projectRoot: projectRoot)
+        guard FileManager.default.fileExists(atPath: databaseURL.path) else { return [] }
+        do {
+            let store = try await SpecIndexStore.open(projectRoot: projectRoot)
+            return try await store.allSections(project: project)
+        } catch {
+            return []
+        }
+    }
+
     private static func makePipeline(
         adapter: AnyAgentAdapterBox,
         gate: TieredSafeguardsGate,
         database: Database,
-        specDrive: SpecDrive
-    ) -> SessionPipeline<AlwaysApprovedSafeguardsPreCheck, AnyAgentAdapterBox, TieredSafeguardsGate> {
+        project: LoadedProject,
+        root: URL
+    ) async -> SessionPipeline<AlwaysApprovedSafeguardsPreCheck, AnyAgentAdapterBox, TieredSafeguardsGate> {
+        let specSections = await loadSpecSections(projectRoot: root, project: project.manifest.id, spec: project.spec)
         let assembler = ContextAssembler(
-            specDriveSource: SpecDriveRetrieval(specDrive: specDrive),
+            specDriveSource: SpecDriveRetrieval(specDrive: project.spec.specDrive, sections: specSections),
             boardSource: InertContextSource.board,
             memoriesSource: InertContextSource.memories
         )
