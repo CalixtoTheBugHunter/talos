@@ -1,6 +1,6 @@
 ---
 name: execute-issue
-description: Implementing a board item on the Talos board. Use this whenever a ticket is to be built, picked up, or worked on — "work on issue #N", "implement this ticket", "pick up the next board item", "build #N", "start on #N", "let's do this issue", "execute #N", "take the top of the backlog", "finish the item I'm on". Also use it when resuming work already in progress, and when a failed review sends an item back to In progress. Enforces RIPER-5: the agent works in five DECLARED modes — Research, Innovate, Plan, Execute, Review — states which mode it is entering, and never acts outside that mode's mandate. Execute never starts without an approved Plan, so no file is created or edited until a numbered file-by-file plan exists and has been approved; a deviation discovered mid-Execute stops the work and returns to Plan rather than being absorbed. Research completes before the first edit and includes fetching the wiki pages the issue cites, which is how step 1 of the spec-driven loop becomes auditable rather than assumed. Moves the item through the board's Status transitions naming the owner and the gate for each, and sends a SPEC gap to Blocked for a human decision and the Decision Log instead of staying In progress and settling an open question by writing code. Runs every constraint skill whose trigger the change matches, reading the mapping from the wiki rather than hardcoding it. Review mode verifies the result against the plan and against every acceptance criterion on the issue and does not fix what it finds, because a fix is a new Plan and a new Execute — and it is a self-check, never the approval the protection rules require. Before it commits, pushes, or opens the PR, it exercises the acceptance criteria against the running change — launching the app where the change is observable there, a regression plus a simple test where it is not — and then pauses for a human functional verification, recording the one-line outcome on the item; that human gate binds everyone including the owner and is distinct from the self-check.
+description: Implementing a board item on the Talos board. Use this whenever a ticket is to be built, picked up, or worked on — "work on issue #N", "implement this ticket", "pick up the next board item", "build #N", "start on #N", "let's do this issue", "execute #N", "take the top of the backlog", "finish the item I'm on". Also use it when resuming work already in progress, and when a failed review sends an item back to In progress. Enforces RIPER-5: the agent works in five DECLARED modes — Research, Innovate, Plan, Execute, Review — states which mode it is entering, and never acts outside that mode's mandate. Execute never starts without an approved Plan, so no file is created or edited until a numbered file-by-file plan exists and has been approved; a deviation discovered mid-Execute stops the work and returns to Plan rather than being absorbed. Research completes before the first edit and includes fetching the wiki pages the issue cites, which is how step 1 of the spec-driven loop becomes auditable rather than assumed. Moves the item through the board's Status transitions naming the owner and the gate for each, and sends a SPEC gap to Blocked for a human decision and the Decision Log instead of staying In progress and settling an open question by writing code. Runs every constraint skill whose trigger the change matches, reading the mapping from the wiki rather than hardcoding it. Review mode verifies the result against the plan and against every acceptance criterion on the issue and does not fix what it finds, because a fix is a new Plan and a new Execute — and it is a self-check, never the approval the protection rules require. Before it commits, pushes, or opens the PR, it exercises the acceptance criteria against the running change — launching the app where the change is observable there, a regression plus a simple test where it is not — and then pauses for a human functional verification, recording the one-line outcome on the item; that human gate binds everyone including the owner and is distinct from the self-check. The guidance it hands over is the human's own run through the UI — no terminal commands, no bundle the agent built to a path, and no agent-fabricated derived state — and where nothing is user-visible the regression check is the verification rather than an invented UI procedure.
 ---
 
 # Execute issue
@@ -360,6 +360,23 @@ The order the SPEC fixes, carried out here:
 3. **Record the one-line outcome on the item** — what was tested, the result, the date — per
    [Verification](https://github.com/CalixtoTheBugHunter/talos/wiki/Verification#the-result-is-recorded-not-asserted).
    A verification asserted rather than recorded is one nobody can later see happened.
+
+**The handed guidance is the human's own run, through the UI.** The gate exists because neither the
+required checks nor the agent's review "exercises the running change the way a person using it would" —
+so the steps handed over are the ones a person using Talos has: their own build of the app (Product →
+Run), its controls, and [Project Library](https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library)
+files they author. Three things therefore do not belong in it, because each verifies the agent's
+plumbing and skips what the gate is for:
+
+- **A terminal command**, including launching a bundle the agent built to a path of its own.
+- **State the agent fabricated** — anything derived that only Talos writes, such as a database under
+  `.talos/local/`. A user cannot produce it, so exercising it is not a user experience.
+- **A UI procedure invented for a change with no user-visible surface.** There, step 1's regression
+  check *is* the verification, per the SPEC's own "where it is not — a skills, CI, or docs change".
+
+Where a criterion has no UI path yet, that is step 1's blocker to state — naming the entry point that
+is missing and which later item owns it — never a fixture to build by hand so the step can be reported
+as done.
 
 This binds every contributor including the owner:
 [Decision 46](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#process-decisions)'s bypass

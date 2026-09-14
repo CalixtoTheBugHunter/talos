@@ -10,6 +10,7 @@ import Testing
 enum ClaudeCodeFakeExecutable {
     private static let launchResponseKey = "TALOS_TEST_LAUNCH_RESPONSE"
     private static let resumeResponseKey = "TALOS_TEST_RESUME_RESPONSE"
+    private static let promptCaptureKey = "TALOS_TEST_PROMPT_CAPTURE"
 
     /// `exitCode` is baked into every branch of the script, for the one test
     /// that needs to simulate a crash rather than Claude Code's own normal
@@ -21,6 +22,9 @@ enum ClaudeCodeFakeExecutable {
         let launchTail = hangAfterLaunch ? "sleep 10" : "exit \(exitCode)"
         let script = """
         #!/bin/sh
+        if [ -n "${\(promptCaptureKey):-}" ]; then
+          printf '%s\\n' "$@" >> "$\(promptCaptureKey)"
+        fi
         for arg in "$@"; do
           if [ "$arg" = "--resume" ]; then
             cat "$\(resumeResponseKey)"
@@ -35,18 +39,26 @@ enum ClaudeCodeFakeExecutable {
         return path
     }
 
+    /// `promptCapturePath` names a file the fake appends each turn's argv to.
+    /// The prompt reaches `claude` as an argument, so this file is where a test
+    /// can read what context Talos actually delivered to the agent.
     static func configuration(
         launchResponse: String,
         resumeResponse: String,
-        resumeToken: String? = nil
+        resumeToken: String? = nil,
+        promptCapturePath: String? = nil
     ) -> AgentLaunchConfiguration {
-        AgentLaunchConfiguration(
+        var environment = [
+            "PATH": "/usr/bin:/bin",
+            launchResponseKey: launchResponse,
+            resumeResponseKey: resumeResponse
+        ]
+        if let promptCapturePath {
+            environment[promptCaptureKey] = promptCapturePath
+        }
+        return AgentLaunchConfiguration(
             workingDirectory: URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true),
-            environment: [
-                "PATH": "/usr/bin:/bin",
-                launchResponseKey: launchResponse,
-                resumeResponseKey: resumeResponse
-            ],
+            environment: environment,
             resumeToken: resumeToken
         )
     }
