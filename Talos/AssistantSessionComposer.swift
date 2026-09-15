@@ -93,7 +93,8 @@ final class AssistantSessionComposer {
             agentName: project.declaration.name,
             configuration: AgentLaunchConfiguration(
                 workingDirectory: root,
-                environment: SpawnedAgentEnvironment.resolve()
+                environment: SpawnedAgentEnvironment.resolve(),
+                model: project.declaration.model
             )
         )
 

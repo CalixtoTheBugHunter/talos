@@ -50,17 +50,25 @@ public struct AgentDeclaration: Equatable, Sendable {
     public let adapter: String
     public let mcpServers: [MCPServerDeclaration]
     public let allowedCLIs: [String]
+    /// The model the adapter runs this agent on, as written in `agents.yaml`
+    /// — a selection Talos carries through verbatim, never a credential and
+    /// never validated against a provider's model list. `nil` leaves the
+    /// choice to the CLI's own configuration, the launch decision 89 restored.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions
+    public let model: String?
 
     public init(
         name: String,
         adapter: String,
         mcpServers: [MCPServerDeclaration] = [],
-        allowedCLIs: [String] = []
+        allowedCLIs: [String] = [],
+        model: String? = nil
     ) {
         self.name = name
         self.adapter = adapter
         self.mcpServers = mcpServers
         self.allowedCLIs = allowedCLIs
+        self.model = model
     }
 }
 
