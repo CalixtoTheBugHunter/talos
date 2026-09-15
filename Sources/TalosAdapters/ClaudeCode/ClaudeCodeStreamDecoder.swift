@@ -11,8 +11,10 @@ enum ClaudeCodeStreamValue: Equatable, Sendable {
     case initialized(sessionID: String, model: String, version: String, hasCapabilities: Bool)
     case assistantText(String)
     case assistantToolUse(id: String, name: String, targets: [String])
-    /// The CLI auto-denied because it could not show a prompt — the parallel
-    /// tool-call batch case `defer` does not cover.
+    /// The CLI auto-denied because it could not show a prompt. Not the dropped
+    /// parallel-batch call: that arrives as nothing at all — a batch reports
+    /// `permission_denials: []` and names one `deferred_tool_use`, so
+    /// ``ClaudeCodeAdapter`` recovers the rest from the calls it announced.
     case permissionDenied(message: String)
     /// `inputTokens`/`outputTokens` are `nil` when the line carried no `usage`
     /// — never treated as a failed turn.

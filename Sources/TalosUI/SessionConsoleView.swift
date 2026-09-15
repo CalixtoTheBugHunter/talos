@@ -21,6 +21,15 @@ public struct SessionConsoleView: View {
     private static let bottomProximityTolerance: CGFloat = 24
     private static let tokenUsageBadgeTopPadding: CGFloat = 8
 
+    /// A sheet sizes itself to its content, and a `List`'s own ideal height is
+    /// nearly nothing — so without these the console opened tall enough for its
+    /// badges and clipped the entire transcript it exists to show.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is
+    private static let minimumWidth: CGFloat = 480
+    private static let idealWidth: CGFloat = 760
+    private static let minimumHeight: CGFloat = 320
+    private static let idealHeight: CGFloat = 560
+
     public init(
         viewModel: SessionConsoleViewModel,
         onStop: @escaping () -> Void,
@@ -42,6 +51,14 @@ public struct SessionConsoleView: View {
             }
             content
         }
+        .frame(
+            minWidth: Self.minimumWidth,
+            idealWidth: Self.idealWidth,
+            maxWidth: .infinity,
+            minHeight: Self.minimumHeight,
+            idealHeight: Self.idealHeight,
+            maxHeight: .infinity
+        )
     }
 
     /// A top-right ✕ that stops the session while it is running, and closes the
@@ -254,6 +271,7 @@ public struct SessionConsoleView: View {
                 scrollToBottom(newValue, proxy: proxy)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     /// The id of the row currently pending an approval, if any — used only to

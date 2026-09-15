@@ -99,7 +99,9 @@ public final class SessionConsoleViewModel: SafeguardsApprovalPrompt {
     /// Called once, before the first ``AgentEvent`` ever arrives, so ``state``
     /// can tell "no session" (``State/empty``) apart from "a session is
     /// running and the agent has not answered yet" (``State/loading``) — the
-    /// distinction this exact surface owes.
+    /// distinction this exact surface owes. The transcript clears too: this
+    /// console outlives the sessions it shows, so lines left behind read as the
+    /// next run's own output, and Loading is only reachable from an empty one.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback
     public func sessionStarted() {
         hasStarted = true
@@ -107,6 +109,9 @@ public final class SessionConsoleViewModel: SafeguardsApprovalPrompt {
         tokenUsage = nil
         contextOverheadRatio = nil
         missingContextLabels = []
+        lines = []
+        openLineID = nil
+        isFollowingOutput = true
     }
 
     /// Records the context parts that had nothing to assemble, so the output
@@ -129,18 +134,11 @@ public final class SessionConsoleViewModel: SafeguardsApprovalPrompt {
         contextOverheadRatio = update.contextOverheadRatio
     }
 
-    /// The seam this view model plugs into directly as
-    /// `SafeguardsApproved.run`'s `observer:` parameter, and separately as
-    /// the `approvalPrompt` a ``SafeguardsGate`` presents through.
-    ///
-    /// A `.toolCall` renders inline as it arrives — "tool calls as the agent
-    /// makes them". `.permissionRequest` is ignored here: the gate calls
-    /// ``present(_:action:tier:)`` directly for the same event, carrying the
-    /// `action`/`tier` this method is never given, so that is the one real
-    /// channel a pending approval renders through, never duplicated here.
-    /// `.terminated` is not ignored — it is what moves ``state`` to
-    /// ``State/failed(_:)`` or ``State/denied(_:)``, attributed to the agent
-    /// rather than paraphrased.
+    /// The seam this view model plugs into as `SafeguardsApproved.run`'s
+    /// `observer:`. `.permissionRequest` is ignored — the gate calls
+    /// ``present(_:action:tier:)`` directly, carrying the `action`/`tier` this
+    /// method is never given — while `.permissionUnavailable` marks its row
+    /// blocked, the fail-closed denial the gate could never be offered.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#errors
     public func handle(_ event: AgentEvent) {
         switch event {
@@ -152,6 +150,8 @@ public final class SessionConsoleViewModel: SafeguardsApprovalPrompt {
             self.termination = termination
         case .permissionRequest:
             break
+        case let .permissionUnavailable(request):
+            updateToolCall(callID: request.id, approval: .blocked)
         }
     }
 

@@ -10,6 +10,10 @@ import TalosProjectLibrary
 public enum IntentSource: Equatable, Hashable, Sendable {
     case userText
     case scheduler
+    /// A run Talos itself asked for, with an intent Talos authored rather than
+    /// the user typing it — the Spec Drive refresh, per
+    /// [decision 85](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#foundational-decisions).
+    case talosAuthored
 }
 
 /// The transport-agnostic entry point to the shared session pipeline —

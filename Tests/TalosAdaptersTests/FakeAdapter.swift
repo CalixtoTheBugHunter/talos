@@ -72,7 +72,7 @@ actor FakeAdapter: AgentAdapter {
             lastOutput = chunk.text
         case let .permissionRequest(request):
             openRequests.insert(request.id)
-        case .toolCall:
+        case .toolCall, .permissionUnavailable:
             break
         case let .terminated(termination):
             finish(termination)

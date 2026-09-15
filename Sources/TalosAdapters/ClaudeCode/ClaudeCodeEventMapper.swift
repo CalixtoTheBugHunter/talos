@@ -29,8 +29,11 @@ enum ClaudeCodeEventMapper {
 
     /// Built from ``AgentToolCall``'s own fields — the deferred-tool-call
     /// protocol carries no rendered prompt text to preserve.
+    ///
+    /// Not `private`: ``ClaudeCodeAdapter`` words a dropped call's request with
+    /// it too, so a blocked call reads the same as the one that prompted.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Content-and-Voice
-    private static func prompt(toolName: String, targets: [String]) -> String {
+    static func prompt(toolName: String, targets: [String]) -> String {
         guard !targets.isEmpty else { return toolName }
         return "\(toolName) — \(targets.joined(separator: ", "))"
     }

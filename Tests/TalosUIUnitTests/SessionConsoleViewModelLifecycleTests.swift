@@ -47,6 +47,40 @@ struct SessionConsoleViewModelLifecycleTests {
         #expect(viewModel.termination == streamed, "a streamed termination must win over the concluded outcome")
     }
 
+    // MARK: - A new session starts from an empty transcript
+
+    // One console outlives every session it shows, so a transcript left behind
+    // renders as the new run's own output. Loading is the state that says the
+    // prompt is with the agent, and `state` reads it off an empty transcript —
+    // so inherited lines also make it unreachable for every run but the first.
+    // § The five states every surface owes —
+    // https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback
+
+    @Test("A new session starts in Loading rather than inheriting the last one's transcript")
+    func startingASessionClearsTheTranscript() {
+        let viewModel = SessionConsoleViewModel()
+        viewModel.sessionStarted()
+        viewModel.appendOutput(AgentOutputChunk(channel: .standardOutput, text: "Cloning the wiki.\n"))
+        viewModel.sessionConcluded(.stopped(Self.usage))
+
+        viewModel.sessionStarted()
+
+        #expect(viewModel.lines.isEmpty, "the previous session's transcript is not this session's output")
+        #expect(viewModel.state == .loading, "a started session with no output yet is waiting for the agent")
+    }
+
+    @Test("A line from the previous session is gone from the next one's transcript")
+    func aPreviousSessionsLineIsNotShownInTheNext() {
+        let viewModel = SessionConsoleViewModel()
+        viewModel.sessionStarted()
+        viewModel.appendOutput(AgentOutputChunk(channel: .standardOutput, text: "Cloning the wiki."))
+
+        viewModel.sessionStarted()
+        viewModel.appendOutput(AgentOutputChunk(channel: .standardOutput, text: "Reading the README."))
+
+        #expect(viewModel.lines.map(\.outputPayload) == ["Reading the README."])
+    }
+
     @Test("Concluding a session that never started is a no-op")
     func noOpBeforeStart() {
         let viewModel = SessionConsoleViewModel()

@@ -28,7 +28,31 @@ struct SessionConsoleToolCallRow: View {
             )
         case let .resolved(_, tier, outcome):
             resolvedRow(tier: tier, outcome: outcome)
+        case .blocked:
+            blockedRow
         }
+    }
+
+    /// A call the gate was never offered, so it carries no tier — a denial all
+    /// the same, shown neutrally with the same "hand.raised" a denied outcome
+    /// uses, never an error treatment.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#denial-is-not-failure
+    private var blockedRow: some View {
+        HStack(alignment: .top) {
+            Image(systemName: "hand.raised")
+                .accessibilityHidden(true)
+            VStack(alignment: .leading) {
+                Text(verbatim: summary)
+                    .textSelection(.enabled)
+                Text(verbatim: "Not run · needs approval one at a time")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
+        }
+        .padding(.vertical)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(Text(verbatim: "Not run. \(summary). Needs approval one at a time."))
     }
 
     /// De-emphasized, but never by color alone: this row carries no tier or

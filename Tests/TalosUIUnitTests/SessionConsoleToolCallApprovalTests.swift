@@ -49,6 +49,22 @@ struct SessionConsoleToolCallApprovalTests {
         #expect(viewModel.state == .failed(termination))
     }
 
+    @Test("A permissionUnavailable marks its correlated tool-call row blocked, not read-tier")
+    @MainActor
+    func permissionUnavailableMarksTheRowBlocked() {
+        let viewModel = SessionConsoleViewModel()
+        viewModel.sessionStarted()
+        viewModel.handle(.toolCall(AgentToolCall(id: "call-1", name: "Bash", targets: ["cat one.txt"])))
+
+        viewModel.handle(.permissionUnavailable(AgentPermissionRequest(id: "call-1", prompt: "Bash — cat one.txt")))
+
+        guard case let .toolCall(call) = viewModel.lines[0].content else {
+            Issue.record("expected a tool call line")
+            return
+        }
+        #expect(call.approval == .blocked, "a dropped batch call reads as blocked, not as an ungated read-tier call")
+    }
+
     @Test("A tool call interrupts and closes whatever text line was still open")
     @MainActor
     func toolCallClosesTheOpenTextLine() {

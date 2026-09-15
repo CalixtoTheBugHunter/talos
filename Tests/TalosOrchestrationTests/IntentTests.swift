@@ -39,4 +39,20 @@ struct IntentTests {
         #expect(intent.project == project)
         #expect(intent.requestingSubFunction == .assistant)
     }
+
+    /// The Spec Drive refresh is an Assistant run Talos asked for, so its source
+    /// is neither the user nor the scheduler — decision 85.
+    @Test("A Talos-authored intent is its own source, distinct from typed text and from the scheduler")
+    func talosAuthoredIntentIsItsOwnSource() {
+        let intent = Intent(
+            content: "Fetch this project's Spec Drive so Talos can index it.",
+            source: .talosAuthored,
+            project: .generate(),
+            requestingSubFunction: .assistant
+        )
+
+        #expect(intent.source == .talosAuthored)
+        #expect(intent.source != .userText)
+        #expect(intent.source != .scheduler)
+    }
 }

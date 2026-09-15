@@ -173,6 +173,11 @@ public enum AgentEvent: Equatable, Hashable, Sendable {
     case output(AgentOutputChunk)
     case toolCall(AgentToolCall)
     case permissionRequest(AgentPermissionRequest)
+    /// An action the agent held that the gate can never be offered: the CLI
+    /// carried back no way to answer it, so it fails closed — denied and
+    /// logged, actor Talos, never presented.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#the-gate-fails-closed
+    case permissionUnavailable(AgentPermissionRequest)
     /// The last event of a run. The stream finishes after it.
     case terminated(AgentTermination)
 }

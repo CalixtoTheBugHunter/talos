@@ -23,6 +23,14 @@ actor ClaudeCodeAdapter: AgentAdapter {
     /// while it is parked awaiting the next process event.
     private var turnTask: Task<Void, Never>?
     private var openRequestIDs: Set<String> = []
+    /// The tool calls this turn announced. A `result` line names only one
+    /// `deferred_tool_use`, so a parallel batch's other calls are dropped with
+    /// no mention anywhere else — they are exactly the announced calls the
+    /// deferral did not name.
+    private var toolCallsThisTurn: [AgentToolCall] = []
+    /// What the next resume tells the agent was not run, or `nil` when nothing
+    /// was dropped.
+    private var undeliverableNotice: String?
     private var lastOutput = ""
     private var hasFinished = false
     private var hasWarnedAboutCapabilities = false
@@ -86,7 +94,9 @@ actor ClaudeCodeAdapter: AgentAdapter {
             : "Denied at the Talos Safeguards gate."
         try hooks.recordDecision(decision, reason: reason, for: requestID)
         openRequestIDs.remove(requestID)
-        try await runTurn(prompt: AgentPrompt(text: ""))
+        let prompt = undeliverableNotice.map { AgentPrompt(text: $0) } ?? AgentPrompt(text: "")
+        undeliverableNotice = nil
+        try await runTurn(prompt: prompt)
     }
 
     func tokenUsage() async -> TokenReport {
@@ -162,6 +172,7 @@ actor ClaudeCodeAdapter: AgentAdapter {
     /// process ends. Runs as ``turnTask`` off the `send`/`resolve` call that
     /// started it, so the caller returns immediately.
     private func drainTurn(_ events: AsyncThrowingStream<AgentProcessEvent, any Error>) async {
+        toolCallsThisTurn = []
         do {
             for try await event in events {
                 switch event {
@@ -219,7 +230,11 @@ actor ClaudeCodeAdapter: AgentAdapter {
                 reporter.recordUsage(input: inputTokens, output: outputTokens)
             }
             emit(value)
-        case .assistantText, .assistantToolUse, .permissionDenied:
+            denyDroppedBatchCalls(named: toolUseID)
+        case let .assistantToolUse(id, name, targets):
+            toolCallsThisTurn.append(AgentToolCall(id: id, name: name, targets: targets))
+            emit(value)
+        case .assistantText, .permissionDenied:
             emit(value)
         case .ignored:
             break
@@ -232,6 +247,25 @@ actor ClaudeCodeAdapter: AgentAdapter {
             lastOutput = chunk.text
         }
         continuation?.yield(event)
+    }
+
+    /// The batch deferred every call but the `result` named only `deferredID`.
+    /// The rest were dropped: fail each closed as `.permissionUnavailable`, and
+    /// keep a notice so the resume tells the agent to re-issue them singly
+    /// rather than let it retry a blocked call with nobody told.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#the-gate-fails-closed
+    private func denyDroppedBatchCalls(named deferredID: String) {
+        let dropped = toolCallsThisTurn.filter { $0.id != deferredID }
+        guard !dropped.isEmpty else { return }
+        for call in dropped {
+            continuation?.yield(.permissionUnavailable(AgentPermissionRequest(
+                id: call.id,
+                prompt: ClaudeCodeEventMapper.prompt(toolName: call.name, targets: call.targets),
+                toolName: call.name
+            )))
+        }
+        let names = dropped.map { ClaudeCodeEventMapper.prompt(toolName: $0.name, targets: $0.targets) }
+        undeliverableNotice = "Not run — issue one tool call per message: \(names.joined(separator: "; "))."
     }
 
     private func recordSessionStart(sessionID: String, model: String, version: String, hasCapabilities: Bool) {
