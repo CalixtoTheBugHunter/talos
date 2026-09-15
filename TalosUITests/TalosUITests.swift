@@ -234,6 +234,22 @@ final class TalosUITests: XCTestCase {
         try assertNoTalosOwnAccessibilityIssues(on: app)
     }
 
+    /// The transcript is the console's content, so a console presented with
+    /// none of it on screen shows nothing the surface exists to show — and
+    /// "no clipping, no truncation that removes meaning" is a release gate.
+    /// Hittability, not existence, is the assertion: a row collapsed to zero
+    /// height still exists, which is how a console that displayed only its
+    /// token badge passed every test above it.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Accessibility#text-size
+    @MainActor
+    func testSessionConsoleTranscriptIsOnScreenAndNotCollapsed() {
+        let app = launchWithSessionConsoleTranscript(state: "failed")
+        let lastLine = app.staticTexts["Found 3 matches."]
+        XCTAssertTrue(lastLine.waitForExistence(timeout: 5))
+        XCTAssertTrue(lastLine.isHittable, "the transcript renders on screen rather than collapsing to no height")
+        XCTAssertGreaterThan(lastLine.frame.height, 0, "a transcript row occupies real height")
+    }
+
     @MainActor
     private func launchWithSessionConsoleTranscript(state: String = "1") -> XCUIApplication {
         let app = XCUIApplication()

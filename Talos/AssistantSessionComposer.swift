@@ -23,7 +23,7 @@ final class AssistantSessionComposer {
     /// Everything a real Assistant session needs from the project's own
     /// `.talos/` tree, loaded once so `startAssistantSession` reads it as
     /// one value rather than five separate calls.
-    private struct LoadedProject {
+    struct LoadedProject {
         let manifest: ProjectManifest
         let connectors: ConnectorsManifest
         let safeguards: SafeguardsDocument
@@ -56,6 +56,28 @@ final class AssistantSessionComposer {
     ) async throws {
         let root = projectRoot.standardizedFileURL
         let project = try Self.loadProject(at: root)
+        let intent = Intent(
+            content: intentText,
+            source: .userText,
+            project: project.manifest.id,
+            requestingSubFunction: .assistant
+        )
+        _ = try await runSession(
+            root: root, project: project, intent: intent, console: console, deniedNotices: deniedNotices
+        )
+    }
+
+    /// Runs one session through the shared pipeline. Both a user's Assistant
+    /// session and the Talos-authored refresh go through here, so the refresh
+    /// gets the same gate, console, Stop, and record rather than its own path.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#foundational-decisions
+    func runSession(
+        root: URL,
+        project: LoadedProject,
+        intent: Intent,
+        console: SessionConsoleViewModel,
+        deniedNotices: DeniedActionNoticeCenter
+    ) async throws -> SessionRecord {
         let adapter = try AnyAgentAdapterBox(adapterRegistry.makeAdapter(named: project.declaration.adapter))
         let allowlist = try AllowlistStore(
             projectRoot: root,
@@ -67,12 +89,6 @@ final class AssistantSessionComposer {
             adapter: adapter, gate: gate, database: database, project: project, root: root
         )
 
-        let intent = Intent(
-            content: intentText,
-            source: .userText,
-            project: project.manifest.id,
-            requestingSubFunction: .assistant
-        )
         let launch = SessionLaunch(
             agentName: project.declaration.name,
             configuration: AgentLaunchConfiguration(
@@ -115,9 +131,10 @@ final class AssistantSessionComposer {
         // console the final outcome directly; a no-op once the stream reported
         // the end, so a streamed session keeps what it observed.
         console.sessionConcluded(record.outcome)
+        return record
     }
 
-    private static func loadProject(at root: URL) throws -> LoadedProject {
+    static func loadProject(at root: URL) throws -> LoadedProject {
         if !FileManager.default.fileExists(atPath: root.appendingPathComponent(".talos", isDirectory: true).path) {
             _ = try ProjectLibraryScaffolder.scaffold(projectRoot: root)
         }

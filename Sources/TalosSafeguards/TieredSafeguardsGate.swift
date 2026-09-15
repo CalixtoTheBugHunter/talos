@@ -91,6 +91,23 @@ public struct TieredSafeguardsGate: SafeguardsGate {
         }
     }
 
+    /// Resolves the connector access `denyUnaskable`'s default cannot — it has
+    /// no `connectors` — then fails closed at the tier the call would have
+    /// prompted at.
+    public func denyUnaskable(
+        _ request: AgentPermissionRequest,
+        project _: ProjectIdentifier,
+        subFunction _: SubFunction
+    ) async -> SafeguardsDecision {
+        let action = resolvedAction(for: request)
+        return SafeguardsDecision(
+            outcome: .denied,
+            action: action,
+            classification: SafeguardsActionClassifier.classify(action),
+            actor: .talos
+        )
+    }
+
     private func decideByPrompting(
         _ request: AgentPermissionRequest,
         action: SafeguardsActionType,

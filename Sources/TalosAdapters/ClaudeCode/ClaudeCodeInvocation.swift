@@ -12,9 +12,7 @@ enum ClaudeCodeInvocation {
     /// it against `PATH`, and `AgentProcess` takes only an absolute path.
     static let executableName = "claude"
 
-    /// The flags shared by a first launch and a resume. `--setting-sources ""`
-    /// loads no user or project settings, so `--settings` is the only source of
-    /// hooks and nothing a project committed to `.claude/` runs unasked.
+    /// The flags shared by a first launch and a resume.
     private static let sharedFlags = [
         "-p",
         "--output-format", "stream-json",
@@ -22,9 +20,23 @@ enum ClaudeCodeInvocation {
         "--include-hook-events"
     ]
 
+    /// User settings only: the CLI's own authentication — a provider selection,
+    /// a profile, a region — lives there, and a spawned CLI with no settings
+    /// source has no credentials at all. Project and local stay excluded, so
+    /// nothing a repository committed to `.claude/` runs unasked.
+    /// § The CLI's own configuration is how it authenticates —
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary
+    private static let settingSourceFlags = ["--setting-sources", "user"]
+
+    /// `--` ends the options, so a prompt is a prompt however it starts. An
+    /// assembled prompt opens with the requesting guideline's own file, and
+    /// those begin `---`, which the CLI otherwise reads as an unknown flag and
+    /// exits on before the session begins.
+    private static let endOfOptions = "--"
+
     static func launch(prompt: AgentPrompt, settingsPath: String, mcpConfigPath: String) -> [String] {
-        sharedFlags + ["--setting-sources", "", "--settings", settingsPath] + mcpFlags(configPath: mcpConfigPath) +
-            [prompt.text]
+        sharedFlags + settingSourceFlags + ["--settings", settingsPath] + mcpFlags(configPath: mcpConfigPath) +
+            [endOfOptions, prompt.text]
     }
 
     /// argv to resume `sessionID` with a new prompt, or with an empty one to
@@ -33,8 +45,8 @@ enum ClaudeCodeInvocation {
     static func resume(
         sessionID: String, prompt: AgentPrompt, settingsPath: String, mcpConfigPath: String
     ) -> [String] {
-        sharedFlags + ["--setting-sources", "", "--settings", settingsPath] + mcpFlags(configPath: mcpConfigPath) +
-            ["--resume", sessionID, prompt.text]
+        sharedFlags + settingSourceFlags + ["--settings", settingsPath] + mcpFlags(configPath: mcpConfigPath) +
+            ["--resume", sessionID, endOfOptions, prompt.text]
     }
 
     /// `--strict-mcp-config` is what makes the pairing complete: without it,

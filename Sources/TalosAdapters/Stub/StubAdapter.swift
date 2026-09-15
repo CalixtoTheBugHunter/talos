@@ -71,7 +71,7 @@ actor StubAdapter: AgentAdapter {
         switch event {
         case let .output(chunk):
             lastOutput = chunk.text
-        case .toolCall:
+        case .toolCall, .permissionUnavailable:
             break
         case let .permissionRequest(request):
             openRequestIDs.insert(request.id)

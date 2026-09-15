@@ -187,6 +187,49 @@ struct TieredSafeguardsGateFailClosedTests {
     }
 }
 
+@Suite("Tiered Safeguards gate: an unaskable action fails closed")
+struct TieredSafeguardsGateUnaskableTests {
+    /// An action the gate can never be offered — the CLI carried back no
+    /// answerable request — denies without ever presenting, actor Talos, at
+    /// the tier the call would have prompted at.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#the-gate-fails-closed
+    @Test("An unaskable irreversible action denies as Talos and never prompts")
+    func unaskableDeniesWithoutPrompting() async {
+        let prompt = FixedPrompt(.allowed)
+        let gate = TieredSafeguardsGate(allowlist: FixedAllowlist(true), approvalPrompt: prompt)
+
+        let decision = await gate.denyUnaskable(
+            makeRequest(toolName: "Bash"), project: testProject, subFunction: .automator
+        )
+
+        #expect(decision.outcome == .denied)
+        #expect(decision.actor == .talos)
+        #expect(decision.classification == .tier(.irreversible), "an unrecognized tool name defaults to irreversible")
+        #expect(await prompt.presented.isEmpty, "an unaskable action is never presented")
+    }
+
+    /// The connector access resolves against the live manifest here too, so the
+    /// logged tier is the one the call would have prompted at rather than a
+    /// guess — a read connector is read even when unaskable.
+    @Test("An unaskable connector access resolves its tier against the manifest")
+    func unaskableConnectorResolvesAgainstManifest() async {
+        let request = AgentPermissionRequest(
+            id: "r1", prompt: "read ci", toolName: nil,
+            connectorAccess: AgentConnectorAccess(target: "ci", verb: .read)
+        )
+        let gate = TieredSafeguardsGate(
+            allowlist: FixedAllowlist(false),
+            approvalPrompt: FixedPrompt(nil),
+            connectors: ConnectorsManifest()
+        )
+
+        let decision = await gate.denyUnaskable(request, project: testProject, subFunction: .automator)
+
+        #expect(decision.outcome == .denied)
+        #expect(decision.classification == .tier(.irreversible), "an undeclared connector is irreversible")
+    }
+}
+
 @Suite("Tiered Safeguards gate: unrecognized and read-tier actions")
 struct TieredSafeguardsGateClassificationTests {
     /// "Classification defaults to the most restrictive tier when a call is

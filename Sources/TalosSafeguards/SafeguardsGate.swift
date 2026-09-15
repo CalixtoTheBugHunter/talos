@@ -1,4 +1,5 @@
 import TalosAdapters
+import TalosCore
 import TalosProjectLibrary
 
 /// The gate every mutating action passes through mid-session, at stages 6-8 of
@@ -32,4 +33,33 @@ public protocol SafeguardsGate: Sendable {
         project: ProjectIdentifier,
         subFunction: SubFunction
     ) async -> SafeguardsDecision
+
+    /// Settles an action the gate can never be offered — one the CLI held but
+    /// carried back no way to answer. It fails closed: denied, actor Talos,
+    /// never presented. Classified so the log names the tier it would have
+    /// prompted at, unrecognized names defaulting to irreversible.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#the-gate-fails-closed
+    func denyUnaskable(
+        _ request: AgentPermissionRequest,
+        project: ProjectIdentifier,
+        subFunction: SubFunction
+    ) async -> SafeguardsDecision
+}
+
+public extension SafeguardsGate {
+    /// Default: deny, actor Talos, classified from `toolName` alone. A
+    /// conformance with connector context overrides this to resolve the tier.
+    func denyUnaskable(
+        _ request: AgentPermissionRequest,
+        project _: ProjectIdentifier,
+        subFunction _: SubFunction
+    ) async -> SafeguardsDecision {
+        let action = SafeguardsActionType(rawValue: request.toolName ?? "")
+        return SafeguardsDecision(
+            outcome: .denied,
+            action: action,
+            classification: SafeguardsActionClassifier.classify(action),
+            actor: .talos
+        )
+    }
 }

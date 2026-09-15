@@ -37,6 +37,8 @@ public enum SessionConsoleTranscriptExporter {
             return "> **Tool:** \(summary)"
         case let .resolved(_, tier, outcome):
             return "> **Tool:** \(summary) — \(Self.outcomeLabel(outcome)) (\(Self.tierLabel(tier)))"
+        case .blocked:
+            return "> **Tool:** \(summary) — Not run"
         }
     }
 

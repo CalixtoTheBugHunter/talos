@@ -168,6 +168,10 @@ public struct SafeguardsApproved: Sendable {
                 retries: &progress.retries,
                 transcript: progress.transcript
             )
+        case let .permissionUnavailable(request):
+            await carryUnaskable(
+                request, collaborators: collaborators, metrics: &progress.metrics, retries: &progress.retries
+            )
         case let .terminated(termination):
             return await SessionRunOutcome(
                 outcome: outcome(for: termination, adapter: collaborators.adapter),
@@ -177,22 +181,6 @@ public struct SafeguardsApproved: Sendable {
             )
         }
         return nil
-    }
-
-    /// Tallies a `.toolCall` into `metrics` and `transcript` — pulled out of
-    /// `consume(_:collaborators:observer:tokenObserver:)`'s own switch only to
-    /// keep that function under this module's `function_body_length` limit.
-    private func note(
-        _ call: AgentToolCall,
-        metrics: inout SessionRunMetrics,
-        transcript: inout [SessionTranscriptEntry],
-        retries: inout RetryTracker
-    ) {
-        metrics.toolCallCount += 1
-        if retries.noteToolCall(call) {
-            metrics.retryCount += 1
-        }
-        transcript.append(.toolCall(id: call.id, name: call.name, targets: call.targets))
     }
 
     /// Gates one held action, logs the decision, tallies it into `metrics`,

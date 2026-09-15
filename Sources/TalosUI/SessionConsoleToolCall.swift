@@ -50,4 +50,9 @@ public enum SessionConsoleToolCallApproval: Equatable, Sendable {
     /// "remain visible in the transcript with their outcome" rather than
     /// disappearing once resolved.
     case resolved(action: SafeguardsActionType, tier: SafeguardsTier, outcome: AgentPermissionDecision)
+    /// The gate could never be offered this call — the agent held it in a
+    /// parallel batch the CLI dropped. A denial with no tier to show, since the
+    /// gate classified nothing it was never handed.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#the-gate-fails-closed
+    case blocked
 }
