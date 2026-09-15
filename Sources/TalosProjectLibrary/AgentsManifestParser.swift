@@ -13,6 +13,7 @@ public enum AgentsManifestParser {
     private static let commandKey = "command"
     private static let argsKey = "args"
     private static let envKey = "env"
+    private static let modelKey = "model"
 
     /// Parses `contents` as `.talos/agents.yaml`. `file` is only used to
     /// label a thrown ``AgentsManifestError`` — this function does no
@@ -83,8 +84,33 @@ public enum AgentsManifestParser {
             name: name,
             adapter: parseAdapter(agentName: name, mapping: agentMapping, file: file),
             mcpServers: parseMCPServers(agentName: name, mapping: agentMapping, file: file),
-            allowedCLIs: parseAllowedCLIs(agentName: name, mapping: agentMapping, file: file)
+            allowedCLIs: parseAllowedCLIs(agentName: name, mapping: agentMapping, file: file),
+            model: parseModel(agentName: name, mapping: agentMapping, file: file)
         )
+    }
+
+    /// Reads the optional `model:` selection and carries it through verbatim.
+    /// A model name is not a credential, so a `keychain:` reference or a
+    /// secret-shaped literal is rejected on the same rule an `env` value is
+    /// — reusing `EnvValueParsing` so the two cannot drift — and the error
+    /// names the key, never the value.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#secret-references-never-secrets
+    private static func parseModel(agentName: String, mapping: Node.Mapping, file: String) throws -> String? {
+        guard let modelNode = mapping[modelKey] else { return nil }
+        let field = "\(agentsKey).\(agentName).\(modelKey)"
+        let fix: String
+        switch modelNode.string.map({ EnvValueParsing.classify(key: modelKey, value: $0) }) {
+        case let .literal(value) where !value.isEmpty:
+            return value
+        case .secretReference, .emptyKeychainReference:
+            fix = "'\(field)' is a model name, not a secret — name it directly, not a " +
+                "'\(EnvValueParsing.keychainPrefix)<name>' reference."
+        case let .literalSecret(reason):
+            fix = "'\(field)' \(reason); a model selection is not a credential."
+        default:
+            fix = "'\(field)' must be a non-empty string naming the model the agent runs on."
+        }
+        throw AgentsManifestError(file: file, line: modelNode.mark?.line, fix: fix)
     }
 
     /// Reads the `adapter:` name and checks only that one is present. Whether

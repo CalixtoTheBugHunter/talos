@@ -63,17 +63,25 @@ public struct AgentLaunchConfiguration: Equatable, Hashable, Sendable {
     /// over. "Resuming uses the agent's own resume mechanism where available."
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is
     public let resumeToken: String?
+    /// The model the agent runs on when the project pins one, or `nil` to
+    /// leave the choice to the CLI's own configuration. A selection carried
+    /// through verbatim — not a provider, not a credential — that each
+    /// adapter applies in its own way; nothing here names a specific agent.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions
+    public let model: String?
 
     public init(
         workingDirectory: URL,
         environment: [String: String] = [:],
         mcpServers: [MCPServerLaunchConfiguration] = [],
-        resumeToken: String? = nil
+        resumeToken: String? = nil,
+        model: String? = nil
     ) {
         self.workingDirectory = workingDirectory
         self.environment = environment
         self.mcpServers = mcpServers
         self.resumeToken = resumeToken
+        self.model = model
     }
 }
 

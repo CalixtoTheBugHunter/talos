@@ -140,10 +140,12 @@ actor ClaudeCodeAdapter: AgentAdapter {
 
         let arguments = sessionID.map {
             ClaudeCodeInvocation.resume(
-                sessionID: $0, prompt: prompt, settingsPath: hooks.settingsPath, mcpConfigPath: mcpConfig.configPath
+                sessionID: $0, prompt: prompt, settingsPath: hooks.settingsPath,
+                mcpConfigPath: mcpConfig.configPath, model: configuration.model
             )
         } ?? ClaudeCodeInvocation.launch(
-            prompt: prompt, settingsPath: hooks.settingsPath, mcpConfigPath: mcpConfig.configPath
+            prompt: prompt, settingsPath: hooks.settingsPath,
+            mcpConfigPath: mcpConfig.configPath, model: configuration.model
         )
 
         let process = AgentProcess(executablePath: executablePath, arguments: arguments, configuration: configuration)

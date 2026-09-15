@@ -34,19 +34,21 @@ enum ClaudeCodeInvocation {
     /// exits on before the session begins.
     private static let endOfOptions = "--"
 
-    static func launch(prompt: AgentPrompt, settingsPath: String, mcpConfigPath: String) -> [String] {
+    static func launch(
+        prompt: AgentPrompt, settingsPath: String, mcpConfigPath: String, model: String? = nil
+    ) -> [String] {
         sharedFlags + settingSourceFlags + ["--settings", settingsPath] + mcpFlags(configPath: mcpConfigPath) +
-            [endOfOptions, prompt.text]
+            modelFlags(model) + [endOfOptions, prompt.text]
     }
 
     /// argv to resume `sessionID` with a new prompt, or with an empty one to
     /// carry a ``AgentAdapter/resolve(_:with:)`` decision back with nothing else
     /// to say.
     static func resume(
-        sessionID: String, prompt: AgentPrompt, settingsPath: String, mcpConfigPath: String
+        sessionID: String, prompt: AgentPrompt, settingsPath: String, mcpConfigPath: String, model: String? = nil
     ) -> [String] {
         sharedFlags + settingSourceFlags + ["--settings", settingsPath] + mcpFlags(configPath: mcpConfigPath) +
-            ["--resume", sessionID, endOfOptions, prompt.text]
+            modelFlags(model) + ["--resume", sessionID, endOfOptions, prompt.text]
     }
 
     /// `--strict-mcp-config` is what makes the pairing complete: without it,
@@ -57,5 +59,17 @@ enum ClaudeCodeInvocation {
     /// servers, so that case is suppressed too rather than left open.
     private static func mcpFlags(configPath: String) -> [String] {
         ["--mcp-config", configPath, "--strict-mcp-config"]
+    }
+
+    /// `--model` when the project pinned one, and nothing otherwise so the
+    /// launch is unchanged. This is where a pinned model takes effect: the
+    /// settings file's own `model` key does not override the account default
+    /// under `--setting-sources user` (verified against Claude Code 2.1.272),
+    /// so the argv flag — which does — is the mechanism, per decision 91.
+    /// It is a model *selection* handed to the CLI, never a permission mode,
+    /// so it is unlike the flags this file otherwise refuses to pass.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions
+    private static func modelFlags(_ model: String?) -> [String] {
+        model.map { ["--model", $0] } ?? []
     }
 }

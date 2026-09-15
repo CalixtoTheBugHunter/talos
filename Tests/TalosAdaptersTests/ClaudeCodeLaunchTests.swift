@@ -177,4 +177,61 @@ struct ClaudeCodeLaunchTests {
         }
         #expect(arguments[index + 1] == "session-1")
     }
+
+    // MARK: - A pinned model is passed as --model (decision 91)
+
+    // Decision 90 wrote the model into the --settings file; that key does not
+    // override the account default under --setting-sources user (verified
+    // against Claude Code 2.1.272), so decision 91 supersedes it and passes
+    // the selection as the --model argv flag, which does take effect. --model
+    // is a model selection handed to the CLI, not a permission mode, so it is
+    // not one of the forbidden flags above.
+    // https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions
+
+    @Test("A first launch passes --model with the pinned value")
+    func launchPassesModelWhenPinned() {
+        let arguments = ClaudeCodeInvocation.launch(
+            prompt: AgentPrompt(text: "hello"),
+            settingsPath: "/tmp/settings.json",
+            mcpConfigPath: "/tmp/mcp.json",
+            model: "claude-opus-4-8"
+        )
+        guard let index = arguments.firstIndex(of: "--model") else {
+            Issue.record("--model is missing from the argv")
+            return
+        }
+        #expect(arguments[index + 1] == "claude-opus-4-8")
+    }
+
+    @Test("A resume passes --model with the pinned value too, so the resumed turn runs on the same model")
+    func resumePassesModelWhenPinned() {
+        let arguments = ClaudeCodeInvocation.resume(
+            sessionID: "session-1",
+            prompt: AgentPrompt(text: "hello"),
+            settingsPath: "/tmp/settings.json",
+            mcpConfigPath: "/tmp/mcp.json",
+            model: "claude-opus-4-8"
+        )
+        guard let index = arguments.firstIndex(of: "--model") else {
+            Issue.record("--model is missing from the argv")
+            return
+        }
+        #expect(arguments[index + 1] == "claude-opus-4-8")
+    }
+
+    /// No pinned model leaves the launch unchanged — the choice stays with the
+    /// CLI's own configuration, the launch decision 89 restored.
+    @Test("With no model pinned the argv names no --model flag", arguments: [true, false])
+    func noModelFlagWhenUnpinned(isResume: Bool) {
+        let arguments = isResume
+            ? ClaudeCodeInvocation.resume(
+                sessionID: "session-1", prompt: AgentPrompt(text: "hello"),
+                settingsPath: "/tmp/settings.json", mcpConfigPath: "/tmp/mcp.json"
+            )
+            : ClaudeCodeInvocation.launch(
+                prompt: AgentPrompt(text: "hello"),
+                settingsPath: "/tmp/settings.json", mcpConfigPath: "/tmp/mcp.json"
+            )
+        #expect(!arguments.contains("--model"))
+    }
 }
