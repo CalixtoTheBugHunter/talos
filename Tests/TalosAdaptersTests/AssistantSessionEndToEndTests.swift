@@ -11,9 +11,9 @@ import Testing
 /// user's — ``GuidelineDocumentParser`` and ``SafeguardsLoader`` parsing real
 /// files, never a hand-built ``GuidelineDocument``. `.talos/project.yaml`,
 /// `agents.yaml`, and `connectors.yaml` are out of scope here: this fixture
-/// exercises the pipeline directly, not the composition root that reads
-/// those three (covered by `SessionComposerTests`, tracked
-/// separately).
+/// exercises the pipeline directly, not the ``SessionComposer`` composition
+/// root that reads those three — that root lives in the app target and is
+/// exercised through the app, not a unit suite.
 private struct AssistantEndToEndProject {
     let id = ProjectIdentifier.generate()
     let guideline: GuidelineDocument

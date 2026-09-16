@@ -90,8 +90,8 @@ struct ContentView: View {
     }
 
     /// The display name of the selected sub-function, for the field placeholder,
-    /// button, and accessibility label — the two the scheduler-only sub-functions
-    /// are never selectable here, but the mapping is total so the enum stays the
+    /// button, and accessibility label. Advisor and Self-improver are never
+    /// selectable here, but the switch stays total so the enum remains the
     /// single source of the cases.
     private var selectedName: String {
         switch selectedSubFunction {
