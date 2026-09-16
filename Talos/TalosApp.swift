@@ -30,16 +30,25 @@ struct TalosApp: App {
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary
     @State private var sessionComposer: SessionComposer?
     @State private var databaseOpenErrorMessage: String?
+    @State private var navigation = ShellNavigationModel()
 
     var body: some Scene {
-        WindowGroup {
-            ContentView(
+        // `Window`, not `WindowGroup`: "Talos is one window", so the main
+        // window is unique and there is never a second copy of it.
+        // https://github.com/CalixtoTheBugHunter/talos/wiki/App-Shell-and-Navigation#one-window
+        Window("Talos", id: "main") {
+            AppShellView(
                 composer: sessionComposer,
                 composerUnavailableReason: databaseOpenErrorMessage,
                 consoleViewModel: sessionConsoleViewModel,
                 deniedActionNoticeCenter: deniedActionNoticeCenter,
+                navigation: navigation,
                 isSessionConsolePresented: $isSessionConsoleTranscriptPresented
             )
+            // The persisted text-size factor is applied at the shell root so
+            // every surface inherits it, and it is restored across launch.
+            // https://github.com/CalixtoTheBugHunter/talos/wiki/App-Shell-and-Navigation#what-is-restored-across-launch
+            .talosTextSize()
             .approvalPromptHost(approvalPromptCenter)
             .deniedActionNoticeHost(deniedActionNoticeCenter)
             .sessionStopHost(sessionStopCenter)
@@ -99,8 +108,51 @@ struct TalosApp: App {
                 denyCommand
                 stopCommand
             }
+            // Every surface is reachable from the View menu, and the two cycle
+            // commands carry `⌘⌥→` / `⌘⌥←` beside them — "a keystroke with no
+            // menu entry is one the accessibility gate cannot see".
+            // https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Interaction-and-Keyboard
+            CommandGroup(after: .sidebar) {
+                surfaceCommands
+            }
+            CommandGroup(after: .help) {
+                StartingGuideMenuCommand()
+            }
             HandOffCommands()
         }
+
+        Settings {
+            SettingsView()
+        }
+
+        // The one auxiliary window — the Starting Guide, "its own window, not a
+        // sidebar surface", re-openable from the Help menu.
+        // https://github.com/CalixtoTheBugHunter/talos/wiki/App-Shell-and-Navigation#every-surface-placed
+        Window("Starting Guide", id: StartingGuideWindow.id) {
+            StartingGuideWindowContent()
+        }
+    }
+
+    /// The View-menu entries for the top-level surfaces: one command per
+    /// surface, then the wrapping cycle commands. `⌘⌥→` / `⌘⌥←` move between
+    /// surfaces in sidebar order and never change the selected project.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/App-Shell-and-Navigation#moving-between-surfaces
+    @ViewBuilder
+    private var surfaceCommands: some View {
+        ForEach(ShellSurface.allCases) { surface in
+            Button(surface.title) {
+                navigation.selectedSurface = surface
+            }
+        }
+        Divider()
+        Button("Next Surface") {
+            navigation.cycleForward()
+        }
+        .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
+        Button("Previous Surface") {
+            navigation.cycleBackward()
+        }
+        .keyboardShortcut(.leftArrow, modifiers: [.command, .option])
     }
 
     /// Bound to the write-tier shortcut, and disabled — not just
@@ -163,6 +215,20 @@ struct TalosApp: App {
             sessionComposer = SessionComposer(database: database, stopCenter: sessionStopCenter)
         } catch {
             databaseOpenErrorMessage = "Talos could not open its local database: \(error)"
+        }
+    }
+}
+
+/// The Help-menu command that re-opens the Starting Guide window. A small
+/// `View` rather than a method because `openWindow` is an environment action,
+/// reachable only from inside the view hierarchy the command builds.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#starting-guide
+private struct StartingGuideMenuCommand: View {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Button("Starting Guide") {
+            openWindow(id: StartingGuideWindow.id)
         }
     }
 }

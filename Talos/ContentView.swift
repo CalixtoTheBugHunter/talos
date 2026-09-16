@@ -4,11 +4,11 @@ import TalosOrchestration
 import TalosProjectLibrary
 import TalosUI
 
-/// The user-triggered sub-functions' entry point: pick Assistant or
-/// Automator, choose a project, name what it should do, and start it —
-/// "selectable in the UI... starts a session from a user action". No sidebar,
-/// project list, or session history exists yet (tracked separately); this is
-/// the one control that exists today.
+/// The Sessions surface's content: choose a sub-function, choose a project,
+/// name what it should do, and start it — "selectable in the UI... starts a
+/// session from a user action". The selector shows all four sub-functions,
+/// with Advisor and Self-improver present-but-disabled; this view is the
+/// content area's Sessions destination inside the shell.
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary#the-shared-session-model
 struct ContentView: View {
     let composer: SessionComposer?
@@ -19,7 +19,8 @@ struct ContentView: View {
 
     /// Assistant and Automator are the two user-triggered sub-functions, both
     /// wired through the same ``SessionComposer``. Advisor and Self-improver
-    /// enter from the scheduler, not this control, so they are not offered.
+    /// enter from the scheduler, so the selector shows them disabled and
+    /// selection can only land on the two that start from a user action.
     @State private var selectedSubFunction: SubFunction = .assistant
     @State private var projectRoot: URL?
     @State private var intentText = ""
@@ -38,12 +39,7 @@ struct ContentView: View {
                 .font(.largeTitle)
                 .accessibilityLabel("Talos")
 
-            Picker("Sub-function", selection: $selectedSubFunction) {
-                Text("Assistant").tag(SubFunction.assistant)
-                Text("Automator").tag(SubFunction.automator)
-            }
-            .pickerStyle(.menu)
-            .fixedSize()
+            SubFunctionSelector(selection: $selectedSubFunction)
 
             HStack {
                 Button("Choose Project Folder…") { chooseProjectFolder() }

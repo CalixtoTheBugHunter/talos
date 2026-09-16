@@ -19,11 +19,16 @@
 		7A10000000000000000A0011 /* SessionComposer+SpecDriveRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B0011 /* SessionComposer+SpecDriveRefresh.swift */; };
 		7A10000000000000000A000E /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B000F /* ContentView.swift */; };
 		7A10000000000000000A000F /* TalosAppUITestSeeding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B0010 /* TalosAppUITestSeeding.swift */; };
+		7A10000000000000000A0012 /* AppShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B0012 /* AppShellView.swift */; };
+		7A10000000000000000A0013 /* SubFunctionSelector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B0013 /* SubFunctionSelector.swift */; };
+		7A10000000000000000A0014 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B0014 /* SettingsView.swift */; };
+		7A10000000000000000A0015 /* StartingGuideWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B0015 /* StartingGuideWindow.swift */; };
 		7A10000000000000000A0002 /* TalosCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A10000000000000000E0001 /* TalosCore */; };
 		7A10000000000000000A0005 /* TalosUI in Frameworks */ = {isa = PBXBuildFile; productRef = 7A1000000000000000170001 /* TalosUI */; };
 		7A10000000000000000A0003 /* MinimumSupportedOSTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B0005 /* MinimumSupportedOSTests.swift */; };
 		7A10000000000000000A0004 /* TalosCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A10000000000000000E0002 /* TalosCore */; };
 		7A20000000000000000A0001 /* TalosUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A20000000000000000B0001 /* TalosUITests.swift */; };
+		7A20000000000000000A0002 /* AppShellUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A20000000000000000B0003 /* AppShellUITests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -38,6 +43,10 @@
 
 /* Begin PBXFileReference section */
 		7A10000000000000000B0001 /* TalosApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalosApp.swift; sourceTree = "<group>"; };
+		7A10000000000000000B0012 /* AppShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellView.swift; sourceTree = "<group>"; };
+		7A10000000000000000B0013 /* SubFunctionSelector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubFunctionSelector.swift; sourceTree = "<group>"; };
+		7A10000000000000000B0014 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		7A10000000000000000B0015 /* StartingGuideWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartingGuideWindow.swift; sourceTree = "<group>"; };
 		7A10000000000000000B0007 /* SessionTranscriptExportCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionTranscriptExportCommand.swift; sourceTree = "<group>"; };
 		7A10000000000000000B0008 /* NSWorkspaceExternalAppLauncher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NSWorkspaceExternalAppLauncher.swift; sourceTree = "<group>"; };
 		7A10000000000000000B0009 /* UserDefaultsExternalAppPreferenceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserDefaultsExternalAppPreferenceStore.swift; sourceTree = "<group>"; };
@@ -55,6 +64,7 @@
 		7A10000000000000000B0005 /* MinimumSupportedOSTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MinimumSupportedOSTests.swift; path = Tests/TalosCoreTests/MinimumSupportedOSTests.swift; sourceTree = SOURCE_ROOT; };
 		7A10000000000000000B0006 /* TalosCoreXcodeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TalosCoreXcodeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7A20000000000000000B0001 /* TalosUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalosUITests.swift; sourceTree = "<group>"; };
+		7A20000000000000000B0003 /* AppShellUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellUITests.swift; sourceTree = "<group>"; };
 		7A20000000000000000B0002 /* TalosUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TalosUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -100,6 +110,7 @@
 			isa = PBXGroup;
 			children = (
 				7A20000000000000000B0001 /* TalosUITests.swift */,
+				7A20000000000000000B0003 /* AppShellUITests.swift */,
 			);
 			path = TalosUITests;
 			sourceTree = "<group>";
@@ -127,6 +138,10 @@
 				7A10000000000000000B0011 /* SessionComposer+SpecDriveRefresh.swift */,
 				7A10000000000000000B000F /* ContentView.swift */,
 				7A10000000000000000B0010 /* TalosAppUITestSeeding.swift */,
+				7A10000000000000000B0012 /* AppShellView.swift */,
+				7A10000000000000000B0013 /* SubFunctionSelector.swift */,
+				7A10000000000000000B0014 /* SettingsView.swift */,
+				7A10000000000000000B0015 /* StartingGuideWindow.swift */,
 				7A10000000000000000B0002 /* Info.plist */,
 				7A10000000000000000B0003 /* Talos.entitlements */,
 			);
@@ -278,6 +293,10 @@
 				7A10000000000000000A0011 /* SessionComposer+SpecDriveRefresh.swift in Sources */,
 				7A10000000000000000A000E /* ContentView.swift in Sources */,
 				7A10000000000000000A000F /* TalosAppUITestSeeding.swift in Sources */,
+				7A10000000000000000A0012 /* AppShellView.swift in Sources */,
+				7A10000000000000000A0013 /* SubFunctionSelector.swift in Sources */,
+				7A10000000000000000A0014 /* SettingsView.swift in Sources */,
+				7A10000000000000000A0015 /* StartingGuideWindow.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -294,6 +313,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				7A20000000000000000A0001 /* TalosUITests.swift in Sources */,
+				7A20000000000000000A0002 /* AppShellUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
