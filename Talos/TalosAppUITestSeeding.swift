@@ -15,7 +15,7 @@ import TalosUI
 /// than reaching into `TalosApp` itself.
 ///
 /// Split out of `TalosApp.swift` only because the real composition root
-/// `AssistantSessionComposer.swift` adds pushed that file's own body past
+/// `SessionComposer.swift` adds pushed that file's own body past
 /// this module's line-count limits, not because any of these helpers
 /// changed. Each seeds a real, mounted control before a live session exists
 /// to drive it for real, so `TalosUITests` can assert against it early.

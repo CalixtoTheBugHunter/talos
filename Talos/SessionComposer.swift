@@ -7,22 +7,25 @@ import TalosProjectLibrary
 import TalosSafeguards
 import TalosUI
 
-/// The composition root Assistant enters the shared session pipeline
-/// through, from a user action. Nothing before this issue ever called
-/// `SessionPipeline.run` — every collaborator it wires already exists and
-/// is exercised in isolation elsewhere; this type is only the wiring.
-/// https://github.com/CalixtoTheBugHunter/talos/wiki/Sub-function-Assistant#pipeline
+/// The composition root a user-triggered sub-function — Assistant or
+/// Automator — enters the shared session pipeline through, from a user
+/// action. Both are the same pipeline: "that is the only difference between
+/// them", so one composer serves both and `runSession` is sub-function
+/// agnostic — only the intent's sub-function and the guideline it loads
+/// differ.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary#the-shared-session-model
 @MainActor
-final class AssistantSessionComposer {
+final class SessionComposer {
     /// A configuration problem in the chosen project's `.talos/` — never a
     /// pipeline failure, so it is reported before any agent launches.
     struct CompositionError: Error, CustomStringConvertible {
         let description: String
     }
 
-    /// Everything a real Assistant session needs from the project's own
-    /// `.talos/` tree, loaded once so `startAssistantSession` reads it as
-    /// one value rather than five separate calls.
+    /// Everything a real session needs from the project's own `.talos/` tree,
+    /// loaded once so a session start reads it as one value rather than five
+    /// separate calls. `guideline` is the one loaded for the requesting
+    /// sub-function.
     struct LoadedProject {
         let manifest: ProjectManifest
         let connectors: ConnectorsManifest
@@ -42,28 +45,78 @@ final class AssistantSessionComposer {
         ClaudeCodeAdapterRegistration.register(into: &adapterRegistry)
     }
 
-    /// Scaffolds `.talos/` under `projectRoot` if it is entirely absent,
-    /// loads the Project Library, resolves the project's declared agent, and
-    /// runs one Assistant session for `intentText` — read tier by default,
-    /// per Sub-function-Assistant#autonomy. Streams into `console`, which
-    /// also renders every approval inline as the Session Console specifies,
-    /// and surfaces a fail-closed or repeated denial through `deniedNotices`.
+    /// Runs one Assistant session for `intentText` — read tier by default, per
+    /// Sub-function-Assistant#autonomy.
     func startAssistantSession(
         projectRoot: URL,
         intentText: String,
         console: SessionConsoleViewModel,
-        deniedNotices: DeniedActionNoticeCenter
+        deniedNotices: DeniedActionNoticeCenter,
+        sessionWillStart: (@MainActor () -> Void)? = nil
+    ) async throws {
+        try await startSession(
+            subFunction: .assistant,
+            projectRoot: projectRoot,
+            intentText: intentText,
+            console: console,
+            deniedNotices: deniedNotices,
+            sessionWillStart: sessionWillStart
+        )
+    }
+
+    /// Runs one Automator session for `intentText` — write tier, deny-by-default,
+    /// per Sub-function-Automator#autonomy. Every mutating tool call the agent
+    /// attempts hits the same Safeguards gate this composer wires for every
+    /// session; nothing here raises Automator's autonomy above that gate.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Sub-function-Automator#pipeline
+    func startAutomatorSession(
+        projectRoot: URL,
+        intentText: String,
+        console: SessionConsoleViewModel,
+        deniedNotices: DeniedActionNoticeCenter,
+        sessionWillStart: (@MainActor () -> Void)? = nil
+    ) async throws {
+        try await startSession(
+            subFunction: .automator,
+            projectRoot: projectRoot,
+            intentText: intentText,
+            console: console,
+            deniedNotices: deniedNotices,
+            sessionWillStart: sessionWillStart
+        )
+    }
+
+    /// Scaffolds `.talos/` under `projectRoot` if it is entirely absent, loads
+    /// the Project Library for `subFunction`, resolves the project's declared
+    /// agent, and runs one session for `intentText`. Streams into `console`,
+    /// which also renders every approval inline as the Session Console
+    /// specifies, and surfaces a fail-closed or repeated denial through
+    /// `deniedNotices`. The gate the run wires is identical for every
+    /// sub-function; the tier of each action is the action's own, not the
+    /// session's.
+    private func startSession(
+        subFunction: SubFunction,
+        projectRoot: URL,
+        intentText: String,
+        console: SessionConsoleViewModel,
+        deniedNotices: DeniedActionNoticeCenter,
+        sessionWillStart: (@MainActor () -> Void)? = nil
     ) async throws {
         let root = projectRoot.standardizedFileURL
-        let project = try Self.loadProject(at: root)
+        let project = try Self.loadProject(at: root, subFunction: subFunction)
         let intent = Intent(
             content: intentText,
             source: .userText,
             project: project.manifest.id,
-            requestingSubFunction: .assistant
+            requestingSubFunction: subFunction
         )
         _ = try await runSession(
-            root: root, project: project, intent: intent, console: console, deniedNotices: deniedNotices
+            root: root,
+            project: project,
+            intent: intent,
+            console: console,
+            deniedNotices: deniedNotices,
+            sessionWillStart: sessionWillStart
         )
     }
 
@@ -76,7 +129,8 @@ final class AssistantSessionComposer {
         project: LoadedProject,
         intent: Intent,
         console: SessionConsoleViewModel,
-        deniedNotices: DeniedActionNoticeCenter
+        deniedNotices: DeniedActionNoticeCenter,
+        sessionWillStart: (@MainActor () -> Void)? = nil
     ) async throws -> SessionRecord {
         let adapter = try AnyAgentAdapterBox(adapterRegistry.makeAdapter(named: project.declaration.adapter))
         let allowlist = try AllowlistStore(
@@ -98,7 +152,13 @@ final class AssistantSessionComposer {
             )
         )
 
+        // Reset the console before it is shown, then present it — so a new or
+        // failed start never reopens the previous session's transcript: a load
+        // that threw above never reaches here, so `sessionWillStart` never fires
+        // and no stale console is presented.
+        // https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is
         console.sessionStarted()
+        sessionWillStart?()
         // Run the pipeline in a task the Stop control cancels: a stop reaches
         // the pipeline as cancellation, which kills the agent at any suspension
         // the session can be sitting at — including "Waiting for the agent to
@@ -135,7 +195,7 @@ final class AssistantSessionComposer {
         return record
     }
 
-    static func loadProject(at root: URL) throws -> LoadedProject {
+    static func loadProject(at root: URL, subFunction: SubFunction) throws -> LoadedProject {
         if !FileManager.default.fileExists(atPath: root.appendingPathComponent(".talos", isDirectory: true).path) {
             _ = try ProjectLibraryScaffolder.scaffold(projectRoot: root)
         }
@@ -145,7 +205,7 @@ final class AssistantSessionComposer {
             manifest: manifest,
             connectors: readConnectorsManifest(root: root),
             safeguards: SafeguardsLoader.load(projectRoot: root),
-            guideline: readGuideline(root: root, subFunction: .assistant),
+            guideline: readGuideline(root: root, subFunction: subFunction),
             spec: SpecLoader.load(projectRoot: root),
             declaration: resolveAgent(project: manifest, agents: agents)
         )

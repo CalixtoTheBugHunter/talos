@@ -15,8 +15,8 @@
 		7A10000000000000000A000A /* OpenInTerminalCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B000B /* OpenInTerminalCommand.swift */; };
 		7A10000000000000000A000B /* OpenInIDECommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B000C /* OpenInIDECommand.swift */; };
 		7A10000000000000000A000C /* HandOffCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B000D /* HandOffCommands.swift */; };
-		7A10000000000000000A000D /* AssistantSessionComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B000E /* AssistantSessionComposer.swift */; };
-		7A10000000000000000A0011 /* AssistantSessionComposer+SpecDriveRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B0011 /* AssistantSessionComposer+SpecDriveRefresh.swift */; };
+		7A10000000000000000A000D /* SessionComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B000E /* SessionComposer.swift */; };
+		7A10000000000000000A0011 /* SessionComposer+SpecDriveRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B0011 /* SessionComposer+SpecDriveRefresh.swift */; };
 		7A10000000000000000A000E /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B000F /* ContentView.swift */; };
 		7A10000000000000000A000F /* TalosAppUITestSeeding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B0010 /* TalosAppUITestSeeding.swift */; };
 		7A10000000000000000A0002 /* TalosCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A10000000000000000E0001 /* TalosCore */; };
@@ -45,8 +45,8 @@
 		7A10000000000000000B000B /* OpenInTerminalCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenInTerminalCommand.swift; sourceTree = "<group>"; };
 		7A10000000000000000B000C /* OpenInIDECommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenInIDECommand.swift; sourceTree = "<group>"; };
 		7A10000000000000000B000D /* HandOffCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandOffCommands.swift; sourceTree = "<group>"; };
-		7A10000000000000000B000E /* AssistantSessionComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantSessionComposer.swift; sourceTree = "<group>"; };
-		7A10000000000000000B0011 /* AssistantSessionComposer+SpecDriveRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AssistantSessionComposer+SpecDriveRefresh.swift"; sourceTree = "<group>"; };
+		7A10000000000000000B000E /* SessionComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionComposer.swift; sourceTree = "<group>"; };
+		7A10000000000000000B0011 /* SessionComposer+SpecDriveRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionComposer+SpecDriveRefresh.swift"; sourceTree = "<group>"; };
 		7A10000000000000000B000F /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		7A10000000000000000B0010 /* TalosAppUITestSeeding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalosAppUITestSeeding.swift; sourceTree = "<group>"; };
 		7A10000000000000000B0002 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -123,8 +123,8 @@
 				7A10000000000000000B000B /* OpenInTerminalCommand.swift */,
 				7A10000000000000000B000C /* OpenInIDECommand.swift */,
 				7A10000000000000000B000D /* HandOffCommands.swift */,
-				7A10000000000000000B000E /* AssistantSessionComposer.swift */,
-				7A10000000000000000B0011 /* AssistantSessionComposer+SpecDriveRefresh.swift */,
+				7A10000000000000000B000E /* SessionComposer.swift */,
+				7A10000000000000000B0011 /* SessionComposer+SpecDriveRefresh.swift */,
 				7A10000000000000000B000F /* ContentView.swift */,
 				7A10000000000000000B0010 /* TalosAppUITestSeeding.swift */,
 				7A10000000000000000B0002 /* Info.plist */,
@@ -274,8 +274,8 @@
 				7A10000000000000000A000A /* OpenInTerminalCommand.swift in Sources */,
 				7A10000000000000000A000B /* OpenInIDECommand.swift in Sources */,
 				7A10000000000000000A000C /* HandOffCommands.swift in Sources */,
-				7A10000000000000000A000D /* AssistantSessionComposer.swift in Sources */,
-				7A10000000000000000A0011 /* AssistantSessionComposer+SpecDriveRefresh.swift in Sources */,
+				7A10000000000000000A000D /* SessionComposer.swift in Sources */,
+				7A10000000000000000A0011 /* SessionComposer+SpecDriveRefresh.swift in Sources */,
 				7A10000000000000000A000E /* ContentView.swift in Sources */,
 				7A10000000000000000A000F /* TalosAppUITestSeeding.swift in Sources */,
 			);

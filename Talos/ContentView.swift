@@ -4,23 +4,22 @@ import TalosOrchestration
 import TalosProjectLibrary
 import TalosUI
 
-/// Assistant's entry point: choose a project, name what it should do, and
-/// start it — "selectable in the UI... starts a session from a user action".
-/// No sidebar, project list, or session history exists yet (tracked
-/// separately); this is the one control that exists today.
-/// https://github.com/CalixtoTheBugHunter/talos/wiki/Sub-function-Assistant#pipeline
+/// The user-triggered sub-functions' entry point: pick Assistant or
+/// Automator, choose a project, name what it should do, and start it —
+/// "selectable in the UI... starts a session from a user action". No sidebar,
+/// project list, or session history exists yet (tracked separately); this is
+/// the one control that exists today.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary#the-shared-session-model
 struct ContentView: View {
-    let composer: AssistantSessionComposer?
+    let composer: SessionComposer?
     let composerUnavailableReason: String?
     let consoleViewModel: SessionConsoleViewModel
     let deniedActionNoticeCenter: DeniedActionNoticeCenter
     @Binding var isSessionConsolePresented: Bool
 
-    /// Only ``SubFunction/assistant`` exists as a real, wired option today —
-    /// Automator's own composition root is separate, not-yet-built work. A
-    /// `Picker` with one enabled option is still a selection control, so
-    /// "Assistant is selectable" holds without inventing Automator's
-    /// presence ahead of it.
+    /// Assistant and Automator are the two user-triggered sub-functions, both
+    /// wired through the same ``SessionComposer``. Advisor and Self-improver
+    /// enter from the scheduler, not this control, so they are not offered.
     @State private var selectedSubFunction: SubFunction = .assistant
     @State private var projectRoot: URL?
     @State private var intentText = ""
@@ -41,6 +40,7 @@ struct ContentView: View {
 
             Picker("Sub-function", selection: $selectedSubFunction) {
                 Text("Assistant").tag(SubFunction.assistant)
+                Text("Automator").tag(SubFunction.automator)
             }
             .pickerStyle(.menu)
             .fixedSize()
@@ -58,13 +58,13 @@ struct ContentView: View {
                 }
             }
 
-            TextField("What should Assistant do?", text: $intentText, axis: .vertical)
+            TextField("What should \(selectedName) do?", text: $intentText, axis: .vertical)
                 .textFieldStyle(.roundedBorder)
                 .lineLimit(Self.intentFieldLineRange)
-                .accessibilityLabel("Assistant intent")
+                .accessibilityLabel("\(selectedName) intent")
 
             HStack {
-                Button("Start Assistant Session") { startSession() }
+                Button("Start \(selectedName) Session") { startSession() }
                     .disabled(!canStartSession)
 
                 Button("Refresh Spec Drive") { refreshSpecDrive() }
@@ -87,6 +87,19 @@ struct ContentView: View {
 
     private var canStartSession: Bool {
         composer != nil && projectRoot != nil && !intentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// The display name of the selected sub-function, for the field placeholder,
+    /// button, and accessibility label — the two the scheduler-only sub-functions
+    /// are never selectable here, but the mapping is total so the enum stays the
+    /// single source of the cases.
+    private var selectedName: String {
+        switch selectedSubFunction {
+        case .assistant: "Assistant"
+        case .automator: "Automator"
+        case .advisor: "Advisor"
+        case .selfImprover: "Self-improver"
+        }
     }
 
     /// No intent text — Talos authors that — so it needs only a project, and
@@ -135,7 +148,7 @@ struct ContentView: View {
     /// run leaves the index holding whatever was already fetched, which a plain
     /// count would read as a refresh that found nothing.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Content-and-Voice
-    private static func refreshStatusText(_ outcome: AssistantSessionComposer.SpecDriveRefreshOutcome) -> String {
+    private static func refreshStatusText(_ outcome: SessionComposer.SpecDriveRefreshOutcome) -> String {
         switch outcome {
         case .noSpecDrive:
             "This project declares no Spec Drive. Add one in .talos/spec.yaml, then refresh."
@@ -166,19 +179,40 @@ struct ContentView: View {
         "\(number) \(noun)\(number == 1 ? "" : "s")"
     }
 
+    /// Starts the selected sub-function through the shared composer. Automator's
+    /// mutating tool calls hit the same Safeguards gate Assistant's do — the
+    /// difference is the guideline loaded and the intent's sub-function, not a
+    /// wider autonomy.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Sub-function-Automator#pipeline
     private func startSession() {
         guard let composer, let projectRoot else { return }
         errorMessage = nil
-        isSessionConsolePresented = true
         let intentText = intentText
+        let subFunction = selectedSubFunction
+        // The console is presented from `sessionWillStart`, which fires only
+        // after the project loads and the console has reset — so a failed start
+        // reports its error here and never reopens the previous transcript.
+        let present: @MainActor () -> Void = { isSessionConsolePresented = true }
         Task {
             do {
-                try await composer.startAssistantSession(
-                    projectRoot: projectRoot,
-                    intentText: intentText,
-                    console: consoleViewModel,
-                    deniedNotices: deniedActionNoticeCenter
-                )
+                switch subFunction {
+                case .automator:
+                    try await composer.startAutomatorSession(
+                        projectRoot: projectRoot,
+                        intentText: intentText,
+                        console: consoleViewModel,
+                        deniedNotices: deniedActionNoticeCenter,
+                        sessionWillStart: present
+                    )
+                default:
+                    try await composer.startAssistantSession(
+                        projectRoot: projectRoot,
+                        intentText: intentText,
+                        console: consoleViewModel,
+                        deniedNotices: deniedActionNoticeCenter,
+                        sessionWillStart: present
+                    )
+                }
             } catch {
                 errorMessage = "\(error)"
             }
