@@ -10,7 +10,7 @@ import TalosUI
 /// fetches or spawns — the instruction is text.
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#foundational-decisions
 @MainActor
-extension AssistantSessionComposer {
+extension SessionComposer {
     /// What a refresh did. `noSpecDrive` is a declared state, never an error.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#when-a-project-has-no-spec-drive
     enum SpecDriveRefreshOutcome: Equatable {
@@ -31,14 +31,13 @@ extension AssistantSessionComposer {
         projectRoot: URL,
         console: SessionConsoleViewModel,
         deniedNotices: DeniedActionNoticeCenter,
-        sessionWillStart: @MainActor () -> Void
+        sessionWillStart: @escaping @MainActor () -> Void
     ) async throws -> SpecDriveRefreshOutcome {
         let root = projectRoot.standardizedFileURL
-        let project = try Self.loadProject(at: root)
+        let project = try Self.loadProject(at: root, subFunction: .assistant)
         let requests = SpecDriveProviders.fetchRequests(for: project.spec.specDrive, projectRoot: root)
         guard !requests.isEmpty else { return .noSpecDrive }
 
-        sessionWillStart()
         try Self.emptyDestinations(of: requests)
         let intent = Intent(
             content: requests.map(\.instruction).joined(separator: "\n\n"),
@@ -46,8 +45,16 @@ extension AssistantSessionComposer {
             project: project.manifest.id,
             requestingSubFunction: .assistant
         )
+        // `sessionWillStart` presents the console from inside `runSession`, right
+        // after the console resets — so the refresh, like a user session, never
+        // shows the previous run's transcript before its own output arrives.
         let record = try await runSession(
-            root: root, project: project, intent: intent, console: console, deniedNotices: deniedNotices
+            root: root,
+            project: project,
+            intent: intent,
+            console: console,
+            deniedNotices: deniedNotices,
+            sessionWillStart: sessionWillStart
         )
 
         let store = try await SpecIndexStore.open(projectRoot: root)

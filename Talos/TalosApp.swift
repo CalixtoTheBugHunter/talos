@@ -24,17 +24,17 @@ struct TalosApp: App {
     @State private var sessionConsoleViewModel = SessionConsoleViewModel()
     @State private var isSessionConsoleTranscriptPresented = false
     /// `nil` until the local database has opened — the one real entry point
-    /// Assistant's composition root needs. Absent rather than defaulted on
+    /// the session composition root needs. Absent rather than defaulted on
     /// failure, so `ContentView` can disable starting a session instead of
     /// starting one against a database that never opened.
-    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Sub-function-Assistant#pipeline
-    @State private var assistantSessionComposer: AssistantSessionComposer?
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary
+    @State private var sessionComposer: SessionComposer?
     @State private var databaseOpenErrorMessage: String?
 
     var body: some Scene {
         WindowGroup {
             ContentView(
-                composer: assistantSessionComposer,
+                composer: sessionComposer,
                 composerUnavailableReason: databaseOpenErrorMessage,
                 consoleViewModel: sessionConsoleViewModel,
                 deniedActionNoticeCenter: deniedActionNoticeCenter,
@@ -147,7 +147,7 @@ struct TalosApp: App {
     /// Opens the one local SQLite database every session record and gated
     /// decision is written to, applying every migration in the order each
     /// schema's own comment declares, then hands it to a fresh
-    /// ``AssistantSessionComposer``. A failure here disables starting a
+    /// ``SessionComposer``. A failure here disables starting a
     /// session rather than starting one with nowhere to record it.
     @MainActor
     private func openLocalDatabase() async {
@@ -160,7 +160,7 @@ struct TalosApp: App {
                     SessionTranscriptSchema.migration
                 ]
             )
-            assistantSessionComposer = AssistantSessionComposer(database: database, stopCenter: sessionStopCenter)
+            sessionComposer = SessionComposer(database: database, stopCenter: sessionStopCenter)
         } catch {
             databaseOpenErrorMessage = "Talos could not open its local database: \(error)"
         }
