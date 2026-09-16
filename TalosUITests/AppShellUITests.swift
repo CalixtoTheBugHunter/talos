@@ -81,6 +81,20 @@ final class AppShellUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Automator"].isEnabled, "Automator is enabled")
     }
 
+    /// The Sessions surface — the shell's one hand-built layout, the
+    /// sub-function selector — passes Apple's structural accessibility audit,
+    /// not only the inherited placeholder surfaces. It is the default surface,
+    /// so the selector is on screen at launch.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Accessibility#how-the-gate-is-checked
+    @MainActor
+    func testSessionsSurfacePassesTheAccessibilityAudit() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        XCTAssertTrue(app.buttons["Assistant"].waitForExistence(timeout: 5))
+        try assertNoTalosOwnAccessibilityIssues(on: app)
+    }
+
     /// The auxiliary window — the Starting Guide — is re-openable from the Help
     /// menu, "its own window, not a sidebar surface".
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/App-Shell-and-Navigation#every-surface-placed
