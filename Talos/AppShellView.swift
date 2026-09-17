@@ -68,13 +68,25 @@ struct AppShellView: View {
     private var detail: some View {
         switch navigation.selectedSurface {
         case .sessions:
-            ContentView(
-                composer: composer,
-                composerUnavailableReason: composerUnavailableReason,
-                consoleViewModel: consoleViewModel,
-                deniedActionNoticeCenter: deniedActionNoticeCenter,
-                isSessionConsolePresented: $isSessionConsolePresented
-            )
+            // "The selected session opens in the content area as the Session
+            // Console" — so the console is this surface's content once a
+            // session is under way, and the start form is its pre-session
+            // state, not a sheet layered over the window.
+            // https://github.com/CalixtoTheBugHunter/talos/wiki/App-Shell-and-Navigation#every-surface-placed
+            if isSessionConsolePresented {
+                SessionConsoleView(
+                    viewModel: consoleViewModel,
+                    onClose: { isSessionConsolePresented = false }
+                )
+            } else {
+                ContentView(
+                    composer: composer,
+                    composerUnavailableReason: composerUnavailableReason,
+                    consoleViewModel: consoleViewModel,
+                    deniedActionNoticeCenter: deniedActionNoticeCenter,
+                    isSessionConsolePresented: $isSessionConsolePresented
+                )
+            }
         default:
             PlaceholderSurfaceView(surface: navigation.selectedSurface)
         }

@@ -32,6 +32,9 @@ struct TalosApp: App {
     @State private var databaseOpenErrorMessage: String?
     @State private var navigation = ShellNavigationModel()
 
+    private static let defaultWindowWidth: CGFloat = 1000
+    private static let defaultWindowHeight: CGFloat = 680
+
     var body: some Scene {
         // `Window`, not `WindowGroup`: "Talos is one window", so the main
         // window is unique and there is never a second copy of it.
@@ -63,17 +66,6 @@ struct TalosApp: App {
                     }
                 )
             }
-            .sheet(isPresented: $isSessionConsoleTranscriptPresented) {
-                // The console hosts its own Stop control — visible whenever the
-                // session is running, on the surface the session is shown on,
-                // not only at ⌘. (the root's stop overlay is occluded by this
-                // sheet). Per § The stop guarantee is an interaction rule.
-                SessionConsoleView(
-                    viewModel: sessionConsoleViewModel,
-                    onStop: sessionStopCenter.requestStop,
-                    onClose: { isSessionConsoleTranscriptPresented = false }
-                )
-            }
             .task {
                 // Opened on its own, unawaited task: this does real disk I/O
                 // (directory creation, `sqlite3_open_v2`, migrations) that
@@ -90,10 +82,23 @@ struct TalosApp: App {
                 TalosAppUITestSeeding.seedSessionStop(into: sessionStopCenter)
                 TalosAppUITestSeeding.seedSessionConsoleTranscript(
                     viewModel: sessionConsoleViewModel,
+                    stopCenter: sessionStopCenter,
+                    navigation: navigation,
                     isPresented: $isSessionConsoleTranscriptPresented
                 )
             }
+            // Persist the window's frame under the user's control: SwiftUI's
+            // implicit restoration is unreliable for a single `Window`, so the
+            // frame is autosaved by name via AppKit. This touches only the
+            // autosave name — never the size, style, or position — so it does
+            // not fight `.windowResizability` or reshape the split view.
+            // https://github.com/CalixtoTheBugHunter/talos/wiki/App-Shell-and-Navigation#what-is-restored-across-launch
+            .background(WindowFrameAutosave(
+                name: "TalosMainWindow",
+                defaultSize: NSSize(width: Self.defaultWindowWidth, height: Self.defaultWindowHeight)
+            ))
         }
+        .windowResizability(.contentMinSize)
         .commands {
             CommandGroup(after: .saveItem) {
                 Button("Export Logs for Bug Report…") {
@@ -264,5 +269,42 @@ enum LogExportCommand {
             : "Talos could not read or save the local logs."
         alert.alertStyle = succeeded ? .informational : .warning
         alert.runModal()
+    }
+}
+
+/// Enables AppKit frame autosave on the host window so the size and position
+/// the user chose are restored on the next launch — and only ever changed by
+/// the user. It sets **only** the autosave name; it never sets the size,
+/// style mask, or position, so it neither fights `.windowResizability` nor
+/// reshapes the `NavigationSplitView`. A zero-size background probe that
+/// reaches its window once, on the main actor.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/App-Shell-and-Navigation#what-is-restored-across-launch
+private struct WindowFrameAutosave: NSViewRepresentable {
+    let name: String
+    let defaultSize: NSSize
+
+    func makeNSView(context _: Context) -> NSView {
+        let probe = NSView()
+        DispatchQueue.main.async { Self.configure(probe.window, name: name, defaultSize: defaultSize) }
+        return probe
+    }
+
+    func updateNSView(_: NSView, context _: Context) {
+        // Configured once, from `makeNSView`; nothing to update.
+    }
+
+    private static func configure(_ window: NSWindow?, name: String, defaultSize: NSSize) {
+        guard let window else { return }
+        // On the first launch — before a frame is saved — open at the default
+        // size instead of the content's own (larger) size; every launch after
+        // restores the frame the user left. Only the size and autosave name are
+        // touched, never the style mask, so this neither fights
+        // `.windowResizability` nor reshapes the split view.
+        let hasSavedFrame = UserDefaults.standard.string(forKey: "NSWindow Frame \(name)") != nil
+        window.setFrameAutosaveName(name)
+        if !hasSavedFrame {
+            window.setContentSize(defaultSize)
+            window.center()
+        }
     }
 }

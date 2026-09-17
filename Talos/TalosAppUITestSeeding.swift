@@ -82,11 +82,33 @@ enum TalosAppUITestSeeding {
     /// names existed.
     static func seedSessionConsoleTranscript(
         viewModel: SessionConsoleViewModel,
+        stopCenter: SessionStopCenter,
+        navigation: ShellNavigationModel,
         isPresented: Binding<Bool>
     ) {
         guard let stateName = ProcessInfo.processInfo.environment["TALOS_UI_TEST_SESSION_CONSOLE_TRANSCRIPT"] else {
             return
         }
+        seedSessionConsoleState(named: stateName, into: viewModel)
+        // The console is the Sessions surface's content, so it shows only when
+        // that surface is selected — force it, since the persisted sidebar
+        // selection survives across test launches and would otherwise leave a
+        // seeded console off screen.
+        navigation.selectedSurface = .sessions
+        // A still-running seed tracks the stop center too, so the always-visible
+        // Stop control the app hosts appears over the content-area console —
+        // what a real running session does, and what lets a UI test exercise
+        // stop reachability on this surface.
+        if viewModel.isRunning {
+            stopCenter.beginTracking(stopping: { await stopCenter.sessionEnded() })
+        }
+        isPresented.wrappedValue = true
+    }
+
+    /// Drives `viewModel` into the ``SessionConsoleViewModel/State`` the env
+    /// var named — extracted from the caller so the presentation wiring
+    /// (surface selection, stop tracking) stays separate from state seeding.
+    private static func seedSessionConsoleState(named stateName: String, into viewModel: SessionConsoleViewModel) {
         switch stateName {
         case "empty":
             break // `sessionStarted()` deliberately not called — nothing seeds `hasStarted`.
@@ -112,7 +134,6 @@ enum TalosAppUITestSeeding {
                 viewModel.appendOutput(chunk)
             }
         }
-        isPresented.wrappedValue = true
     }
 
     /// The "failed" and "denied" seeds share everything but the termination

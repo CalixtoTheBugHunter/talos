@@ -275,20 +275,19 @@ final class TalosUITests: XCTestCase {
 
     /// Asserts AC3 of
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is —
-    /// the pending approval is reachable inside the console's own window,
-    /// never a second, detached window the way `.sheet` presents one. Also
-    /// asserts AC2: the tier is visible, so the user can see why it prompted.
+    /// the pending approval is reachable inline in the transcript, never a
+    /// second, detached window the way `.sheet` presents one. Also asserts
+    /// AC2: the tier is visible, so the user can see why it prompted.
     @MainActor
     func testSessionConsolePendingApprovalIsInlineNotADetachedWindow() {
         let app = launchWithSessionConsoleTranscript(state: "tool-call-pending-write")
         let deny = app.buttons["Deny"]
         XCTAssertTrue(deny.waitForExistence(timeout: 5))
 
-        // The console itself is always hosted in its own sheet (see
-        // `seedSessionConsoleTranscriptForUITestingIfRequested`), so `1` here
-        // is that sheet alone — a second, detached approval sheet stacked on
-        // top of it would make this `2`.
-        XCTAssertEqual(app.sheets.count, 1, "the approval is a row in the transcript, never a second, detached sheet")
+        // The console renders in the content area, not a sheet, and the
+        // approval is a row in that transcript — so no sheet exists at all. A
+        // detached approval sheet would make this `1`.
+        XCTAssertEqual(app.sheets.count, 0, "the approval is a row in the transcript, never a detached sheet")
         XCTAssertTrue(
             app.staticTexts["The agent wants to modify Sources/Talos/Legacy/Old.swift."].exists,
             "the sentence naming the operation and target is visible, not hidden behind a disclosure"

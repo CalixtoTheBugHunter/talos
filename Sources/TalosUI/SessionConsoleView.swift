@@ -10,7 +10,6 @@ import TalosAdapters
 @MainActor
 public struct SessionConsoleView: View {
     private let viewModel: SessionConsoleViewModel
-    private let onStop: () -> Void
     private let onClose: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -21,28 +20,28 @@ public struct SessionConsoleView: View {
     private static let bottomProximityTolerance: CGFloat = 24
     private static let tokenUsageBadgeTopPadding: CGFloat = 8
 
-    /// A sheet sizes itself to its content, and a `List`'s own ideal height is
-    /// nearly nothing — so without these the console opened tall enough for its
-    /// badges and clipped the entire transcript it exists to show.
-    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is
-    private static let minimumWidth: CGFloat = 480
-    private static let idealWidth: CGFloat = 760
-    private static let minimumHeight: CGFloat = 320
-    private static let idealHeight: CGFloat = 560
+    /// The window minimum is `.contentMinSize`-derived: with no explicit floor
+    /// the transcript's tall ideal becomes the window's minimum, which grows the
+    /// window when a session opens the console. Declaring the same floor the
+    /// start form (`ContentView`) does keeps the window minimum unchanged across
+    /// form ↔ console, so the height is only ever the user's.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/App-Shell-and-Navigation#what-is-restored-across-launch
+    private static let minimumWidth: CGFloat = 420
+    private static let minimumHeight: CGFloat = 260
 
     public init(
         viewModel: SessionConsoleViewModel,
-        onStop: @escaping () -> Void,
         onClose: @escaping () -> Void
     ) {
         self.viewModel = viewModel
-        self.onStop = onStop
         self.onClose = onClose
     }
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            dismissControl
+            if !viewModel.isRunning {
+                dismissControl
+            }
             if let tokenUsage = viewModel.tokenUsage {
                 tokenUsageBadge(tokenUsage, overheadRatio: viewModel.contextOverheadRatio)
             }
@@ -53,39 +52,32 @@ public struct SessionConsoleView: View {
         }
         .frame(
             minWidth: Self.minimumWidth,
-            idealWidth: Self.idealWidth,
             maxWidth: .infinity,
             minHeight: Self.minimumHeight,
-            idealHeight: Self.idealHeight,
-            maxHeight: .infinity
+            maxHeight: .infinity,
+            alignment: .topLeading
         )
     }
 
-    /// A top-right ✕ that stops the session while it is running, and closes the
-    /// console once it has ended so the user can start another — a single
-    /// click either way, never behind a confirmation. The label names the
-    /// action so VoiceOver reads "Stop session" while running rather than
-    /// "Close". See § The stop guarantee is an interaction rule
+    /// A top-right ✕, shown once the session has ended, that closes the console
+    /// so the user can start another — a single click, never behind a
+    /// confirmation. Stop while running is the always-visible control the app
+    /// hosts (`sessionStopHost`) plus `⌘.`, so this surface adds no second
+    /// Stop of its own. See § The stop guarantee is an interaction rule
     /// (Foundations-Interaction-and-Keyboard).
     private var dismissControl: some View {
         HStack {
             Spacer()
-            Button(action: viewModel.isRunning ? onStop : onClose) {
+            Button(action: onClose) {
                 Image(systemName: "xmark.circle.fill")
                     .imageScale(.large)
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(Text(verbatim: viewModel.isRunning ? "Stop session" : "Close"))
-            .accessibilityHint(Text(verbatim: dismissHint))
+            .accessibilityLabel(Text(verbatim: "Close"))
+            .accessibilityHint(Text(verbatim: "Closes this session so you can start another."))
         }
         .padding([.horizontal, .top])
-    }
-
-    private var dismissHint: String {
-        viewModel.isRunning
-            ? "Ends the running session immediately. The agent process is killed."
-            : "Closes this session so you can start another."
     }
 
     @ViewBuilder
@@ -237,6 +229,14 @@ public struct SessionConsoleView: View {
                 row(for: line)
                     .id(line.id)
             }
+            // Start at the newest output. Only the initial offset — growth is
+            // still the follow/pause logic below, so scrolling up to read stays
+            // put. This also lands the transcript at the bottom when a session
+            // ends: `.ready` renders the bare transcript but `.failed`/`.denied`
+            // re-wrap it, so the `List` is rebuilt and would otherwise reset to
+            // the top with no new line to trigger a follow scroll.
+            // https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is
+            .defaultScrollAnchor(.bottom, for: .initialOffset)
             .onScrollPhaseChange { _, newPhase in
                 scrollPhase = newPhase
             }

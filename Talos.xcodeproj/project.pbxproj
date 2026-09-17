@@ -29,6 +29,7 @@
 		7A10000000000000000A0004 /* TalosCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A10000000000000000E0002 /* TalosCore */; };
 		7A20000000000000000A0001 /* TalosUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A20000000000000000B0001 /* TalosUITests.swift */; };
 		7A20000000000000000A0002 /* AppShellUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A20000000000000000B0003 /* AppShellUITests.swift */; };
+		7A20000000000000000A0003 /* SessionConsoleContentAreaUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A20000000000000000B0004 /* SessionConsoleContentAreaUITests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -65,6 +66,7 @@
 		7A10000000000000000B0006 /* TalosCoreXcodeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TalosCoreXcodeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7A20000000000000000B0001 /* TalosUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalosUITests.swift; sourceTree = "<group>"; };
 		7A20000000000000000B0003 /* AppShellUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellUITests.swift; sourceTree = "<group>"; };
+		7A20000000000000000B0004 /* SessionConsoleContentAreaUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionConsoleContentAreaUITests.swift; sourceTree = "<group>"; };
 		7A20000000000000000B0002 /* TalosUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TalosUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -111,6 +113,7 @@
 			children = (
 				7A20000000000000000B0001 /* TalosUITests.swift */,
 				7A20000000000000000B0003 /* AppShellUITests.swift */,
+				7A20000000000000000B0004 /* SessionConsoleContentAreaUITests.swift */,
 			);
 			path = TalosUITests;
 			sourceTree = "<group>";
@@ -314,6 +317,7 @@
 			files = (
 				7A20000000000000000A0001 /* TalosUITests.swift in Sources */,
 				7A20000000000000000A0002 /* AppShellUITests.swift in Sources */,
+				7A20000000000000000A0003 /* SessionConsoleContentAreaUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
