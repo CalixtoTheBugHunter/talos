@@ -1,7 +1,7 @@
 import XCTest
 
 /// The Session Console renders in the main window's content area, not a modal
-/// sheet — https://github.com/CalixtoTheBugHunter/talos/issues/252, built on
+/// sheet, built on
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/App-Shell-and-Navigation#every-surface-placed
 /// ("the selected session opens in the content area as the Session Console").
 final class SessionConsoleContentAreaUITests: XCTestCase {

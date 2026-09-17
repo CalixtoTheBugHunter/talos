@@ -284,9 +284,9 @@ final class TalosUITests: XCTestCase {
         let deny = app.buttons["Deny"]
         XCTAssertTrue(deny.waitForExistence(timeout: 5))
 
-        // The console renders in the content area, not a sheet (issue #252),
-        // and the approval is a row in that transcript — so no sheet exists at
-        // all. A detached approval sheet would make this `1`.
+        // The console renders in the content area, not a sheet, and the
+        // approval is a row in that transcript — so no sheet exists at all. A
+        // detached approval sheet would make this `1`.
         XCTAssertEqual(app.sheets.count, 0, "the approval is a row in the transcript, never a detached sheet")
         XCTAssertTrue(
             app.staticTexts["The agent wants to modify Sources/Talos/Legacy/Old.swift."].exists,
