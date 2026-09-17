@@ -34,50 +34,58 @@ struct ContentView: View {
     private static let minimumHeight: CGFloat = 260
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Self.contentSpacing) {
-            Text(verbatim: "Talos")
-                .font(.largeTitle)
-                .accessibilityLabel("Talos")
+        // Scrolls only when the form is taller than the content area — a
+        // resizable window can be shorter than the fields, and content that
+        // overflows scrolls rather than clipping, per the platform's own
+        // layout behaviour.
+        // https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Accessibility#text-size
+        ScrollView {
+            VStack(alignment: .leading, spacing: Self.contentSpacing) {
+                Text(verbatim: "Talos")
+                    .font(.largeTitle)
+                    .accessibilityLabel("Talos")
 
-            SubFunctionSelector(selection: $selectedSubFunction)
+                SubFunctionSelector(selection: $selectedSubFunction)
 
-            HStack {
-                Button("Choose Project Folder…") { chooseProjectFolder() }
-                if let projectRoot {
-                    Text(projectRoot.path)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.head)
-                } else {
-                    Text("No project selected")
-                        .foregroundStyle(.secondary)
+                HStack {
+                    Button("Choose Project Folder…") { chooseProjectFolder() }
+                    if let projectRoot {
+                        Text(projectRoot.path)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.head)
+                    } else {
+                        Text("No project selected")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                TextField("What should \(selectedName) do?", text: $intentText, axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+                    .lineLimit(Self.intentFieldLineRange)
+                    .accessibilityLabel("\(selectedName) intent")
+
+                HStack {
+                    Button("Start \(selectedName) Session") { startSession() }
+                        .disabled(!canStartSession)
+
+                    Button("Refresh Spec Drive") { refreshSpecDrive() }
+                        .disabled(!canRefreshSpecDrive)
+                }
+
+                if let refreshStatus {
+                    Text(refreshStatus).foregroundStyle(.secondary)
+                }
+
+                if let reason = composerUnavailableReason {
+                    Text(reason).foregroundStyle(.red)
+                } else if let errorMessage {
+                    Text(errorMessage).foregroundStyle(.red)
                 }
             }
-
-            TextField("What should \(selectedName) do?", text: $intentText, axis: .vertical)
-                .textFieldStyle(.roundedBorder)
-                .lineLimit(Self.intentFieldLineRange)
-                .accessibilityLabel("\(selectedName) intent")
-
-            HStack {
-                Button("Start \(selectedName) Session") { startSession() }
-                    .disabled(!canStartSession)
-
-                Button("Refresh Spec Drive") { refreshSpecDrive() }
-                    .disabled(!canRefreshSpecDrive)
-            }
-
-            if let refreshStatus {
-                Text(refreshStatus).foregroundStyle(.secondary)
-            }
-
-            if let reason = composerUnavailableReason {
-                Text(reason).foregroundStyle(.red)
-            } else if let errorMessage {
-                Text(errorMessage).foregroundStyle(.red)
-            }
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding()
         .frame(minWidth: Self.minimumWidth, minHeight: Self.minimumHeight)
     }
 
