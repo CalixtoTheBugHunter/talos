@@ -79,7 +79,6 @@ struct TalosApp: App {
                     state: $gatedDecisionLogState,
                     isPresented: $isGatedDecisionLogPresented
                 )
-                TalosAppUITestSeeding.seedSessionStop(into: sessionStopCenter)
                 TalosAppUITestSeeding.seedSessionConsoleTranscript(
                     viewModel: sessionConsoleViewModel,
                     stopCenter: sessionStopCenter,
