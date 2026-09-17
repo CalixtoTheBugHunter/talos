@@ -50,6 +50,10 @@ final class SessionConsoleContentAreaUITests: XCTestCase {
         XCTAssertTrue(stop.waitForExistence(timeout: 5), "the Stop control shows while the session runs")
 
         app.staticTexts["Monitor"].click()
+        XCTAssertTrue(
+            app.staticTexts["This surface is not available yet."].waitForExistence(timeout: 5),
+            "the sidebar actually switched to another surface"
+        )
 
         XCTAssertTrue(stop.waitForExistence(timeout: 5), "the Stop control stays visible on the other surface")
         XCTAssertTrue(stop.isHittable, "and stays reachable there, not occluded by the surface switch")
