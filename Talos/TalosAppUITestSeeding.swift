@@ -48,18 +48,6 @@ enum TalosAppUITestSeeding {
     }
 
     /// Exists for the same reason as the two seeds above: `TalosUITests`
-    /// needs to drive the real, mounted Stop control before a real session
-    /// ever starts one. The stop handler ends the tracked session rather than
-    /// running a real process — proving the control is present, activates
-    /// with no confirmation, is keyboard-reachable, and is VoiceOver-labeled
-    /// does not require a process behind it, which the real adapter and
-    /// process-tree tests own.
-    static func seedSessionStop(into center: SessionStopCenter) {
-        guard ProcessInfo.processInfo.environment["TALOS_UI_TEST_SESSION_RUNNING"] != nil else { return }
-        center.beginTracking(stopping: { await center.sessionEnded() })
-    }
-
-    /// Exists for the same reason as the two seeds above: `TalosUITests`
     /// needs to drive the real, mounted gated-decision-log view before any
     /// screen exists to host it — mounting behind real navigation is
     /// explicitly out of scope until one does.
