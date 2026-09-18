@@ -1,3 +1,4 @@
+import Foundation
 import TalosOrchestration
 import TalosProjectLibrary
 import Testing
@@ -56,6 +57,23 @@ struct BoardStateRetrievalTests {
             retrieval.fetch(for: makeTestIntent())
                 == .unavailable(reason: "No board items have been read yet.")
         )
+    }
+
+    @Test("Items the refresh run stored are read back and rendered into context")
+    func storedItemsRenderIntoContext() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let file = BoardStateLayout.itemsFile(projectRoot: root)
+        try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try #"[{"id": "1", "title": "Wire the board", "column": "In Progress"}]"#
+            .write(to: file, atomically: true, encoding: .utf8)
+
+        let retrieval = BoardStateRetrieval(board: githubProjects, items: BoardStateReader().read(projectRoot: root))
+        guard case let .available(rendered) = retrieval.fetch(for: makeTestIntent()) else {
+            Issue.record("expected available board context")
+            return
+        }
+        #expect(rendered.contains("Wire the board (1) — in-progress"))
     }
 
     @Test("The render is provider-agnostic — jira and github-projects render identically")
