@@ -245,7 +245,7 @@ final class SessionComposer {
         let specSections = await loadSpecSections(projectRoot: root, project: project.manifest.id, spec: project.spec)
         let assembler = ContextAssembler(
             specDriveSource: SpecDriveRetrieval(specDrive: project.spec.specDrive, sections: specSections),
-            boardSource: BoardStateRetrieval(board: project.board, items: loadBoardItems()),
+            boardSource: BoardStateRetrieval(board: project.board, items: loadBoardItems(projectRoot: root)),
             memoriesSource: InertContextSource.memories
         )
         return SessionPipeline(
@@ -311,12 +311,13 @@ final class SessionComposer {
         return try BoardManifestParser.parse(contents: contents, file: file.path)
     }
 
-    /// The board items for this project. Empty until the connected agent reads
-    /// the board out of band and its items are stored — that fetch is separate
-    /// backlog work, the board analogue of the Spec Drive index build
-    /// ([decision 93](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#foundational-decisions)).
-    private static func loadBoardItems() -> [BoardItem] {
-        []
+    /// The board items for this project, read from the derived store the board
+    /// refresh run leaves under `.talos/local/`. Empty until that run has stored
+    /// them, or when the store was deleted — a rebuildable absence retrieval
+    /// labels, never a session failure.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#foundational-decisions
+    private static func loadBoardItems(projectRoot: URL) -> [BoardItem] {
+        BoardStateReader().read(projectRoot: projectRoot)
     }
 
     private static func readGuideline(root: URL, subFunction: SubFunction) throws -> GuidelineDocument {
