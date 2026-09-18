@@ -10,12 +10,16 @@ public enum BoardManifestParser {
     private static let providerKey = "provider"
     private static let columnsKey = "columns"
 
-    /// Parses `contents` as `.talos/board.yaml`. `file` is only used to
-    /// label a thrown ``BoardManifestError`` — this function does no
-    /// filesystem access of its own.
-    public static func parse(contents: String, file: String) throws -> BoardManifest {
-        let mapping = try rootMapping(of: contents, file: file)
-        let boardMapping = try boardMapping(mapping: mapping, file: file)
+    /// Parses `contents` as `.talos/board.yaml`. Returns `nil` when the file
+    /// declares no board — an empty document, or a mapping with no `board:`
+    /// key, which is the scaffolded default: a board is optional, the same
+    /// "nothing declared" leniency `ConnectorsManifestParser` gives an empty
+    /// `connectors.yaml`. A *declared* board that is malformed still throws a
+    /// ``BoardManifestError``. `file` only labels a thrown error — this
+    /// function does no filesystem access of its own.
+    public static func parse(contents: String, file: String) throws -> BoardManifest? {
+        guard let mapping = try rootMapping(of: contents, file: file) else { return nil }
+        guard let boardMapping = try boardMapping(mapping: mapping, file: file) else { return nil }
         return try BoardManifest(
             provider: parseProvider(mapping: boardMapping, file: file),
             columns: parseColumns(mapping: boardMapping, file: file)
@@ -24,23 +28,17 @@ public enum BoardManifestParser {
 
     // MARK: - Parsing, one field at a time
 
-    /// Composes `contents` and returns its top-level mapping, or throws a
-    /// ``BoardManifestError`` naming the line a syntax error or a
-    /// non-mapping root was found at.
-    private static func rootMapping(of contents: String, file: String) throws -> Node.Mapping {
+    /// Composes `contents` and returns its top-level mapping. Returns `nil`
+    /// for an empty document — comments or whitespace only, i.e. no board
+    /// declared. Throws a ``BoardManifestError`` naming the line for a syntax
+    /// error or a non-mapping root.
+    private static func rootMapping(of contents: String, file: String) throws -> Node.Mapping? {
         let root: Node
         do {
             guard let node = try Yams.compose(yaml: contents) else {
-                throw BoardManifestError(
-                    file: file,
-                    line: nil,
-                    fix: "Add a '\(boardKey)' mapping with a '\(providerKey)' — the file has no " +
-                        "content to parse, and a missing '\(boardKey)' key is not a declared configuration."
-                )
+                return nil
             }
             root = node
-        } catch let error as BoardManifestError {
-            throw error
         } catch {
             throw BoardManifestError(file: file, line: sourceLine(of: error), fix: "Fix the YAML syntax: \(error)")
         }
@@ -55,15 +53,8 @@ public enum BoardManifestParser {
         return mapping
     }
 
-    private static func boardMapping(mapping: Node.Mapping, file: String) throws -> Node.Mapping {
-        guard let boardNode = mapping[boardKey] else {
-            throw BoardManifestError(
-                file: file,
-                line: mapping.mark?.line,
-                fix: "Add a '\(boardKey)' mapping with a '\(providerKey)' — a missing '\(boardKey)' " +
-                    "key is not a declared configuration."
-            )
-        }
+    private static func boardMapping(mapping: Node.Mapping, file: String) throws -> Node.Mapping? {
+        guard let boardNode = mapping[boardKey] else { return nil }
         guard let boardMapping = boardNode.mapping else {
             throw BoardManifestError(
                 file: file,

@@ -32,6 +32,7 @@ final class SessionComposer {
         let safeguards: SafeguardsDocument
         let guideline: GuidelineDocument
         let spec: SpecManifest
+        let board: BoardManifest?
         let declaration: AgentDeclaration
     }
 
@@ -207,6 +208,7 @@ final class SessionComposer {
             safeguards: SafeguardsLoader.load(projectRoot: root),
             guideline: readGuideline(root: root, subFunction: subFunction),
             spec: SpecLoader.load(projectRoot: root),
+            board: readBoardManifest(root: root),
             declaration: resolveAgent(project: manifest, agents: agents)
         )
     }
@@ -243,7 +245,7 @@ final class SessionComposer {
         let specSections = await loadSpecSections(projectRoot: root, project: project.manifest.id, spec: project.spec)
         let assembler = ContextAssembler(
             specDriveSource: SpecDriveRetrieval(specDrive: project.spec.specDrive, sections: specSections),
-            boardSource: InertContextSource.board,
+            boardSource: BoardStateRetrieval(board: project.board, items: loadBoardItems()),
             memoriesSource: InertContextSource.memories
         )
         return SessionPipeline(
@@ -298,6 +300,23 @@ final class SessionComposer {
         let file = root.appendingPathComponent(".talos/connectors.yaml", isDirectory: false)
         let contents = try readFile(file)
         return try ConnectorsManifestParser.parse(contents: contents, file: file.path)
+    }
+
+    /// Nil when the project declares no board — `.talos/board.yaml` is optional,
+    /// so its absence is a project without a board, not a failure to read one.
+    private static func readBoardManifest(root: URL) throws -> BoardManifest? {
+        let file = root.appendingPathComponent(".talos/board.yaml", isDirectory: false)
+        guard FileManager.default.fileExists(atPath: file.path) else { return nil }
+        let contents = try readFile(file)
+        return try BoardManifestParser.parse(contents: contents, file: file.path)
+    }
+
+    /// The board items for this project. Empty until the connected agent reads
+    /// the board out of band and its items are stored — that fetch is separate
+    /// backlog work, the board analogue of the Spec Drive index build
+    /// ([decision 93](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#foundational-decisions)).
+    private static func loadBoardItems() -> [BoardItem] {
+        []
     }
 
     private static func readGuideline(root: URL, subFunction: SubFunction) throws -> GuidelineDocument {

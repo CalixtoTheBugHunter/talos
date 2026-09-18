@@ -29,7 +29,7 @@ struct BoardManifestTests {
 
     @Test("A Jira-shaped file parses into the typed model")
     func parsesAJiraShapedFile() throws {
-        let manifest = try BoardManifestParser.parse(contents: Self.jiraShapedYAML, file: "board.yaml")
+        let manifest = try #require(try BoardManifestParser.parse(contents: Self.jiraShapedYAML, file: "board.yaml"))
 
         #expect(manifest.provider == .jira)
         #expect(manifest.columns.count == 4)
@@ -39,7 +39,9 @@ struct BoardManifestTests {
 
     @Test("A GitHub-Projects-shaped file parses into the typed model")
     func parsesAGitHubProjectsShapedFile() throws {
-        let manifest = try BoardManifestParser.parse(contents: Self.githubProjectsShapedYAML, file: "board.yaml")
+        let manifest = try #require(
+            try BoardManifestParser.parse(contents: Self.githubProjectsShapedYAML, file: "board.yaml")
+        )
 
         #expect(manifest.provider == .githubProjects)
         #expect(manifest.columns.count == 4)
@@ -58,7 +60,7 @@ struct BoardManifestTests {
             "Code Review": in-progress
         """
 
-        let manifest = try BoardManifestParser.parse(contents: yaml, file: "board.yaml")
+        let manifest = try #require(try BoardManifestParser.parse(contents: yaml, file: "board.yaml"))
         #expect(manifest.state(forColumn: "Doing") == .mapped(.inProgress))
         #expect(manifest.state(forColumn: "Code Review") == .mapped(.inProgress))
     }
@@ -67,7 +69,7 @@ struct BoardManifestTests {
 
     @Test("A column with no counterpart resolves to unmapped, never a default state")
     func unmappedColumnResolvesToUnmapped() throws {
-        let manifest = try BoardManifestParser.parse(contents: Self.jiraShapedYAML, file: "board.yaml")
+        let manifest = try #require(try BoardManifestParser.parse(contents: Self.jiraShapedYAML, file: "board.yaml"))
         #expect(manifest.state(forColumn: "Some Other Column") == .unmapped)
     }
 
@@ -78,7 +80,7 @@ struct BoardManifestTests {
           provider: jira
         """
 
-        let manifest = try BoardManifestParser.parse(contents: yaml, file: "board.yaml")
+        let manifest = try #require(try BoardManifestParser.parse(contents: yaml, file: "board.yaml"))
         #expect(manifest.columns.isEmpty)
         #expect(manifest.state(forColumn: "To Do") == .unmapped)
     }
@@ -117,14 +119,15 @@ struct BoardManifestTests {
         }
     }
 
-    @Test("A missing board key names the file, the line, and a fix")
-    func missingBoardKeyNamesFileLineAndFix() {
-        #expect {
-            try BoardManifestParser.parse(contents: "", file: "board.yaml")
-        } throws: { error in
-            guard let error = error as? BoardManifestError else { return false }
-            return error.file == "board.yaml" && !error.fix.isEmpty
-        }
+    @Test("An empty file declares no board — the scaffolded default, not an error")
+    func emptyFileDeclaresNoBoard() throws {
+        #expect(try BoardManifestParser.parse(contents: "", file: "board.yaml") == nil)
+    }
+
+    @Test("A file with no board key declares no board, never an error")
+    func noBoardKeyDeclaresNoBoard() throws {
+        let yaml = "# board provider + column/state mapping\n"
+        #expect(try BoardManifestParser.parse(contents: yaml, file: "board.yaml") == nil)
     }
 
     // MARK: - Internal state registry
