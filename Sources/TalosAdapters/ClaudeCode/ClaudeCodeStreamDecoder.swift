@@ -18,7 +18,14 @@ enum ClaudeCodeStreamValue: Equatable, Sendable {
     case permissionDenied(message: String)
     /// `inputTokens`/`outputTokens` are `nil` when the line carried no `usage`
     /// — never treated as a failed turn.
-    case deferred(toolUseID: String, toolName: String, targets: [String], inputTokens: Int?, outputTokens: Int?)
+    case deferred(
+        toolUseID: String,
+        toolName: String,
+        targets: [String],
+        arguments: [String: String],
+        inputTokens: Int?,
+        outputTokens: Int?
+    )
     case usage(input: Int, output: Int)
     /// A `result` line's `usage` did not decode as counts — a drift, distinct
     /// from a line that never arrived.
@@ -124,6 +131,7 @@ struct ClaudeCodeStreamDecoder {
                 toolUseID: deferred.id,
                 toolName: deferred.name,
                 targets: targets(from: deferred.input),
+                arguments: keyedArguments(from: deferred.input),
                 inputTokens: input,
                 outputTokens: output
             )
@@ -157,5 +165,12 @@ struct ClaudeCodeStreamDecoder {
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Content-and-Voice
     private static func targets(from input: [String: Any]) -> [String] {
         input.keys.sorted().compactMap { input[$0] as? String }
+    }
+
+    /// The held call's string arguments kept keyed, so a board write's item
+    /// and target column can be read by field name later. Which key means
+    /// what is the recognizer's knowledge, not this decoder's.
+    private static func keyedArguments(from input: [String: Any]) -> [String: String] {
+        input.compactMapValues { $0 as? String }
     }
 }

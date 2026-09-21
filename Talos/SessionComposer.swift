@@ -36,13 +36,18 @@ final class SessionComposer {
         let declaration: AgentDeclaration
     }
 
-    private let database: Database
+    let database: Database
     private let stopCenter: SessionStopCenter
-    private var adapterRegistry = AgentAdapterRegistry()
+    /// The presenter a diverged board item's conflict prompt is shown through —
+    /// the same instance the app view hosts, so a session's conflict check
+    /// reaches the UI and blocks the session the way the gate does.
+    let boardConflicts: BoardConflictPromptCenter
+    var adapterRegistry = AgentAdapterRegistry()
 
-    init(database: Database, stopCenter: SessionStopCenter) {
+    init(database: Database, stopCenter: SessionStopCenter, boardConflicts: BoardConflictPromptCenter) {
         self.database = database
         self.stopCenter = stopCenter
+        self.boardConflicts = boardConflicts
         ClaudeCodeAdapterRegistration.register(into: &adapterRegistry)
     }
 
@@ -166,6 +171,11 @@ final class SessionComposer {
         // respond." Tracking begins before the first await and ends however the
         // session does, so Stop is reachable throughout and never after.
         // https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#rules
+        // A diverged board item stops an allowed move before it runs, per
+        // decision 42. Only wired when the project declares a board; a read the
+        // recognizer does not match never triggers it, so the board refresh's
+        // own read carries it harmlessly.
+        let boardConflict = project.board.map { makeBoardConflictResolver(root: root, board: $0) }
         let sessionTask = Task {
             await pipeline.run(
                 intent: intent,
@@ -177,7 +187,8 @@ final class SessionComposer {
                 tokenObserver: { [console] update in await console.updateTokenUsage(update) },
                 onDenial: { [deniedNotices] action, prompt in
                     await deniedNotices.notify(action: action, requestPrompt: prompt)
-                }
+                },
+                boardConflict: boardConflict
             )
         }
         stopCenter.beginTracking { sessionTask.cancel() }
@@ -235,7 +246,7 @@ final class SessionComposer {
         }
     }
 
-    private static func makePipeline(
+    static func makePipeline(
         adapter: AnyAgentAdapterBox,
         gate: TieredSafeguardsGate,
         database: Database,

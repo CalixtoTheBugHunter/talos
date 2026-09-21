@@ -17,6 +17,7 @@ import TalosUI
 @main
 struct TalosApp: App {
     @State private var approvalPromptCenter = ApprovalPromptCenter()
+    @State private var boardConflictPromptCenter = BoardConflictPromptCenter()
     @State private var deniedActionNoticeCenter = DeniedActionNoticeCenter()
     @State private var sessionStopCenter = SessionStopCenter()
     @State private var isGatedDecisionLogPresented = false
@@ -53,6 +54,7 @@ struct TalosApp: App {
             // https://github.com/CalixtoTheBugHunter/talos/wiki/App-Shell-and-Navigation#what-is-restored-across-launch
             .talosTextSize()
             .approvalPromptHost(approvalPromptCenter)
+            .boardConflictPromptHost(boardConflictPromptCenter)
             .deniedActionNoticeHost(deniedActionNoticeCenter)
             .sessionStopHost(sessionStopCenter)
             .sheet(isPresented: $isGatedDecisionLogPresented) {
@@ -216,7 +218,11 @@ struct TalosApp: App {
                     SessionTranscriptSchema.migration
                 ]
             )
-            sessionComposer = SessionComposer(database: database, stopCenter: sessionStopCenter)
+            sessionComposer = SessionComposer(
+                database: database,
+                stopCenter: sessionStopCenter,
+                boardConflicts: boardConflictPromptCenter
+            )
         } catch {
             databaseOpenErrorMessage = "Talos could not open its local database: \(error)"
         }

@@ -96,17 +96,26 @@ public struct AgentPermissionRequest: Equatable, Hashable, Sendable, Identifiabl
     /// A connector target and verb, when the adapter identified one. `nil`
     /// falls back to ``toolName``.
     public let connectorAccess: AgentConnectorAccess?
+    /// The held call's arguments, key to value, as the agent stated them —
+    /// the same structured data folded into ``prompt`` for display, kept here
+    /// so a board conflict check can read the item and target column a
+    /// `board.item.move`/`update` names without core parsing the prompt back
+    /// apart. Empty when the adapter surfaced none.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#foundational-decisions
+    public let arguments: [String: String]
 
     public init(
         id: String,
         prompt: String,
         toolName: String? = nil,
-        connectorAccess: AgentConnectorAccess? = nil
+        connectorAccess: AgentConnectorAccess? = nil,
+        arguments: [String: String] = [:]
     ) {
         self.id = id
         self.prompt = prompt
         self.toolName = toolName
         self.connectorAccess = connectorAccess
+        self.arguments = arguments
     }
 }
 

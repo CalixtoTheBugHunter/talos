@@ -74,6 +74,24 @@ struct ClaudeCodeEventMappingTests {
         #expect(request.toolName == "Write")
     }
 
+    /// The held call's structured arguments are preserved on the request, not
+    /// only folded into the prompt string — decision 94's adapter half, so a
+    /// board conflict check can read an item and target column by field name.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#foundational-decisions
+    @Test("A permission request keeps the held call's structured arguments")
+    func permissionRequestKeepsArguments() throws {
+        let lines = try ClaudeCodeFixture.lines("permission-request.jsonl")
+        let lastLine = try #require(lines.last)
+        let value = try #require(ClaudeCodeStreamDecoder.decode(lastLine))
+        let event = try #require(ClaudeCodeEventMapper.agentEvent(for: value))
+
+        guard case let .permissionRequest(request) = event else {
+            Issue.record("Expected a permission request, got \(event)")
+            return
+        }
+        #expect(request.arguments == ["file_path": "/private/tmp/fixture/note.txt", "content": "hello\n"])
+    }
+
     /// § A tool call and a permission request are two events, never as one —
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary
     @Test("A run containing both a tool call and its permission request keeps them distinct")

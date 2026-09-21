@@ -226,7 +226,7 @@ actor ClaudeCodeAdapter: AgentAdapter {
             reporter.recordUsage(input: input, output: output)
         case .unrecognizedUsage:
             reporter.recordUnrecognizedUsage()
-        case let .deferred(toolUseID, _, _, inputTokens, outputTokens):
+        case let .deferred(toolUseID, _, _, _, inputTokens, outputTokens):
             openRequestIDs.insert(toolUseID)
             if let inputTokens, let outputTokens {
                 reporter.recordUsage(input: inputTokens, output: outputTokens)

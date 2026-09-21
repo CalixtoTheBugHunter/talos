@@ -43,11 +43,13 @@ public enum BoardStateFetch {
 
         \(destination.path)
 
-        Each element is an object with exactly these string fields: "id" (the provider's stable item \
+        Each element is an object with these string fields: "id" (the provider's stable item \
         identifier), "title" (the item's title), and "column" (the provider's own column or status \
-        name, unchanged — do not map it onto any other value). Write valid JSON and nothing else into \
-        that file, write nothing outside it, and change nothing on the board. Do not reproduce the \
-        items in your reply — Talos reads the file. Reply with how many items you wrote.
+        name, unchanged — do not map it onto any other value). Where the provider exposes them, also \
+        include "updatedBy" (who last changed the item) and "updatedAt" (when it last changed, as the \
+        provider states it); omit either field the provider does not supply. Write valid JSON and \
+        nothing else into that file, write nothing outside it, and change nothing on the board. Do not \
+        reproduce the items in your reply — Talos reads the file. Reply with how many items you wrote.
         """
     }
 }

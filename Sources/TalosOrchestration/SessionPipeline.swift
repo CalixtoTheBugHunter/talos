@@ -193,7 +193,8 @@ public struct SessionPipeline<
         launch: SessionLaunch,
         observer: (@Sendable (AgentEvent) async -> Void)? = nil,
         tokenObserver: (@Sendable (SessionTokenUpdate) async -> Void)? = nil,
-        onDenial: (@Sendable (SafeguardsActionType, String) async -> Void)? = nil
+        onDenial: (@Sendable (SafeguardsActionType, String) async -> Void)? = nil,
+        boardConflict: (any BoardConflictResolver)? = nil
     ) async -> SessionRecord {
         let bookkeeping = SessionRunBookkeeping(
             sessionID: makeRecordID(),
@@ -233,7 +234,8 @@ public struct SessionPipeline<
             now: now,
             observer: observer,
             tokenObserver: tokenObserver,
-            onDenial: onDenial
+            onDenial: onDenial,
+            boardConflict: boardConflict
         )
         return await finish(
             runOutcome.outcome,

@@ -349,7 +349,8 @@ func runTestSession(
     agentName: String = testAgentName,
     observer: (@Sendable (AgentEvent) async -> Void)? = nil,
     tokenObserver: (@Sendable (SessionTokenUpdate) async -> Void)? = nil,
-    onDenial: (@Sendable (SafeguardsActionType, String) async -> Void)? = nil
+    onDenial: (@Sendable (SafeguardsActionType, String) async -> Void)? = nil,
+    boardConflict: (any BoardConflictResolver)? = nil
 ) async -> SessionRecord {
     await pipeline.run(
         intent: intent,
@@ -359,6 +360,7 @@ func runTestSession(
         launch: SessionLaunch(agentName: agentName, configuration: TestLaunch.configuration()),
         observer: observer,
         tokenObserver: tokenObserver,
-        onDenial: onDenial
+        onDenial: onDenial,
+        boardConflict: boardConflict
     )
 }
