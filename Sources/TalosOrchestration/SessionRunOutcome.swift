@@ -14,6 +14,10 @@ struct SessionRunCollaborators<Adapter: AgentAdapter, Gate: SafeguardsGate> {
     let sessionID: UUID
     let now: @Sendable () -> Date
     let onDenial: (@Sendable (SafeguardsActionType, String) async -> Void)?
+    /// Detects a diverged board item on an allowed board write and asks the
+    /// user which state is correct, per decision 42. `nil` when the session
+    /// has no board to conflict-check against.
+    let boardConflict: (any BoardConflictResolver)?
     /// How long the session may produce no stream activity before it ends as
     /// Failed, from the sub-function's guideline. Measured only between events;
     /// the gate wait happens outside the read that applies it, so it is never

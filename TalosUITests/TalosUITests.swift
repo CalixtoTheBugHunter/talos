@@ -26,6 +26,13 @@ final class TalosUITests: XCTestCase {
     }
 
     @MainActor
+    func testBoardConflictPromptPassesAccessibilityAuditWhilePresented() throws {
+        let app = launchWithBoardConflict()
+        XCTAssertTrue(app.buttons["Keep the board's state"].waitForExistence(timeout: 5))
+        try assertNoTalosOwnAccessibilityIssues(on: app)
+    }
+
+    @MainActor
     func testDeniedActionNoticePassesAccessibilityAuditWhilePresented() throws {
         let app = launchWithDeniedNotice(tier: "irreversible")
         try assertNoTalosOwnAccessibilityIssues(on: app)
@@ -100,6 +107,37 @@ final class TalosUITests: XCTestCase {
 
         app.typeKey(.enter, modifierFlags: .command)
         XCTAssertFalse(deny.waitForExistence(timeout: 1), "Command-Return approves a write-tier action")
+    }
+
+    /// Asserts the conflict prompt's keyboard discipline from
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#when-a-human-and-talos-move-the-same-item —
+    /// `↩` is unbound (the two outcomes are not symmetrical and the safe one
+    /// is not obvious), while `⎋` keeps the board's state, the abandon that
+    /// overwrites nothing. The three outcomes are all reachable controls.
+    @MainActor
+    func testBoardConflictPromptReturnIsUnboundAndEscapeKeepsTheBoardState() {
+        let app = launchWithBoardConflict()
+        let keep = app.buttons["Keep the board's state"]
+        XCTAssertTrue(keep.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Open the item"].exists)
+        XCTAssertTrue(
+            app.buttons["Move it to \u{201C}Done\u{201D} anyway"].exists,
+            "the apply outcome names the target column"
+        )
+
+        app.typeKey(.enter, modifierFlags: [])
+        XCTAssertTrue(keep.exists, "Return is unbound: it neither keeps nor applies")
+
+        app.typeKey(.escape, modifierFlags: [])
+        XCTAssertFalse(keep.waitForExistence(timeout: 1), "Escape keeps the board's state, and the prompt closes")
+    }
+
+    @MainActor
+    private func launchWithBoardConflict() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchEnvironment["TALOS_UI_TEST_BOARD_CONFLICT"] = "1"
+        app.launch()
+        return app
     }
 
     @MainActor

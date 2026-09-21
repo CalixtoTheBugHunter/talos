@@ -44,6 +44,9 @@ struct BoardStateFetchTests {
         #expect(request.instruction.contains("\"id\""))
         #expect(request.instruction.contains("\"title\""))
         #expect(request.instruction.contains("\"column\""))
+        // The item's provider page is asked for where available, so a conflict
+        // prompt's "Open the item" has somewhere to open.
+        #expect(request.instruction.contains("\"url\""))
         // The column is kept as the provider's own name — the agent maps its
         // provider onto the canonical shape, so no provider field reaches Talos.
         #expect(request.instruction.contains("unchanged"))

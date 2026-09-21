@@ -11,10 +11,33 @@ public struct BoardItem: Equatable, Sendable {
     /// The provider's own column name, mapped through
     /// [`board.yaml`](https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#board).
     public let column: String
+    /// Who last changed the item, when the read supplied it — shown in the
+    /// conflict prompt so a divergence names its author. `nil` when the
+    /// provider or the read carried none.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#when-a-human-and-talos-move-the-same-item
+    public let updatedBy: String?
+    /// When the item last changed, as the provider stated it. `nil` when
+    /// absent — the prompt reads it as unknown rather than inventing one.
+    public let updatedAt: String?
+    /// The item's page on the provider, so a conflict prompt's "Open the item"
+    /// opens it for the user to decide with its full history. `nil` when the
+    /// provider or the read carried none, and the outcome then only abandons.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library#when-a-human-and-talos-move-the-same-item
+    public let url: String?
 
-    public init(id: String, title: String, column: String) {
+    public init(
+        id: String,
+        title: String,
+        column: String,
+        updatedBy: String? = nil,
+        updatedAt: String? = nil,
+        url: String? = nil
+    ) {
         self.id = id
         self.title = title
         self.column = column
+        self.updatedBy = updatedBy
+        self.updatedAt = updatedAt
+        self.url = url
     }
 }

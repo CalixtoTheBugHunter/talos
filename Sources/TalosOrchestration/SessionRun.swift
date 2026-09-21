@@ -48,7 +48,8 @@ public struct SafeguardsApproved: Sendable {
         now: @escaping @Sendable () -> Date = Date.init,
         observer: (@Sendable (AgentEvent) async -> Void)? = nil,
         tokenObserver: (@Sendable (SessionTokenUpdate) async -> Void)? = nil,
-        onDenial: (@Sendable (SafeguardsActionType, String) async -> Void)? = nil
+        onDenial: (@Sendable (SafeguardsActionType, String) async -> Void)? = nil,
+        boardConflict: (any BoardConflictResolver)? = nil
     ) async -> SessionRunOutcome {
         if Task.isCancelled {
             return await stop(adapter: adapter, metrics: SessionRunMetrics(), transcript: [])
@@ -74,6 +75,7 @@ public struct SafeguardsApproved: Sendable {
             sessionID: sessionID,
             now: now,
             onDenial: onDenial,
+            boardConflict: boardConflict,
             responseLivenessTimeout: responseLivenessTimeout
         )
         return await consume(stream, collaborators: collaborators, observer: observer, tokenObserver: tokenObserver)
@@ -220,7 +222,7 @@ public struct SafeguardsApproved: Sendable {
         retries: inout RetryTracker,
         transcript: [SessionTranscriptEntry]
     ) async throws -> SessionRunOutcome? {
-        let decision = if let blocked = retries.blockedDecision(for: request.id) {
+        let gated = if let blocked = retries.blockedDecision(for: request.id) {
             blocked
         } else {
             await collaborators.gate.decide(
@@ -229,6 +231,13 @@ public struct SafeguardsApproved: Sendable {
                 subFunction: intent.requestingSubFunction
             )
         }
+        // An allowed board write whose item diverged from what Talos read is
+        // abandoned before it runs — decision 42's detect-and-ask across the
+        // gate (decision 94). A denial that is not the gate's, and one an
+        // allowlist never suppresses.
+        let (decision, conflictAbandon) = await resolveBoardConflict(
+            gated, request: request, collaborators: collaborators
+        )
         let entry = GatedDecisionEntry(
             project: intent.project,
             sessionID: collaborators.sessionID,
@@ -242,7 +251,12 @@ public struct SafeguardsApproved: Sendable {
             metrics.approvalCount += 1
         case .denied:
             metrics.denialCount += 1
-            retries.noteDenial(of: request.id, action: decision.action, classification: decision.classification)
+            // A conflict abandon is state-specific, not a refusal of the action
+            // type, so a later identical call is re-checked rather than blocked
+            // from the retry tracker.
+            if !conflictAbandon {
+                retries.noteDenial(of: request.id, action: decision.action, classification: decision.classification)
+            }
             await collaborators.onDenial?(decision.action, request.prompt)
         }
         if Task.isCancelled {

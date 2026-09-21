@@ -15,11 +15,12 @@ enum ClaudeCodeEventMapper {
             return .toolCall(AgentToolCall(id: id, name: name, targets: targets))
         case let .permissionDenied(message):
             return .output(AgentOutputChunk(channel: .standardError, text: message))
-        case let .deferred(toolUseID, toolName, targets, _, _):
+        case let .deferred(toolUseID, toolName, targets, arguments, _, _):
             let request = AgentPermissionRequest(
                 id: toolUseID,
                 prompt: prompt(toolName: toolName, targets: targets),
-                toolName: toolName
+                toolName: toolName,
+                arguments: arguments
             )
             return .permissionRequest(request)
         case .initialized, .usage, .unrecognizedUsage, .ignored:

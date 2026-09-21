@@ -20,14 +20,28 @@ public struct BoardStateReader: Sendable {
         else {
             return []
         }
-        return rows.map { BoardItem(id: $0.id, title: $0.title, column: $0.column) }
+        return rows.map {
+            BoardItem(
+                id: $0.id,
+                title: $0.title,
+                column: $0.column,
+                updatedBy: $0.updatedBy,
+                updatedAt: $0.updatedAt,
+                url: $0.url
+            )
+        }
     }
 
     /// The canonical on-disk shape the fetch instruction fixes, decoded into
     /// ``BoardItem`` so no provider-specific field is modeled in Talos.
+    /// `updatedBy`/`updatedAt`/`url` are optional: a provider that exposes none
+    /// of them still reads cleanly.
     private struct Row: Decodable {
         let id: String
         let title: String
         let column: String
+        let updatedBy: String?
+        let updatedAt: String?
+        let url: String?
     }
 }
