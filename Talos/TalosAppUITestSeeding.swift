@@ -35,6 +35,29 @@ enum TalosAppUITestSeeding {
         _ = await center.present(request, action: action, tier: tier)
     }
 
+    /// Exists only so `TalosUITests` can drive the real, mounted board
+    /// conflict prompt before a live session ever diverges on a board write —
+    /// the same reason `seedApprovalPrompt(into:)` exists, for the conflict
+    /// sheet rather than the approval sheet. The env key it reads is never set
+    /// by a normal launch.
+    static func seedBoardConflictPrompt(into center: BoardConflictPromptCenter) async {
+        guard ProcessInfo.processInfo.environment["TALOS_UI_TEST_BOARD_CONFLICT"] != nil else { return }
+        let presentation = BoardConflictPresentation(
+            item: BoardItem(
+                id: "PVTI_1",
+                title: "Wire the board connector",
+                column: "Done",
+                updatedBy: "ada",
+                updatedAt: "2026-09-21",
+                url: "https://example.com/item/1"
+            ),
+            expected: .ready,
+            actual: .done,
+            targetColumn: "Done"
+        )
+        _ = await center.present(presentation)
+    }
+
     /// Exists for the same reason as the seed above, and for the same
     /// reason: `TalosUITests` needs to drive the real, mounted notice before
     /// a session ever runs one for real.

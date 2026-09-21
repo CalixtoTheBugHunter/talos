@@ -19,9 +19,9 @@ struct BoardConflictResolverTests {
     private func request() -> AgentPermissionRequest {
         AgentPermissionRequest(
             id: "m1",
-            prompt: "update_project_item_field — PVTI_1, Done",
-            toolName: "update_project_item_field",
-            arguments: ["item_id": "PVTI_1", "status": "Done"]
+            prompt: "projects_write update_project_item — PVTI_1, Done",
+            toolName: "projects_write",
+            arguments: ["method": "update_project_item", "item_id": "PVTI_1", "updated_field.value": "Done"]
         )
     }
 

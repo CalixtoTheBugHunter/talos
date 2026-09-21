@@ -76,6 +76,7 @@ struct TalosApp: App {
                 // waits `TalosUITests` seeds against.
                 Task { await openLocalDatabase() }
                 await TalosAppUITestSeeding.seedApprovalPrompt(into: approvalPromptCenter)
+                await TalosAppUITestSeeding.seedBoardConflictPrompt(into: boardConflictPromptCenter)
                 await TalosAppUITestSeeding.seedDeniedActionNotice(into: deniedActionNoticeCenter)
                 TalosAppUITestSeeding.seedGatedDecisionLog(
                     state: $gatedDecisionLogState,

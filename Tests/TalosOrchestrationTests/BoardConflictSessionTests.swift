@@ -19,12 +19,12 @@ struct BoardConflictSessionTests {
 
     private func moveEvents() -> [AgentEvent] {
         [
-            .toolCall(AgentToolCall(id: "m1", name: "update_project_item_field", targets: ["PVTI_1", "Done"])),
+            .toolCall(AgentToolCall(id: "m1", name: "projects_write", targets: ["PVTI_1", "update_project_item"])),
             .permissionRequest(AgentPermissionRequest(
                 id: "m1",
-                prompt: "update_project_item_field — PVTI_1, Done",
-                toolName: "update_project_item_field",
-                arguments: ["item_id": "PVTI_1", "status": "Done"]
+                prompt: "projects_write update_project_item — PVTI_1, Done",
+                toolName: "projects_write",
+                arguments: ["method": "update_project_item", "item_id": "PVTI_1", "updated_field.value": "Done"]
             )),
             terminated(.exited(code: 0))
         ]
