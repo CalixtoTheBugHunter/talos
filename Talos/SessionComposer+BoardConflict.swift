@@ -31,9 +31,11 @@ extension SessionComposer {
     /// A fresh board read, out of band: a Talos-authored `board.read` session
     /// with its own throwaway console, run inline so a Stop of the outer session
     /// cancels it too. Best-effort — on any failure it returns what is already on
-    /// disk, so the conflict check degrades to "agree" (the write proceeds)
-    /// rather than blocking a legitimate move on a read that could not complete.
+    /// disk, so the conflict check fails open: with no fresh actual state the
+    /// item agrees and the write proceeds, rather than blocking a legitimate
+    /// move on a read that could not complete (decision 95).
     /// board.read is read tier, so the throwaway console is never prompted.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#foundational-decisions
     func boardActualItems(root: URL) async -> [BoardItem] {
         let onDisk = BoardStateReader().read(projectRoot: root)
         do {

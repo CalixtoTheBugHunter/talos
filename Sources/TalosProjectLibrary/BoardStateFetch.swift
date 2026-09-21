@@ -46,8 +46,9 @@ public enum BoardStateFetch {
         Each element is an object with these string fields: "id" (the provider's stable item \
         identifier), "title" (the item's title), and "column" (the provider's own column or status \
         name, unchanged — do not map it onto any other value). Where the provider exposes them, also \
-        include "updatedBy" (who last changed the item) and "updatedAt" (when it last changed, as the \
-        provider states it); omit either field the provider does not supply. Write valid JSON and \
+        include "updatedBy" (who last changed the item), "updatedAt" (when it last changed, as the \
+        provider states it), and "url" (the item's page on the provider); omit any of these the \
+        provider does not supply. Write valid JSON and \
         nothing else into that file, write nothing outside it, and change nothing on the board. Do not \
         reproduce the items in your reply — Talos reads the file. Reply with how many items you wrote.
         """

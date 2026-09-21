@@ -40,6 +40,32 @@ struct BoardStateReaderTests {
         ])
     }
 
+    @Test("An item's optional url, updatedBy, and updatedAt decode when the read supplied them")
+    func readsOptionalProvenanceAndURL() throws {
+        let root = Self.root()
+        defer { try? FileManager.default.removeItem(at: root) }
+        try Self.write(
+            """
+            [
+              {"id": "1", "title": "Ship it", "column": "Done", "updatedBy": "ada", \
+            "updatedAt": "2026-09-21", "url": "https://example.com/item/1"}
+            ]
+            """,
+            to: root
+        )
+
+        #expect(BoardStateReader().read(projectRoot: root) == [
+            BoardItem(
+                id: "1",
+                title: "Ship it",
+                column: "Done",
+                updatedBy: "ada",
+                updatedAt: "2026-09-21",
+                url: "https://example.com/item/1"
+            )
+        ])
+    }
+
     @Test("A missing store reads as no items — a deleted store costs a refresh, not data")
     func missingStoreReadsEmpty() {
         #expect(BoardStateReader().read(projectRoot: Self.root()).isEmpty)

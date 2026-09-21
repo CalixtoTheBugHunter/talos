@@ -24,13 +24,21 @@ struct BoardConflictCheckTests {
         #expect(check().evaluate(itemID: "1", expected: expected, actual: actual) == .agree)
     }
 
-    @Test("A state a human changed since assembly is a named divergence carrying who and when")
+    @Test("A state a human changed since assembly is a named divergence carrying who, when, and the item's url")
     func divergesWhenStatesDiffer() {
         let expected = [BoardItem(id: "1", title: "Ship it", column: "Todo")]
-        let actual = [BoardItem(id: "1", title: "Ship it", column: "Done", updatedBy: "ada", updatedAt: "2026-09-21")]
+        let actual = [BoardItem(
+            id: "1", title: "Ship it", column: "Done",
+            updatedBy: "ada", updatedAt: "2026-09-21", url: "https://example.com/item/1"
+        )]
         let result = check().evaluate(itemID: "1", expected: expected, actual: actual)
+        // The divergence carries the actual item whole — including the url the
+        // conflict prompt's "Open the item" opens.
         #expect(result == .diverged(BoardConflictCheck.Divergence(
-            item: BoardItem(id: "1", title: "Ship it", column: "Done", updatedBy: "ada", updatedAt: "2026-09-21"),
+            item: BoardItem(
+                id: "1", title: "Ship it", column: "Done",
+                updatedBy: "ada", updatedAt: "2026-09-21", url: "https://example.com/item/1"
+            ),
             expected: .ready,
             actual: .done
         )))

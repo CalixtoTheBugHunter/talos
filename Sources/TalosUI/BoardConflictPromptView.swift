@@ -23,6 +23,7 @@ public struct BoardConflictPromptView: View {
     private let onOpen: () -> Void
 
     @FocusState private var focusedControl: Control?
+    @Environment(\.openURL) private var openURL
 
     public init(
         presentation: BoardConflictPresentation,
@@ -71,12 +72,23 @@ public struct BoardConflictPromptView: View {
     }
 
     private var openButton: some View {
-        Button(action: onOpen) {
+        Button(action: open) {
             Text(verbatim: "Open the item")
         }
         .focused($focusedControl, equals: .open)
         .accessibilityHint(Text(verbatim:
             "Opens the item so you can decide with its full history. Talos's move is abandoned."))
+    }
+
+    /// Opens the item's provider page, then abandons the write. When the read
+    /// supplied no URL the item cannot be opened, so the outcome is the same
+    /// abandon as keeping the board's state — the SPEC's "open" degraded to what
+    /// the data allows, never a silently different one.
+    private func open() {
+        if let url = presentation.item.url.flatMap(URL.init(string:)) {
+            openURL(url)
+        }
+        onOpen()
     }
 
     private var applyButton: some View {
