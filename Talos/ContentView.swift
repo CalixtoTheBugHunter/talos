@@ -27,6 +27,7 @@ struct ContentView: View {
     @State private var errorMessage: String?
     @State private var refreshStatus: String?
     @State private var isRefreshingSpecDrive = false
+    @State private var isRefreshingBoard = false
 
     private static let contentSpacing: CGFloat = 16
     private static let intentFieldLineRange = 3 ... 6
@@ -71,6 +72,9 @@ struct ContentView: View {
 
                     Button("Refresh Spec Drive") { refreshSpecDrive() }
                         .disabled(!canRefreshSpecDrive)
+
+                    Button("Refresh Board") { refreshBoard() }
+                        .disabled(!canRefreshBoard)
                 }
 
                 if let refreshStatus {
@@ -110,6 +114,12 @@ struct ContentView: View {
     /// stays disabled while a refresh is running.
     private var canRefreshSpecDrive: Bool {
         composer != nil && projectRoot != nil && !isRefreshingSpecDrive
+    }
+
+    /// No intent text — Talos authors that — so it needs only a project, and
+    /// stays disabled while a board refresh is running.
+    private var canRefreshBoard: Bool {
+        composer != nil && projectRoot != nil && !isRefreshingBoard
     }
 
     private func chooseProjectFolder() {
@@ -165,6 +175,53 @@ struct ContentView: View {
                 The fetch run \(sessionEnding(session)), so the index still holds only what was already \
                 fetched: \(count(sectionCount, of: "section")) from \
                 \(count(pageCount, of: "Spec Drive page")). The console above says what happened.
+                """
+            }
+        }
+    }
+
+    /// Runs the board refresh in the session console like any other agent
+    /// session — the user watches its output and approves its writes there. The
+    /// console opens only once a run starts, so a no-board project gets the
+    /// answer rather than a console that never fills.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#foundational-decisions
+    private func refreshBoard() {
+        guard let composer, let projectRoot else { return }
+        errorMessage = nil
+        refreshStatus = nil
+        isRefreshingBoard = true
+        Task {
+            do {
+                let outcome = try await composer.refreshBoardState(
+                    projectRoot: projectRoot,
+                    console: consoleViewModel,
+                    deniedNotices: deniedActionNoticeCenter,
+                    sessionWillStart: { isSessionConsolePresented = true }
+                )
+                refreshStatus = Self.boardRefreshStatusText(outcome)
+            } catch {
+                errorMessage = "\(error)"
+            }
+            isRefreshingBoard = false
+        }
+    }
+
+    /// Names how the run ended before the count: a failed, denied, or stopped
+    /// run leaves the store holding whatever was already read, which a plain
+    /// count would read as a refresh that found nothing.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Content-and-Voice
+    private static func boardRefreshStatusText(_ outcome: SessionComposer.BoardRefreshOutcome) -> String {
+        switch outcome {
+        case .noBoard:
+            "This project declares no board. Add one in .talos/board.yaml, then refresh."
+        case let .refreshed(itemCount, session):
+            switch session {
+            case .succeeded:
+                "Read \(count(itemCount, of: "board item"))."
+            case .failed, .denied, .stopped:
+                """
+                The board read \(sessionEnding(session)), so the store still holds only what was \
+                already read: \(count(itemCount, of: "board item")). The console above says what happened.
                 """
             }
         }
