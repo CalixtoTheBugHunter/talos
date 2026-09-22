@@ -129,6 +129,12 @@ enum TalosAppUITestSeeding {
             seedTerminatedTranscript(viewModel: viewModel, reason: .exited(code: 1))
         case "denied":
             seedTerminatedTranscript(viewModel: viewModel, reason: .denied)
+        case "resumable":
+            // An ended session with a transcript, plus the user's own message
+            // in it, so `TalosUITests` can drive the real chat input and see a
+            // user turn rendered before a live session ever produces one.
+            seedTerminatedTranscript(viewModel: viewModel, reason: .exited(code: 0))
+            viewModel.appendUserMessage("Rename it to \"Dark\".")
         case "tool-call-read":
             viewModel.sessionStarted()
             viewModel.handle(.toolCall(seededReadTierToolCall))

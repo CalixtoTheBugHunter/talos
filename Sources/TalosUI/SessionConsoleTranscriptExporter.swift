@@ -25,6 +25,8 @@ public enum SessionConsoleTranscriptExporter {
             LogRedaction.redacted(element.payload)
         case let .toolCall(call):
             Self.markdown(for: call)
+        case let .userMessage(text):
+            "**You:** \(LogRedaction.redacted(text))"
         }
     }
 

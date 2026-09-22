@@ -17,11 +17,15 @@ public struct SessionConsoleLine: Identifiable, Equatable, Sendable {
 }
 
 /// What a ``SessionConsoleLine`` shows: agent output, dispatched through the
-/// pluggable ``OutputRendererRegistry``, or a tool call the agent announced —
-/// two different ``AgentEvent`` cases, kept apart here for the same reason
-/// they are kept apart on the stream.
+/// pluggable ``OutputRendererRegistry``; a tool call the agent announced — two
+/// different ``AgentEvent`` cases, kept apart here for the same reason they are
+/// kept apart on the stream; or a message the user sent into the session, so
+/// the transcript reads as the whole conversation, "from the first until the
+/// end of the workflow," not only the agent's half of it.
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is
 public enum SessionConsoleLineContent: Equatable, Sendable {
     case output(OutputElement)
     case toolCall(SessionConsoleToolCall)
+    case userMessage(String)
 }

@@ -64,6 +64,22 @@ struct AppShellView: View {
         .navigationTitle("Talos")
     }
 
+    /// Sends a follow-up turn into the session the console shows, through the
+    /// same composer a start goes through. The console enables its input only
+    /// once a resumable session is present, so the composer's own no-resumable-
+    /// session guard is unreachable from here — swallowed rather than surfaced,
+    /// since there is no path that reaches it.
+    private func submitFollowUp(_ text: String) {
+        guard let composer else { return }
+        Task {
+            try? await composer.submitFollowUp(
+                intentText: text,
+                console: consoleViewModel,
+                deniedNotices: deniedActionNoticeCenter
+            )
+        }
+    }
+
     @ViewBuilder
     private var detail: some View {
         switch navigation.selectedSurface {
@@ -76,7 +92,8 @@ struct AppShellView: View {
             if isSessionConsolePresented {
                 SessionConsoleView(
                     viewModel: consoleViewModel,
-                    onClose: { isSessionConsolePresented = false }
+                    onClose: { isSessionConsolePresented = false },
+                    onSubmitFollowUp: submitFollowUp
                 )
             } else {
                 ContentView(

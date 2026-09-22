@@ -203,8 +203,9 @@ public struct SessionPipeline<
         )
         let selected = IntentReceived(intent: intent).selectGuideline(guideline)
 
+        let resuming = launch.configuration.resumeToken != nil
         let assembled: ContextAssembled
-        switch selected.assembleContext(using: assembler, safeguards: safeguards, connectors: connectors) {
+        switch contextStage(for: selected, safeguards: safeguards, connectors: connectors, resuming: resuming) {
         case let .assembled(stage):
             assembled = stage
         case let .failed(failure):
@@ -246,6 +247,31 @@ public struct SessionPipeline<
             transcript: runOutcome.transcript,
             resumeToken: runOutcome.resumeToken
         )
+    }
+
+    /// Stage 3, either the full Project Library assembly or — for a resumed
+    /// turn, whose launch carries a `resumeToken` — no context at all. The
+    /// agent already holds the prior conversation through its own resume
+    /// mechanism, so only the user's follow-up text reaches it, and the
+    /// pinned-parts ceiling cannot overflow on nothing, so the resumed path
+    /// never fails assembly.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is
+    private func contextStage(
+        for selected: GuidelineSelected,
+        safeguards: SafeguardsDocument,
+        connectors: ConnectorsManifest,
+        resuming: Bool
+    ) -> ContextAssemblyStageOutcome {
+        guard resuming else {
+            return selected.assembleContext(using: assembler, safeguards: safeguards, connectors: connectors)
+        }
+        return .assembled(ContextAssembled(
+            intent: selected.intent,
+            guideline: selected.guideline,
+            safeguards: safeguards,
+            connectors: connectors,
+            context: .none(rawPromptTokenEstimate: TokenEstimate.approximate(selected.intent.content))
+        ))
     }
 
     /// Stages 9-11: writes the record, then updates memories. Stage 10
