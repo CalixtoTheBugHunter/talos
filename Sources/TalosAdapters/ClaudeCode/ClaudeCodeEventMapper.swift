@@ -1,4 +1,5 @@
 import Foundation
+import TalosCore
 
 /// A decoded stdout line to the ``AgentEvent`` it is, if it is one. Session
 /// bookkeeping stays in ``ClaudeCodeAdapter``, so this is a pure translation
@@ -20,6 +21,7 @@ enum ClaudeCodeEventMapper {
                 id: toolUseID,
                 prompt: prompt(toolName: toolName, targets: targets),
                 toolName: toolName,
+                classifiedAction: classifiedAction(toolName: toolName, arguments: arguments),
                 arguments: arguments
             )
             return .permissionRequest(request)
@@ -37,5 +39,23 @@ enum ClaudeCodeEventMapper {
     static func prompt(toolName: String, targets: [String]) -> String {
         guard !targets.isEmpty else { return toolName }
         return "\(toolName) — \(targets.joined(separator: ", "))"
+    }
+
+    /// The taxonomy action type a held call is, when it is one of the tools
+    /// this adapter recognizes — so the gate classifies a board write at its
+    /// [write tier](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#write-tier)
+    /// rather than the irreversible default a raw provider tool name falls to,
+    /// per [decision 96](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#foundational-decisions).
+    /// `github-mcp-server`'s consolidated `projects_write` selects its operation
+    /// with `method`; a create adds an item, an update moves it. A method this
+    /// adapter does not map returns `nil`, which the gate resolves at the
+    /// most-restrictive tier — never a permissive guess.
+    private static func classifiedAction(toolName: String, arguments: [String: String]) -> SafeguardsActionType? {
+        guard toolName == "projects_write" else { return nil }
+        switch arguments["method"] {
+        case "add_project_item": return .boardItemCreate
+        case "update_project_item": return .boardItemMove
+        default: return nil
+        }
     }
 }

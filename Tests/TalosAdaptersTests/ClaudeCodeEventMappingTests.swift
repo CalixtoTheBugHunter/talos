@@ -1,5 +1,6 @@
 import Foundation
 @testable import TalosAdapters
+import TalosCore
 import Testing
 
 /// Loads the real, scrubbed captures under `Fixtures/ClaudeCode/`, copied into
@@ -90,6 +91,57 @@ struct ClaudeCodeEventMappingTests {
             return
         }
         #expect(request.arguments == ["file_path": "/private/tmp/fixture/note.txt", "content": "hello\n"])
+    }
+
+    /// The adapter classifies a `github-mcp-server` board write into its
+    /// taxonomy action type so the gate reaches its write tier rather than the
+    /// irreversible default a raw tool name falls to — decision 96.
+    ///
+    /// The two `board-item-*.jsonl` fixtures are derived from `github-mcp-server`'s
+    /// published `projects_write` schema, not a live capture — the same caveat
+    /// `BoardWriteRecognizer` already carries for `update_project_item`; a
+    /// captured `projects_write` deferral should pin the method names end to end.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#foundational-decisions
+    @Test("A deferred projects_write add is classified as a board item create")
+    func boardCreateIsClassified() throws {
+        let lastLine = try #require(try ClaudeCodeFixture.lines("board-item-create.jsonl").last)
+        let value = try #require(ClaudeCodeStreamDecoder.decode(lastLine))
+        let event = try #require(ClaudeCodeEventMapper.agentEvent(for: value))
+
+        guard case let .permissionRequest(request) = event else {
+            Issue.record("Expected a permission request, got \(event)")
+            return
+        }
+        #expect(request.toolName == "projects_write")
+        #expect(request.classifiedAction == .boardItemCreate)
+    }
+
+    @Test("A deferred projects_write update is classified as a board item move")
+    func boardMoveIsClassified() throws {
+        let lastLine = try #require(try ClaudeCodeFixture.lines("board-item-move.jsonl").last)
+        let value = try #require(ClaudeCodeStreamDecoder.decode(lastLine))
+        let event = try #require(ClaudeCodeEventMapper.agentEvent(for: value))
+
+        guard case let .permissionRequest(request) = event else {
+            Issue.record("Expected a permission request, got \(event)")
+            return
+        }
+        #expect(request.classifiedAction == .boardItemMove)
+    }
+
+    /// A tool the adapter does not recognize carries no classification, so the
+    /// gate falls back to its most-restrictive default rather than a guess.
+    @Test("An unrecognized tool carries no classified action")
+    func unrecognizedToolIsNotClassified() throws {
+        let lastLine = try #require(try ClaudeCodeFixture.lines("permission-request.jsonl").last)
+        let value = try #require(ClaudeCodeStreamDecoder.decode(lastLine))
+        let event = try #require(ClaudeCodeEventMapper.agentEvent(for: value))
+
+        guard case let .permissionRequest(request) = event else {
+            Issue.record("Expected a permission request, got \(event)")
+            return
+        }
+        #expect(request.classifiedAction == nil)
     }
 
     /// § A tool call and a permission request are two events, never as one —

@@ -1,4 +1,5 @@
 import Foundation
+import TalosCore
 
 /// Which of the agent's two output channels a chunk arrived on. Kept apart
 /// because an agent CLI's diagnostics and its answer are different things to
@@ -96,6 +97,15 @@ public struct AgentPermissionRequest: Equatable, Hashable, Sendable, Identifiabl
     /// A connector target and verb, when the adapter identified one. `nil`
     /// falls back to ``toolName``.
     public let connectorAccess: AgentConnectorAccess?
+    /// The taxonomy action type the adapter classified this held call as, when
+    /// it recognized one of its own tools — the gate reads this rather than the
+    /// provider tool name, which is not a taxonomy name. `nil` for a call the
+    /// adapter did not classify, which the gate resolves through `connectorAccess`
+    /// then `toolName`, falling to the most-restrictive tier. Classifying is the
+    /// adapter's own work per
+    /// [decision 96](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#foundational-decisions),
+    /// within the fourth capability, not a seventh.
+    public let classifiedAction: SafeguardsActionType?
     /// The held call's arguments, key to value, as the agent stated them —
     /// the same structured data folded into ``prompt`` for display, kept here
     /// so a board conflict check can read the item and target column a
@@ -109,12 +119,14 @@ public struct AgentPermissionRequest: Equatable, Hashable, Sendable, Identifiabl
         prompt: String,
         toolName: String? = nil,
         connectorAccess: AgentConnectorAccess? = nil,
+        classifiedAction: SafeguardsActionType? = nil,
         arguments: [String: String] = [:]
     ) {
         self.id = id
         self.prompt = prompt
         self.toolName = toolName
         self.connectorAccess = connectorAccess
+        self.classifiedAction = classifiedAction
         self.arguments = arguments
     }
 }
