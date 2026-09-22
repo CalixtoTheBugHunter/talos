@@ -14,11 +14,24 @@ import Testing
 /// exercises the pipeline directly, not the ``SessionComposer`` composition
 /// root that reads those three — that root lives in the app target and is
 /// exercised through the app, not a unit suite.
-private struct AssistantEndToEndProject {
+struct AssistantEndToEndProject {
     let id = ProjectIdentifier.generate()
     let guideline: GuidelineDocument
     let safeguards: SafeguardsDocument
-    let connectors = ConnectorsManifest()
+    var connectors = ConnectorsManifest()
+
+    /// A project declaring a `repo`-kind connector, so a git operation reaching
+    /// its remote resolves to its specific taxonomy type rather than
+    /// `connector.undeclared`.
+    static func makeWithRepoConnector() throws -> Self {
+        var project = try make()
+        project.connectors = ConnectorsManifest(connectors: [
+            ConnectorDeclaration(
+                name: "github-repo", kind: .repo, target: "https://github.com/org/repo", reachedVia: .cli
+            )
+        ])
+        return project
+    }
 
     static func make() throws -> Self {
         let root = URL(fileURLWithPath: NSTemporaryDirectory())
@@ -65,7 +78,7 @@ private struct AssistantEndToEndProject {
 /// Records every prompt the gate presented — the read/write-tier assertion
 /// this suite exists to make is entirely about how many times, and at which
 /// tier, this is called.
-private actor RecordingApprovalPrompt: SafeguardsApprovalPrompt {
+actor RecordingApprovalPrompt: SafeguardsApprovalPrompt {
     private(set) var presented: [(action: SafeguardsActionType, tier: SafeguardsTier)] = []
     private let outcome: AgentPermissionDecision
 
@@ -83,7 +96,7 @@ private actor RecordingApprovalPrompt: SafeguardsApprovalPrompt {
     }
 }
 
-private actor RecordingGatedDecisionLog: GatedDecisionLog {
+actor RecordingGatedDecisionLog: GatedDecisionLog {
     private(set) var entries: [GatedDecisionEntry] = []
 
     func record(_ entry: GatedDecisionEntry) async {
@@ -336,14 +349,15 @@ struct AssistantSessionEndToEndTests {
         #expect(!delivered.contains("Board columns"))
     }
 
-    private static func makePipeline(
+    static func makePipeline(
         adapter: ClaudeCodeAdapter,
         approvalPrompt: RecordingApprovalPrompt,
         decisionLog: RecordingGatedDecisionLog,
-        specDriveSource: any SpecDriveContextSource = InertContextSource.specDrive
+        specDriveSource: any SpecDriveContextSource = InertContextSource.specDrive,
+        connectors: ConnectorsManifest = ConnectorsManifest()
     ) -> SessionPipeline<AlwaysApprovedSafeguardsPreCheck, ClaudeCodeAdapter, TieredSafeguardsGate> {
         let allowlist = InMemoryEmptyAllowlist()
-        let gate = TieredSafeguardsGate(allowlist: allowlist, approvalPrompt: approvalPrompt)
+        let gate = TieredSafeguardsGate(allowlist: allowlist, approvalPrompt: approvalPrompt, connectors: connectors)
         let assembler = ContextAssembler(
             specDriveSource: specDriveSource,
             boardSource: InertContextSource.board,

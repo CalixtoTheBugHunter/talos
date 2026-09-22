@@ -17,11 +17,13 @@ enum ClaudeCodeEventMapper {
         case let .permissionDenied(message):
             return .output(AgentOutputChunk(channel: .standardError, text: message))
         case let .deferred(toolUseID, toolName, targets, arguments, _, _):
+            let classification = classify(toolName: toolName, arguments: arguments)
             let request = AgentPermissionRequest(
                 id: toolUseID,
                 prompt: prompt(toolName: toolName, targets: targets),
                 toolName: toolName,
-                classifiedAction: classifiedAction(toolName: toolName, arguments: arguments),
+                connectorAccess: classification.connectorAccess,
+                classifiedAction: classification.action,
                 arguments: arguments
             )
             return .permissionRequest(request)
@@ -41,21 +43,44 @@ enum ClaudeCodeEventMapper {
         return "\(toolName) — \(targets.joined(separator: ", "))"
     }
 
-    /// The taxonomy action type a held call is, when it is one of the tools
-    /// this adapter recognizes — so the gate classifies a board write at its
-    /// [write tier](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#write-tier)
+    /// The taxonomy classification of a held call, when it is one of the tools
+    /// this adapter recognizes — so the gate classifies a board write or a git
+    /// commit at its [write tier](https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#write-tier)
     /// rather than the irreversible default a raw provider tool name falls to,
     /// per [decision 96](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#foundational-decisions).
-    /// `github-mcp-server`'s consolidated `projects_write` selects its operation
-    /// with `method`; a create adds an item, an update moves it. A method this
-    /// adapter does not map returns `nil`, which the gate resolves at the
-    /// most-restrictive tier — never a permissive guess.
-    private static func classifiedAction(toolName: String, arguments: [String: String]) -> SafeguardsActionType? {
-        guard toolName == "projects_write" else { return nil }
-        switch arguments["method"] {
-        case "add_project_item": return .boardItemCreate
-        case "update_project_item": return .boardItemMove
-        default: return nil
+    /// Both members `nil` for a call this adapter does not classify, which the
+    /// gate resolves at the most-restrictive tier — never a permissive guess.
+    private typealias HeldCallClassification = (action: SafeguardsActionType?, connectorAccess: AgentConnectorAccess?)
+
+    private static func classify(toolName: String, arguments: [String: String]) -> HeldCallClassification {
+        // `github-mcp-server`'s consolidated `projects_write` selects its
+        // operation with `method`; a create adds an item, an update moves it.
+        if toolName == "projects_write" {
+            switch arguments["method"] {
+            case "add_project_item": return (.boardItemCreate, nil)
+            case "update_project_item": return (.boardItemMove, nil)
+            default: return (nil, nil)
+            }
         }
+        // Claude Code runs `git`/`gh` through `Bash`, so the operation lives in
+        // the command string, not the tool name.
+        if toolName == "Bash", let command = arguments["command"] {
+            return gitClassification(for: command)
+        }
+        return (nil, nil)
+    }
+
+    /// A recognized git operation's classification: its taxonomy type, plus a
+    /// repo-remote connector access the gate resolves against `connectors.yaml`
+    /// for a remote op. An unrecognized command carries neither.
+    private static func gitClassification(for command: String) -> HeldCallClassification {
+        guard let recognized = GitCommandRecognizer.recognize(command: command) else { return (nil, nil) }
+        guard recognized.reachesRemote else { return (recognized.action, nil) }
+        let access = AgentConnectorAccess(
+            target: recognized.explicitRemoteURL ?? "",
+            verb: .write,
+            isRepoRemote: true
+        )
+        return (recognized.action, access)
     }
 }
