@@ -132,11 +132,35 @@ public struct TieredSafeguardsGate: SafeguardsGate {
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#what-is-never-allowlistable
     private func resolvedAction(for request: AgentPermissionRequest) -> SafeguardsActionType {
         if let access = request.connectorAccess {
+            if access.isRepoRemote {
+                return resolvedRepoRemoteAction(for: request, access: access)
+            }
             return .connector(verb: access.verb.safeguardsVerb, declared: connectors.isDeclared(access.target))
         }
         if let classified = request.classifiedAction {
             return classified
         }
         return SafeguardsActionType(rawValue: request.toolName ?? "")
+    }
+
+    /// A git operation reaching a repo remote: its specific taxonomy type when
+    /// the repo is declared, `connector.undeclared` when it is not — the same
+    /// rule that keeps the undeclared path never-allowlistable, so the adapter's
+    /// `git.push` can never lower a push to an undeclared remote below the top
+    /// tier. Declared-ness is checked live: an explicit URL against a declared
+    /// repo target, a bare remote against whether any repo connector is
+    /// declared.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#what-is-never-allowlistable
+    private func resolvedRepoRemoteAction(
+        for request: AgentPermissionRequest,
+        access: AgentConnectorAccess
+    ) -> SafeguardsActionType {
+        let declared = access.target.isEmpty
+            ? connectors.declaresRepo()
+            : connectors.declaresTarget(access.target)
+        guard declared, let classified = request.classifiedAction else {
+            return .connectorUndeclared
+        }
+        return classified
     }
 }

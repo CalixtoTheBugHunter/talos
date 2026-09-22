@@ -73,13 +73,24 @@ public enum AgentConnectorVerb: Equatable, Hashable, Sendable {
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#the-action-type-taxonomy
 public struct AgentConnectorAccess: Equatable, Hashable, Sendable {
     /// The connector name as declared in `connectors.yaml` — a lookup key,
-    /// not a URL or a display string.
+    /// not a URL or a display string. For a git repo remote (``isRepoRemote``)
+    /// it is instead the explicit remote URL the command named, or empty for a
+    /// bare remote such as `origin`.
     public let target: String
     public let verb: AgentConnectorVerb
+    /// Whether this access is a git operation reaching a repo remote — a push
+    /// or a `gh pr`/`gh repo` op. The gate then resolves declared-ness against
+    /// the project's repo connectors (an explicit ``target`` URL against a
+    /// declared repo target, or a bare remote against whether any repo
+    /// connector is declared) rather than the connector-name lookup an ordinary
+    /// connector access uses. `false` leaves the existing name lookup unchanged.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#the-action-type-taxonomy
+    public let isRepoRemote: Bool
 
-    public init(target: String, verb: AgentConnectorVerb) {
+    public init(target: String, verb: AgentConnectorVerb, isRepoRemote: Bool = false) {
         self.target = target
         self.verb = verb
+        self.isRepoRemote = isRepoRemote
     }
 }
 
