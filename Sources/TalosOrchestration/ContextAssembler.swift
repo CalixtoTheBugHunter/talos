@@ -103,6 +103,22 @@ public struct AssembledContext: Equatable, Sendable {
         guard total > 0 else { return 0 }
         return Double(overhead) / Double(total)
     }
+
+    /// The context a resumed turn assembles: none. The agent already holds the
+    /// prior conversation through its own resume mechanism, so Talos injects no
+    /// part and only the user's own follow-up text reaches it — `overheadRatio`
+    /// is `0` by construction. Re-injecting context the agent would carry anyway
+    /// is the overhead the < 5% budget forbids.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Vision-and-Principles#budgets-that-make-the-above-testable
+    public static func none(rawPromptTokenEstimate: Int) -> Self {
+        Self(
+            includedParts: [],
+            droppedParts: [],
+            unavailableParts: [],
+            assembledTokens: 0,
+            rawPromptTokenEstimate: rawPromptTokenEstimate
+        )
+    }
 }
 
 /// What one call to ``ContextAssembler/assemble(_:)`` produced.

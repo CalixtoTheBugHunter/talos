@@ -18,6 +18,7 @@
 		7A10000000000000000A000D /* SessionComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B000E /* SessionComposer.swift */; };
 		7A10000000000000000A0011 /* SessionComposer+SpecDriveRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B0011 /* SessionComposer+SpecDriveRefresh.swift */; };
 		7A10000000000000000A0016 /* SessionComposer+BoardRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B0016 /* SessionComposer+BoardRefresh.swift */; };
+		7A10000000000000000A0018 /* SessionComposer+RunSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B0018 /* SessionComposer+RunSession.swift */; };
 		7A10000000000000000A0017 /* SessionComposer+BoardConflict.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B0017 /* SessionComposer+BoardConflict.swift */; };
 		7A10000000000000000A000E /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B000F /* ContentView.swift */; };
 		7A10000000000000000A000F /* TalosAppUITestSeeding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B0010 /* TalosAppUITestSeeding.swift */; };
@@ -32,6 +33,7 @@
 		7A20000000000000000A0001 /* TalosUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A20000000000000000B0001 /* TalosUITests.swift */; };
 		7A20000000000000000A0002 /* AppShellUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A20000000000000000B0003 /* AppShellUITests.swift */; };
 		7A20000000000000000A0003 /* SessionConsoleContentAreaUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A20000000000000000B0004 /* SessionConsoleContentAreaUITests.swift */; };
+		7A20000000000000000A0004 /* SessionConsoleFollowUpInputUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A20000000000000000B0005 /* SessionConsoleFollowUpInputUITests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -60,6 +62,7 @@
 		7A10000000000000000B000E /* SessionComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionComposer.swift; sourceTree = "<group>"; };
 		7A10000000000000000B0011 /* SessionComposer+SpecDriveRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionComposer+SpecDriveRefresh.swift"; sourceTree = "<group>"; };
 		7A10000000000000000B0016 /* SessionComposer+BoardRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionComposer+BoardRefresh.swift"; sourceTree = "<group>"; };
+		7A10000000000000000B0018 /* SessionComposer+RunSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionComposer+RunSession.swift"; sourceTree = "<group>"; };
 		7A10000000000000000B0017 /* SessionComposer+BoardConflict.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionComposer+BoardConflict.swift"; sourceTree = "<group>"; };
 		7A10000000000000000B000F /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		7A10000000000000000B0010 /* TalosAppUITestSeeding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalosAppUITestSeeding.swift; sourceTree = "<group>"; };
@@ -71,6 +74,7 @@
 		7A20000000000000000B0001 /* TalosUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalosUITests.swift; sourceTree = "<group>"; };
 		7A20000000000000000B0003 /* AppShellUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellUITests.swift; sourceTree = "<group>"; };
 		7A20000000000000000B0004 /* SessionConsoleContentAreaUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionConsoleContentAreaUITests.swift; sourceTree = "<group>"; };
+		7A20000000000000000B0005 /* SessionConsoleFollowUpInputUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionConsoleFollowUpInputUITests.swift; sourceTree = "<group>"; };
 		7A20000000000000000B0002 /* TalosUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TalosUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -118,6 +122,7 @@
 				7A20000000000000000B0001 /* TalosUITests.swift */,
 				7A20000000000000000B0003 /* AppShellUITests.swift */,
 				7A20000000000000000B0004 /* SessionConsoleContentAreaUITests.swift */,
+				7A20000000000000000B0005 /* SessionConsoleFollowUpInputUITests.swift */,
 			);
 			path = TalosUITests;
 			sourceTree = "<group>";
@@ -144,6 +149,7 @@
 				7A10000000000000000B000E /* SessionComposer.swift */,
 				7A10000000000000000B0011 /* SessionComposer+SpecDriveRefresh.swift */,
 				7A10000000000000000B0016 /* SessionComposer+BoardRefresh.swift */,
+				7A10000000000000000B0018 /* SessionComposer+RunSession.swift */,
 				7A10000000000000000B0017 /* SessionComposer+BoardConflict.swift */,
 				7A10000000000000000B000F /* ContentView.swift */,
 				7A10000000000000000B0010 /* TalosAppUITestSeeding.swift */,
@@ -301,6 +307,7 @@
 				7A10000000000000000A000D /* SessionComposer.swift in Sources */,
 				7A10000000000000000A0011 /* SessionComposer+SpecDriveRefresh.swift in Sources */,
 				7A10000000000000000A0016 /* SessionComposer+BoardRefresh.swift in Sources */,
+				7A10000000000000000A0018 /* SessionComposer+RunSession.swift in Sources */,
 				7A10000000000000000A0017 /* SessionComposer+BoardConflict.swift in Sources */,
 				7A10000000000000000A000E /* ContentView.swift in Sources */,
 				7A10000000000000000A000F /* TalosAppUITestSeeding.swift in Sources */,
@@ -326,6 +333,7 @@
 				7A20000000000000000A0001 /* TalosUITests.swift in Sources */,
 				7A20000000000000000A0002 /* AppShellUITests.swift in Sources */,
 				7A20000000000000000A0003 /* SessionConsoleContentAreaUITests.swift in Sources */,
+				7A20000000000000000A0004 /* SessionConsoleFollowUpInputUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

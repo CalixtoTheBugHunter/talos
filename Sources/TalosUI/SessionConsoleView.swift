@@ -11,14 +11,25 @@ import TalosAdapters
 public struct SessionConsoleView: View {
     private let viewModel: SessionConsoleViewModel
     private let onClose: () -> Void
+    private let onSubmitFollowUp: (String) -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var scrollPhase: ScrollPhase = .idle
+    /// The follow-up the user is typing, held here rather than on the view
+    /// model: it is draft UI state until submitted, and clearing it on submit
+    /// is the view's own concern.
+    @State private var followUpText = ""
 
     /// How close to the bottom edge still counts as "at the bottom" — a
     /// small tolerance for layout rounding, not a debounce interval.
     private static let bottomProximityTolerance: CGFloat = 24
     private static let tokenUsageBadgeTopPadding: CGFloat = 8
+    private static let followUpInputSpacing: CGFloat = 8
+    /// The user's own message bubble: interior padding, corner radius, and the
+    /// least gap kept on its leading side so it never spans the full width.
+    private static let userMessageBubblePadding: CGFloat = 10
+    private static let userMessageCornerRadius: CGFloat = 14
+    private static let userMessageLeadingInset: CGFloat = 48
 
     /// The window minimum is `.contentMinSize`-derived: with no explicit floor
     /// the transcript's tall ideal becomes the window's minimum, which grows the
@@ -31,10 +42,12 @@ public struct SessionConsoleView: View {
 
     public init(
         viewModel: SessionConsoleViewModel,
-        onClose: @escaping () -> Void
+        onClose: @escaping () -> Void,
+        onSubmitFollowUp: @escaping (String) -> Void
     ) {
         self.viewModel = viewModel
         self.onClose = onClose
+        self.onSubmitFollowUp = onSubmitFollowUp
     }
 
     public var body: some View {
@@ -49,6 +62,9 @@ public struct SessionConsoleView: View {
                 missingContextBadge(viewModel.missingContextLabels)
             }
             content
+            if viewModel.state != .empty {
+                followUpInput
+            }
         }
         .frame(
             minWidth: Self.minimumWidth,
@@ -299,6 +315,8 @@ public struct SessionConsoleView: View {
             SessionConsoleToolCallRow(call: call) { decision in
                 viewModel.resolvePendingApproval(with: decision)
             }
+        case let .userMessage(text):
+            userMessageRow(text)
         }
     }
 
@@ -310,5 +328,71 @@ public struct SessionConsoleView: View {
         withAnimation {
             proxy.scrollTo(id, anchor: .bottom)
         }
+    }
+}
+
+/// The chat input and the user's own transcript rows — a same-file `private`
+/// extension so the view's primary declaration stays within the type-body limit.
+private extension SessionConsoleView {
+    /// The "one input line for talking to the agent" the console owes,
+    /// persistent below the transcript. Submitting resumes the session, and it
+    /// stays always enabled — a message sent mid-turn is queued and sent next,
+    /// never dropped, so nothing runs concurrently. The native `TextField` is
+    /// keyboard-reachable and holds layout at any text size; the send affordance
+    /// carries a label and an SF Symbol, never colour alone.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Accessibility#never-by-color-alone
+    private var followUpInput: some View {
+        HStack(spacing: Self.followUpInputSpacing) {
+            TextField(text: $followUpText) {
+                Text(verbatim: "Reply to the agent")
+            }
+            .textFieldStyle(.plain)
+            .onSubmit(submitFollowUp)
+            .accessibilityLabel(Text(verbatim: "Message to the agent"))
+            .accessibilityHint(Text(verbatim: "Sends your message. A message sent while a turn runs is sent next."))
+
+            Button(action: submitFollowUp) {
+                Image(systemName: "arrow.up.circle.fill")
+                    .imageScale(.large)
+                    .foregroundStyle(.tint)
+            }
+            .buttonStyle(.plain)
+            .disabled(!canSubmitFollowUp)
+            .accessibilityLabel(Text(verbatim: "Send"))
+        }
+        .padding(.horizontal, Self.userMessageBubblePadding)
+        .padding(.vertical, Self.followUpInputSpacing)
+        .background(.quaternary, in: .capsule)
+        .padding([.horizontal, .bottom])
+    }
+
+    /// The send affordance is enabled whenever the draft is not blank — the
+    /// input itself is always enabled, so a message can be typed and sent at any
+    /// time; one sent mid-turn is queued and sent next, never dropped.
+    private var canSubmitFollowUp: Bool {
+        !followUpText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func submitFollowUp() {
+        let text = followUpText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        followUpText = ""
+        onSubmitFollowUp(text)
+    }
+
+    /// The user's own turn, set apart like a chat client's sender bubble —
+    /// trailing-aligned and filled. Colour is not the only cue: alignment and
+    /// the container carry it, and the row is VoiceOver-labeled as the user's.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Accessibility#never-by-color-alone
+    private func userMessageRow(_ text: String) -> some View {
+        HStack {
+            Spacer(minLength: Self.userMessageLeadingInset)
+            Text(text)
+                .padding(Self.userMessageBubblePadding)
+                .background(.tint, in: .rect(cornerRadius: Self.userMessageCornerRadius))
+                .foregroundStyle(.white)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(Text(verbatim: "You said: \(text)"))
     }
 }

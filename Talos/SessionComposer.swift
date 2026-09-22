@@ -36,8 +36,32 @@ final class SessionComposer {
         let declaration: AgentDeclaration
     }
 
+    /// The session the console currently shows, kept so a follow-up turn can
+    /// resume it: its project and root are reused unchanged, and `resumeToken`
+    /// is refreshed from each run's record so the next turn resumes the latest
+    /// state. Set by every ``runSession(...)``, so a refresh run is continuable
+    /// on the same terms as an Assistant or Automator one.
+    struct ActiveSession {
+        let root: URL
+        let project: LoadedProject
+        let subFunction: SubFunction
+        var resumeToken: String?
+    }
+
+    /// Not `private`: the `+RunSession` extension sets it as each run starts and
+    /// reads it to resume the current session on a follow-up turn.
+    var activeSession: ActiveSession?
+
+    /// Messages the user sent while a turn was running, in the order sent. The
+    /// input is always enabled, so a message sent mid-turn is held here rather
+    /// than dropped or run concurrently, and drained one per turn as each
+    /// completes — the session is refined in sequence, never in parallel.
+    /// Not `private`: the `+RunSession` extension enqueues and drains it.
+    var pendingFollowUps: [String] = []
+
     let database: Database
-    private let stopCenter: SessionStopCenter
+    /// Not `private`: the `+RunSession` extension wires and ends stop tracking.
+    let stopCenter: SessionStopCenter
     /// The presenter a diverged board item's conflict prompt is shown through —
     /// the same instance the app view hosts, so a session's conflict check
     /// reaches the UI and blocks the session the way the gate does.
@@ -124,87 +148,6 @@ final class SessionComposer {
             deniedNotices: deniedNotices,
             sessionWillStart: sessionWillStart
         )
-    }
-
-    /// Runs one session through the shared pipeline. Both a user's Assistant
-    /// session and the Talos-authored refresh go through here, so the refresh
-    /// gets the same gate, console, Stop, and record rather than its own path.
-    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#foundational-decisions
-    func runSession(
-        root: URL,
-        project: LoadedProject,
-        intent: Intent,
-        console: SessionConsoleViewModel,
-        deniedNotices: DeniedActionNoticeCenter,
-        sessionWillStart: (@MainActor () -> Void)? = nil
-    ) async throws -> SessionRecord {
-        let adapter = try AnyAgentAdapterBox(adapterRegistry.makeAdapter(named: project.declaration.adapter))
-        let allowlist = try AllowlistStore(
-            projectRoot: root,
-            project: project.manifest.id,
-            changeLog: NoOpAllowlistChangeLog()
-        )
-        let gate = TieredSafeguardsGate(allowlist: allowlist, approvalPrompt: console, connectors: project.connectors)
-        let pipeline = await Self.makePipeline(
-            adapter: adapter, gate: gate, database: database, project: project, root: root
-        )
-
-        let launch = SessionLaunch(
-            agentName: project.declaration.name,
-            configuration: AgentLaunchConfiguration(
-                workingDirectory: root,
-                environment: SpawnedAgentEnvironment.resolve(),
-                model: project.declaration.model
-            )
-        )
-
-        // Reset the console before it is shown, then present it — so a new or
-        // failed start never reopens the previous session's transcript: a load
-        // that threw above never reaches here, so `sessionWillStart` never fires
-        // and no stale console is presented.
-        // https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is
-        console.sessionStarted()
-        sessionWillStart?()
-        // Run the pipeline in a task the Stop control cancels: a stop reaches
-        // the pipeline as cancellation, which kills the agent at any suspension
-        // the session can be sitting at — including "Waiting for the agent to
-        // respond." Tracking begins before the first await and ends however the
-        // session does, so Stop is reachable throughout and never after.
-        // https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#rules
-        // A diverged board item stops an allowed move before it runs, per
-        // decision 42. Only wired when the project declares a board; a read the
-        // recognizer does not match never triggers it, so the board refresh's
-        // own read carries it harmlessly.
-        let boardConflict = project.board.map { makeBoardConflictResolver(root: root, board: $0) }
-        let sessionTask = Task {
-            await pipeline.run(
-                intent: intent,
-                guideline: project.guideline,
-                safeguards: project.safeguards,
-                connectors: project.connectors,
-                launch: launch,
-                observer: { [console] event in await console.handle(event) },
-                tokenObserver: { [console] update in await console.updateTokenUsage(update) },
-                onDenial: { [deniedNotices] action, prompt in
-                    await deniedNotices.notify(action: action, requestPrompt: prompt)
-                },
-                boardConflict: boardConflict
-            )
-        }
-        stopCenter.beginTracking { sessionTask.cancel() }
-        defer { stopCenter.sessionEnded() }
-        let record = await sessionTask.value
-        // A requested context part that had nothing to assemble — a declared-absent
-        // Spec Drive, or one not indexed yet — is labeled on the output, never left
-        // silent: "missing context is labeled where the output is read."
-        // https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback
-        console.noteUnavailableContext(record.unavailableContextParts)
-        // The pipeline's pre-stream terminal paths (a launch that failed, a
-        // pre-check denial) emit no `.terminated` to the observer, so tell the
-        // console the final outcome directly; a no-op once the stream reported
-        // the end, so a streamed session keeps what it observed.
-        console.sessionConcluded(record.outcome)
-        return record
     }
 
     static func loadProject(at root: URL, subFunction: SubFunction) throws -> LoadedProject {

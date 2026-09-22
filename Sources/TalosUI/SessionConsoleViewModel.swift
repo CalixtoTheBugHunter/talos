@@ -40,8 +40,10 @@ public final class SessionConsoleViewModel: SafeguardsApprovalPrompt {
     /// goes through this registry; it renders through its own row.
     public let renderers: OutputRendererRegistry
     /// The transcript so far, in arrival order. Every element but the last
-    /// is finalized; the last is still open to more text.
-    public private(set) var lines: [SessionConsoleLine] = []
+    /// is finalized; the last is still open to more text. `internal(set)` so
+    /// the `+Lifecycle` extension can append a user message the same way this
+    /// file appends output and tool calls.
+    public internal(set) var lines: [SessionConsoleLine] = []
     /// Whether the console should keep scrolling to new output. Toggled only
     /// by the view, from a real scroll-phase event — never by a timer.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#nothing-polls
@@ -299,7 +301,9 @@ public final class SessionConsoleViewModel: SafeguardsApprovalPrompt {
     /// so far is a complete unit as far as the reader is concerned, so it is
     /// announced and closed rather than left dangling under a row that is no
     /// longer last.
-    private func closeOpenLineIfNeeded() {
+    /// Not `private`: `+Lifecycle`'s ``appendUserMessage(_:)`` closes the open
+    /// output line before appending the user's own row.
+    func closeOpenLineIfNeeded() {
         defer { openLineID = nil }
         guard openLineID != nil, let last = lines.last, case let .output(element) = last.content else { return }
         announceIfMeaningful(element.payload)
@@ -379,7 +383,7 @@ public final class SessionConsoleViewModel: SafeguardsApprovalPrompt {
         continuation.resume(returning: nil)
     }
 
-    private func makeNextID() -> Int {
+    func makeNextID() -> Int {
         let id = nextID
         nextID += 1
         return id
@@ -388,7 +392,7 @@ public final class SessionConsoleViewModel: SafeguardsApprovalPrompt {
     /// A blank line finalizing carries nothing to announce — "one
     /// announcement per meaningful unit of output".
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Accessibility#voiceover
-    private func announceIfMeaningful(_ payload: String) {
+    func announceIfMeaningful(_ payload: String) {
         guard !payload.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         announcer.announce(payload)
     }

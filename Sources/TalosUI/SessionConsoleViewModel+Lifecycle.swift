@@ -14,6 +14,33 @@ public extension SessionConsoleViewModel {
         hasStarted && termination == nil
     }
 
+    /// Re-arms the running state for a resumed turn while keeping the
+    /// transcript: clearing ``termination`` makes ``isRunning`` true again, and
+    /// the follow-up's output appends to the lines the prior turn left rather
+    /// than replacing them — "the follow-up turn's output appends to the
+    /// existing transcript." Unlike ``sessionStarted()`` this clears no
+    /// ``lines`` or ``tokenUsage``. A no-op before any session has started,
+    /// since there is then nothing to continue.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is
+    func beginFollowUpTurn() {
+        guard hasStarted else { return }
+        termination = nil
+        noteUnavailableContext([])
+        resumeFollowingOutput()
+    }
+
+    /// Appends a message the user sent into the session, so the transcript
+    /// reads as the whole conversation "from the first until the end of the
+    /// workflow" rather than only the agent's half. Closes any open output line
+    /// first — the user's turn is a complete unit interrupting the stream — and
+    /// announces it once for VoiceOver, the same as a finalized output line.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is
+    func appendUserMessage(_ text: String) {
+        closeOpenLineIfNeeded()
+        lines.append(SessionConsoleLine(id: makeNextID(), content: .userMessage(text)))
+        announceIfMeaningful(text)
+    }
+
     /// What ``SessionConsoleView`` renders right now — derived rather than
     /// stored, so it can never drift from ``lines`` and ``termination``.
     /// A termination is checked before an empty transcript, so a session that
