@@ -8,8 +8,10 @@ import Testing
 
 /// The fixture-driven end-to-end proof for git operation gating, at the level [the suite installs
 /// nothing](https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#the-suite-installs-nothing)
-/// allows — the live "opens a real PR" proof is the opt-in
-/// `GitPROpenAndMergeIntegrationTests`. It runs the same real pipeline as
+/// allows — the live "opens a real PR" mutation is
+/// [DoD #5](https://github.com/CalixtoTheBugHunter/talos/wiki/MVP-Definition-of-Done)'s manual
+/// acceptance of the real Automator, whose only sanctioned subprocess spawn is
+/// the adapter's. It runs the same real pipeline as
 /// ``AssistantSessionEndToEndTests`` (real ``ClaudeCodeAdapter``,
 /// ``TieredSafeguardsGate``, ``SafeguardsActionClassifier``), reusing that
 /// suite's project, doubles, and `makePipeline`.
