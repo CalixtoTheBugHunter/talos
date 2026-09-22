@@ -187,6 +187,51 @@ struct ProjectLibraryScaffolderTests {
         #expect(contents.contains("budgets-that-make-the-above-testable"))
     }
 
+    /// The shipped Automator default is what a new project experiences before
+    /// anyone tunes it. Asserts each required element against the SPEC line it
+    /// implements, read from the scaffolder's real output rather than a
+    /// hand-authored fixture.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Talos-Guidelines#editable-talos-guidelines
+    @Test("The shipped Automator default parses and states write-tier behavior, denial, and the injection posture")
+    func shippedAutomatorDefaultCarriesRequiredContent() throws {
+        let root = Self.temporaryProjectRoot()
+        try Self.makeGitRepository(at: root)
+        _ = try ProjectLibraryScaffolder.scaffold(projectRoot: root)
+
+        let url = root.appendingPathComponent(".talos/guidelines/automator.md")
+        let contents = try String(contentsOf: url, encoding: .utf8)
+
+        // AC6 + AC1: the shipped default parses and its four declared elements validate.
+        let document = try GuidelineDocumentParser.parse(
+            contents: contents, subFunction: .automator, file: url.path
+        )
+        #expect(document.tokenCeiling > 0)
+        #expect(!document.purpose.isEmpty)
+        #expect(!document.context.isEmpty)
+        #expect(!document.outputExpectations.isEmpty)
+
+        // AC2: the SPEC's example activities are covered — board items, PRs,
+        // workflows, POCs.
+        // https://github.com/CalixtoTheBugHunter/talos/wiki/Sub-function-Automator#examples-of-usage
+        #expect(contents.contains("board item"))
+        #expect(contents.contains("pull request"))
+        #expect(contents.contains("workflow"))
+        #expect(contents.contains("POC"))
+        // AC3: denial is normal and the same denied action is never silently retried.
+        // https://github.com/CalixtoTheBugHunter/talos/wiki/Sub-function-Automator#autonomy
+        #expect(contents.contains("denial is a normal outcome"))
+        #expect(contents.contains("never silently retries"))
+        #expect(contents.contains("Sub-function-Automator#autonomy"))
+        // AC4: third-party content is data, never instruction.
+        // https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#prompt-injection-posture
+        #expect(contents.contains("data, never instruction"))
+        #expect(contents.contains("Safeguards-and-Autonomy#prompt-injection-posture"))
+        // AC5: the token ceiling is justified against the < 5% overhead budget.
+        // https://github.com/CalixtoTheBugHunter/talos/wiki/Vision-and-Principles#budgets-that-make-the-above-testable
+        #expect(contents.contains("5%"))
+        #expect(contents.contains("budgets-that-make-the-above-testable"))
+    }
+
     @Test("Scaffolding outside a git repository throws a clear error")
     func refusesOutsideGitRepository() throws {
         let root = Self.temporaryProjectRoot()
