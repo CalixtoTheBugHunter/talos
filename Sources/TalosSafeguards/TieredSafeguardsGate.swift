@@ -38,13 +38,14 @@ private extension AgentConnectorVerb {
 ///   https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#the-gate-fails-closed
 ///
 /// The action type comes from `request.connectorAccess` when the adapter
-/// identified one — resolved against `connectors.yaml` here, at decision
-/// time, per call — else from `request.toolName` read directly as a taxonomy
-/// name. `toolName` is the adapter's own tool name rather than a taxonomy
-/// name until an adapter classifies its own calls — a future, adapter-specific
-/// change tracked separately. Until then a name absent from the taxonomy
-/// classifies as irreversible, which is the classifier's designed-for safe
-/// default, not a defect of this gate.
+/// identified one — resolved against `connectors.yaml` here, at decision time,
+/// per call — else from `request.classifiedAction`, the taxonomy type the
+/// adapter classified its own tool call as
+/// ([decision 96](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#foundational-decisions)),
+/// else from `request.toolName` read directly as a taxonomy name. A provider
+/// tool name is not a taxonomy name, so a call the adapter did not classify
+/// falls to irreversible, which is the classifier's designed-for safe default,
+/// not a defect of this gate.
 ///
 /// Takes no guideline, intent, or session-instruction text as input, so
 /// nothing carried in a prompt or a guideline can reach this decision at
@@ -119,14 +120,23 @@ public struct TieredSafeguardsGate: SafeguardsGate {
         return SafeguardsDecision(outcome: outcome, action: action, classification: .tier(tier), actor: .user)
     }
 
-    /// A connector access resolves against `connectors.isDeclared` here, live,
-    /// rather than from any guess the adapter made — declared-ness can change
-    /// and is checked each time, never cached onto the call.
+    /// A connector access is resolved first and against `connectors.isDeclared`
+    /// here, live — declared-ness can change and is checked each time, never
+    /// cached onto the call — so a `classifiedAction` can never lower the
+    /// never-allowlistable undeclared path. Otherwise the adapter's own taxonomy
+    /// classification is used
+    /// ([decision 96](https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#foundational-decisions)),
+    /// and only a call the adapter did not classify falls back to reading
+    /// `toolName` as a taxonomy name — a provider tool name that is not one
+    /// classifies as the most-restrictive tier, the classifier's safe default.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#what-is-never-allowlistable
     private func resolvedAction(for request: AgentPermissionRequest) -> SafeguardsActionType {
-        guard let access = request.connectorAccess else {
-            return SafeguardsActionType(rawValue: request.toolName ?? "")
+        if let access = request.connectorAccess {
+            return .connector(verb: access.verb.safeguardsVerb, declared: connectors.isDeclared(access.target))
         }
-        return .connector(verb: access.verb.safeguardsVerb, declared: connectors.isDeclared(access.target))
+        if let classified = request.classifiedAction {
+            return classified
+        }
+        return SafeguardsActionType(rawValue: request.toolName ?? "")
     }
 }
