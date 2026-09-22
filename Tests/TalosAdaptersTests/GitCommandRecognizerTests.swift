@@ -120,4 +120,50 @@ struct GitCommandRecognizerTests {
         let chained = GitCommandRecognizer.recognize(command: "git commit -m x && git push --force origin main")
         #expect(chained?.action == .gitPushForce)
     }
+
+    // MARK: Fail closed on unmodeled shell constructs
+
+    /// The operators that begin a new command all fall closed the same way `&&`
+    /// does — otherwise a dangerous neighbour rides in as trailing tokens of a
+    /// recognized segment (which the subcommand parsers ignore), laundering an
+    /// `rm` into `git.push`'s allowlistable tier.
+    @Test("A git op joined to another command by any command operator is not recognized")
+    func chainedByAnyOperatorFallsThrough() {
+        #expect(GitCommandRecognizer.recognize(command: "git push origin main & rm -rf x") == nil)
+        #expect(GitCommandRecognizer.recognize(command: "git push origin main | tee log") == nil)
+        #expect(GitCommandRecognizer.recognize(command: "git commit -m x ; rm -rf x") == nil)
+        #expect(GitCommandRecognizer.recognize(command: "git commit -m x\nrm -rf x") == nil)
+    }
+
+    /// Substitution, a subshell, a redirect, and an escape are unmodeled — each
+    /// can execute or expand into a second command, so the whole command falls
+    /// to the most-restrictive default. `$` and a backtick are unmodeled even
+    /// inside double quotes, where the shell still expands them.
+    @Test("Substitution, redirects, and subshells are not recognized")
+    func unmodeledConstructsFallThrough() {
+        #expect(GitCommandRecognizer.recognize(command: "git push origin $(rm -rf x)") == nil)
+        #expect(GitCommandRecognizer.recognize(command: "git commit -m `rm -rf x`") == nil)
+        #expect(GitCommandRecognizer.recognize(command: "git commit -m \"$(rm -rf x)\"") == nil)
+        #expect(GitCommandRecognizer.recognize(command: "git push origin main > ~/.ssh/authorized_keys") == nil)
+        #expect(GitCommandRecognizer.recognize(command: "git push origin main \\; rm -rf x") == nil)
+    }
+
+    /// A `;`/`&&`/`|` inside a quoted commit message is literal, so the commit
+    /// is still recognized — the scanner does not split mid-quote.
+    @Test("A quoted commit message carrying an operator character is still git.commit")
+    func quotedOperatorInMessageIsLiteral() {
+        #expect(GitCommandRecognizer.recognize(command: "git commit -m \"fix: parse a; b && c\"")?.action == .gitCommit)
+    }
+
+    /// A `gh` op names no remote URL, so a link or `@mention` in a comment body
+    /// is not read as one — it stays `git.pr.comment` with no explicit URL, and
+    /// the gate resolves declared-ness against the repo connector.
+    @Test("A URL or mention in a gh pr comment body is not read as the remote")
+    func ghCommentBodyIsNotReadAsRemote() {
+        let recognized = GitCommandRecognizer.recognize(
+            command: "gh pr comment 12 --body 'see https://github.com/o/r/issues/5 @me'"
+        )
+        #expect(recognized?.action == .gitPRComment)
+        #expect(recognized?.explicitRemoteURL == nil)
+    }
 }

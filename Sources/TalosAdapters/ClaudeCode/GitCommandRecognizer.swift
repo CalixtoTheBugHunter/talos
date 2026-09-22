@@ -14,7 +14,14 @@ import TalosCore
 /// most-restrictive tier — never a permissive guess. A command that chains an
 /// unrecognized segment onto a git op (`git commit && rm -rf x`) is therefore
 /// `nil` too, so an unrecognized `rm` can never ride in under a `git.commit`
-/// allowlist.
+/// allowlist. The splitter models the operators that start a new command —
+/// `&&`, `||`, `|`, `;`, a single `&`, newline — and **fails closed on any
+/// shell construct it does not model**: command substitution (`$(…)`, a
+/// backtick, a bare `$`), a redirect, a subshell, or an escape. Without that, a
+/// dangerous neighbour attached by an unmodeled operator (`git push … & rm -rf`,
+/// `git commit -m "$(rm -rf x)"`) would ride in as trailing tokens of a
+/// recognized segment, which the subcommand parser ignores — laundering it into
+/// that segment's allowlistable tier.
 ///
 /// Talos does not determine whether a push targets a protected branch: branch
 /// protection is enforced by git and the remote, not classified here, so every
@@ -39,6 +46,9 @@ enum GitCommandRecognizer {
     /// The recognition for a `Bash` command, or `nil` when it is not a git/`gh`
     /// operation this recognizes whole.
     static func recognize(command: String) -> Recognition? {
+        // An empty result is the fail-closed outcome: the command is empty, or
+        // it carries a shell construct the splitter does not model, so no
+        // segment is trusted and the whole command falls to the default.
         let segments = splitIntoSegments(command)
         guard !segments.isEmpty else { return nil }
 
@@ -122,15 +132,20 @@ enum GitCommandRecognizer {
     private static func recognizeGH(_ tokens: [String]) -> Recognition? {
         guard let group = tokens.first else { return nil }
         let rest = Array(tokens.dropFirst())
+        // A `gh` op names no remote URL — it acts on the current repo (or a
+        // `--repo owner/name` shorthand), so the gate resolves declared-ness
+        // against whether a repo connector exists, never against a URL scanned
+        // out of the arguments. Scanning would wrongly read a link or `@mention`
+        // in a `gh pr comment` body as the remote.
         switch (group, rest.first) {
         case ("pr", "create"):
-            return remote(.gitPROpen, from: rest)
+            return remoteWithoutExplicitURL(.gitPROpen)
         case ("pr", "merge"):
-            return remote(.gitPRMerge, from: rest)
+            return remoteWithoutExplicitURL(.gitPRMerge)
         case ("pr", "comment"), ("pr", "review"):
-            return remote(.gitPRComment, from: rest)
+            return remoteWithoutExplicitURL(.gitPRComment)
         case ("repo", "delete"):
-            return remote(.gitRepoDelete, from: rest)
+            return remoteWithoutExplicitURL(.gitRepoDelete)
         default:
             return nil
         }
@@ -142,8 +157,17 @@ enum GitCommandRecognizer {
         Recognition(action: action, reachesRemote: false, explicitRemoteURL: nil)
     }
 
+    /// A remote op whose command named the remote explicitly — `git push <url>`
+    /// — so the gate can match that URL against a declared connector target.
     private static func remote(_ action: SafeguardsActionType, from arguments: [String]) -> Recognition {
         Recognition(action: action, reachesRemote: true, explicitRemoteURL: explicitRemoteURL(in: arguments))
+    }
+
+    /// A remote op reaching an implicit remote — the current repo, as every
+    /// `gh` op does. The gate resolves declared-ness against whether a repo
+    /// connector exists rather than a URL.
+    private static func remoteWithoutExplicitURL(_ action: SafeguardsActionType) -> Recognition {
+        Recognition(action: action, reachesRemote: true, explicitRemoteURL: nil)
     }
 
     // MARK: Parsing helpers
@@ -197,61 +221,98 @@ enum GitCommandRecognizer {
 
     // MARK: Tokenizing
 
-    /// Splits a command into shell segments on `&&`, `||`, `|`, `;`, and
-    /// newlines, then each segment into whitespace tokens with surrounding
-    /// quotes stripped. This is deliberately shallow: it is enough to read a
-    /// git invocation, and any construct it does not model — a subshell, a
-    /// backgrounded pipe, a variable — leaves a segment unrecognized, which is
-    /// the safe outcome.
+    /// The metacharacters this recognizer does not model when they appear
+    /// outside quotes — substitution (`$`, a backtick), redirects, a subshell,
+    /// brace grouping, an escape. Each can execute or expand into a second
+    /// command, and the subcommand parsers ignore trailing tokens, so any of
+    /// them must fail the whole command closed rather than ride inside a
+    /// recognized segment.
+    private static let unmodeledOutsideQuotes: Set<Character> = ["$", "`", "<", ">", "(", ")", "\\", "{", "}"]
+
+    /// A quote-aware, fail-closed scanner. It splits a command into shell
+    /// segments on the operators that begin a new command — `&&`, `||`, `|`,
+    /// `;`, a single `&`, and newlines — outside quotes, tokenizing each segment
+    /// on whitespace with quotes stripped. It is deliberately shallow: enough to
+    /// read a git invocation.
+    ///
+    /// It returns an **empty array to fail closed** — an unterminated quote, or
+    /// an unmodeled construct (see ``unmodeledOutsideQuotes``) — so the whole
+    /// command falls to the most-restrictive default rather than trusting a
+    /// segment that swallowed something it did not parse.
     private static func splitIntoSegments(_ command: String) -> [[String]] {
-        // `&&` and `||` are two characters; a single `|`/`;`/newline is one.
-        let twoCharOperatorWidth = 2
         var segments: [[String]] = []
-        var current = ""
-        let separators: Set<Character> = [";", "\n"]
+        var segment: [String] = []
+        var token = ""
+
+        func endToken() {
+            guard !token.isEmpty else { return }
+            segment.append(token)
+            token = ""
+        }
+        func endSegment() {
+            endToken()
+            guard !segment.isEmpty else { return }
+            segments.append(segment)
+            segment = []
+        }
+
         let scalars = Array(command)
         var index = 0
-        func flush() {
-            let tokens = tokenize(current)
-            if !tokens.isEmpty {
-                segments.append(tokens)
-            }
-            current = ""
-        }
         while index < scalars.count {
             let character = scalars[index]
-            let next = index + 1 < scalars.count ? scalars[index + 1] : nil
-            if (character == "&" && next == "&") || (character == "|" && next == "|") {
-                flush()
-                index += twoCharOperatorWidth
-                continue
+            switch character {
+            case "'", "\"":
+                guard let closing = scanQuote(scalars, from: index, delimiter: character, into: &token) else {
+                    return []
+                }
+                index = closing
+            case " ", "\t":
+                endToken()
+            case ";", "\n", "&", "|":
+                endSegment()
+                if isDoubledOperator(scalars, at: index) {
+                    index += 1
+                }
+            case _ where unmodeledOutsideQuotes.contains(character):
+                return []
+            default:
+                token.append(character)
             }
-            if character == "|" || separators.contains(character) {
-                flush()
-                index += 1
-                continue
-            }
-            current.append(character)
             index += 1
         }
-        flush()
+        endSegment()
         return segments
     }
 
-    private static func tokenize(_ segment: String) -> [String] {
-        // A quoted token needs at least an opening and a closing quote to strip.
-        let minimumQuotedLength = 2
-        return segment
-            .split(whereSeparator: { $0 == " " || $0 == "\t" })
-            .map { token in
-                var value = String(token)
-                for quote in ["\"", "'"] {
-                    if value.count >= minimumQuotedLength, value.hasPrefix(quote), value.hasSuffix(quote) {
-                        value = String(value.dropFirst().dropLast())
-                    }
-                }
-                return value
+    /// Consumes a quoted run beginning at the opening quote `open`, appending
+    /// its unquoted body to `token`. Returns the index of the closing quote, or
+    /// `nil` to fail closed: an unterminated quote, or a `$`/backtick inside
+    /// double quotes, where the shell still expands them. Single quotes make
+    /// every character literal.
+    private static func scanQuote(
+        _ scalars: [Character], from open: Int, delimiter: Character, into token: inout String
+    ) -> Int? {
+        var index = open + 1
+        while index < scalars.count {
+            let character = scalars[index]
+            if character == delimiter {
+                return index
             }
-            .filter { !$0.isEmpty }
+            if delimiter == "\"", character == "$" || character == "`" {
+                return nil
+            }
+            token.append(character)
+            index += 1
+        }
+        return nil
+    }
+
+    /// Whether the operator at `index` is the doubled form `&&` or `||`, whose
+    /// second character the caller then steps over.
+    private static func isDoubledOperator(_ scalars: [Character], at index: Int) -> Bool {
+        let character = scalars[index]
+        guard index + 1 < scalars.count else { return false }
+        let next = scalars[index + 1]
+        return (character == "&" && next == "&") || (character == "|" && next == "|")
     }
 }
