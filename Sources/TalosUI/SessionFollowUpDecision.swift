@@ -27,4 +27,24 @@ public enum SessionFollowUpDecision: Equatable, Sendable {
         case (false, false): .freshStartNow
         }
     }
+
+    /// Whether delivering the message first stops the running turn. Stopping is
+    /// the same fail-closed path `⌘.` uses, so any pending approval the turn
+    /// holds is denied before the superseding turn begins.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Safeguards-and-Autonomy#the-gate-fails-closed
+    public var interruptsRunningTurn: Bool {
+        switch self {
+        case .interruptThenResume, .interruptThenFreshStart: true
+        case .resumeNow, .freshStartNow: false
+        }
+    }
+
+    /// Whether the message resumes the same session with the prior run's token,
+    /// or opens a fresh one.
+    public var resumesSameSession: Bool {
+        switch self {
+        case .interruptThenResume, .resumeNow: true
+        case .interruptThenFreshStart, .freshStartNow: false
+        }
+    }
 }

@@ -103,20 +103,19 @@ extension SessionComposer {
     ) async throws {
         console.appendUserMessage(intentText)
         let resumeToken = activeSession?.resumeToken
-        switch SessionFollowUpDecision.decide(
+        let decision = SessionFollowUpDecision.decide(
             isTurnRunning: console.isRunning, hasResumeToken: resumeToken != nil
-        ) {
-        case .interruptThenResume, .interruptThenFreshStart:
+        )
+        let token = decision.resumesSameSession ? resumeToken : nil
+        if decision.interruptsRunningTurn {
             // The running turn is stopped through the same path `⌘.` uses, which
             // fails the gate closed on any pending approval and kills the
             // process; the superseding turn starts once it has torn down, from
             // `startPendingSupersede`.
-            pendingSupersede = PendingSupersede(text: intentText, resumeToken: resumeToken)
+            pendingSupersede = PendingSupersede(text: intentText, resumeToken: token)
             stopCenter.requestStop()
-        case .resumeNow:
-            try await resume(with: intentText, resumeToken: resumeToken, console: console, deniedNotices: deniedNotices)
-        case .freshStartNow:
-            try await resume(with: intentText, resumeToken: nil, console: console, deniedNotices: deniedNotices)
+        } else {
+            try await resume(with: intentText, resumeToken: token, console: console, deniedNotices: deniedNotices)
         }
     }
 
@@ -189,11 +188,11 @@ extension SessionComposer {
     }
 
     /// Tells the console how the run ended, labels any context that had nothing
-    /// to assemble, and refreshes the token a follow-up turn resumes into. A
+    /// to assemble, and refreshes the token a later follow-up resumes into. A
     /// clean turn carries the session's token forward; a stop or launch failure
-    /// carries `nil` — the session cannot continue, so any queued follow-ups are
-    /// dropped rather than left to run against a later, unrelated session. The
-    /// termination banner already shown is the reader's signal nothing follows.
+    /// carries `nil`, so the next idle message starts fresh rather than resuming
+    /// a session that cannot continue. A mid-turn supersede is unaffected: it
+    /// captured its own token at interrupt time, before this cleared it.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback
     private func concludeSession(_ console: SessionConsoleViewModel, with record: SessionRecord) {
         console.noteUnavailableContext(record.unavailableContextParts)
