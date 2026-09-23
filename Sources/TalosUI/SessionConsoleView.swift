@@ -310,7 +310,9 @@ public struct SessionConsoleView: View {
     private func row(for line: SessionConsoleLine) -> some View {
         switch line.content {
         case let .output(element):
+            // Empty open line: hidden from accessibility (no description), kept in the view as a scroll target.
             viewModel.renderers.view(for: element)
+                .accessibilityHidden(element.payload.isEmpty)
         case let .toolCall(call):
             SessionConsoleToolCallRow(call: call) { decision in
                 viewModel.resolvePendingApproval(with: decision)

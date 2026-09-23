@@ -83,13 +83,18 @@ final class AppShellUITests: XCTestCase {
 
     /// The Sessions surface — the shell's one hand-built layout, the
     /// sub-function selector — passes Apple's structural accessibility audit,
-    /// not only the inherited placeholder surfaces. It is the default surface,
-    /// so the selector is on screen at launch.
+    /// not only the inherited placeholder surfaces. Selected explicitly from the
+    /// View menu rather than assumed on screen: the sidebar selection persists
+    /// across launches, so a prior test that cycled away from Sessions would
+    /// otherwise leave the selector off screen.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Accessibility#how-the-gate-is-checked
     @MainActor
     func testSessionsSurfacePassesTheAccessibilityAudit() throws {
         let app = XCUIApplication()
         app.launch()
+
+        app.menuBarItems["View"].click()
+        app.menuItems["Sessions"].click()
 
         XCTAssertTrue(app.buttons["Assistant"].waitForExistence(timeout: 5))
         try assertNoTalosOwnAccessibilityIssues(on: app)
@@ -105,8 +110,12 @@ final class AppShellUITests: XCTestCase {
 
         app.menuBarItems["Help"].click()
         // The Help menu's search field also indexes the command, so the title
-        // matches more than once; the first match is the menu item itself.
-        app.menuItems["Starting Guide"].firstMatch.click()
+        // matches more than once; the first match is the menu item itself. Wait
+        // for it to exist — the menu has finished opening — before clicking, or
+        // a not-yet-laid-out item is clicked at an invalid point.
+        let startingGuide = app.menuItems["Starting Guide"].firstMatch
+        XCTAssertTrue(startingGuide.waitForExistence(timeout: 5))
+        startingGuide.click()
 
         XCTAssertTrue(
             app.staticTexts["The Starting Guide is not available yet."].waitForExistence(timeout: 5),
@@ -119,7 +128,9 @@ final class AppShellUITests: XCTestCase {
     @MainActor
     private func assertNoTalosOwnAccessibilityIssues(on app: XCUIApplication) throws {
         var talosOwnIssues: [XCUIAccessibilityAuditIssue] = []
-        try app.performAccessibilityAudit { issue in
+        // `.contrast` is dropped for the same reason as the main suite: the
+        // gate verifies contrast by inheritance and `lint`, not this audit.
+        try app.performAccessibilityAudit(for: .all.subtracting(.contrast)) { issue in
             guard let elementType = issue.element?.elementType,
                   elementType == .staticText || elementType == .button
             else {

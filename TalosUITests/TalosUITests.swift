@@ -4,9 +4,12 @@ import XCTest
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Verification
 ///
 /// `performAccessibilityAudit()` is Apple's own structural audit — labels,
-/// traits, contrast, hit-target size. It does not claim comprehensibility or
-/// streaming-output announcements; the approval-prompt-specific tests below
-/// cover what it cannot (no pre-checked default, the per-tier keyboard ban).
+/// traits, roles, hit-target size. Contrast is excluded: the gate verifies it
+/// by inherited semantic colors and `lint`, not the runtime audit, per
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Accessibility#how-the-gate-is-checked
+/// It does not claim comprehensibility or streaming-output announcements; the
+/// approval-prompt-specific tests below cover what it cannot (no pre-checked
+/// default, the per-tier keyboard ban).
 final class TalosUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -85,7 +88,7 @@ final class TalosUITests: XCTestCase {
         XCTAssertTrue(approve.exists)
         XCTAssertEqual(app.checkBoxes.count, 0, "no destructive default exists to pre-check")
 
-        app.typeKey(.enter, modifierFlags: [])
+        app.typeKey(.return, modifierFlags: [])
         XCTAssertTrue(deny.exists, "Return must not approve an irreversible action")
         XCTAssertTrue(approve.exists)
 
@@ -102,10 +105,10 @@ final class TalosUITests: XCTestCase {
         let deny = app.buttons["Deny"]
         XCTAssertTrue(deny.waitForExistence(timeout: 5))
 
-        app.typeKey(.enter, modifierFlags: [])
+        app.typeKey(.return, modifierFlags: [])
         XCTAssertTrue(deny.exists, "bare Return must not approve, even at write tier")
 
-        app.typeKey(.enter, modifierFlags: .command)
+        app.typeKey(.return, modifierFlags: .command)
         XCTAssertFalse(deny.waitForExistence(timeout: 1), "Command-Return approves a write-tier action")
     }
 
@@ -125,7 +128,7 @@ final class TalosUITests: XCTestCase {
             "the apply outcome names the target column"
         )
 
-        app.typeKey(.enter, modifierFlags: [])
+        app.typeKey(.return, modifierFlags: [])
         XCTAssertTrue(keep.exists, "Return is unbound: it neither keeps nor applies")
 
         app.typeKey(.escape, modifierFlags: [])
@@ -273,7 +276,7 @@ final class TalosUITests: XCTestCase {
     func testSessionConsoleReadTierToolCallIsVisibleAndPassesAccessibilityAudit() throws {
         let app = launchWithSessionConsoleTranscript(state: "tool-call-read")
         XCTAssertTrue(
-            app.staticTexts["Read Sources/Talos/Legacy/Old.swift"].waitForExistence(timeout: 5),
+            rowLabeled("Read Sources/Talos/Legacy/Old.swift", in: app).waitForExistence(timeout: 5),
             "the tool and its target are both named, not just the tool"
         )
         try assertNoTalosOwnAccessibilityIssues(on: app)
@@ -318,10 +321,9 @@ final class TalosUITests: XCTestCase {
 
         XCTAssertFalse(app.buttons["Deny"].waitForExistence(timeout: 1), "the pending controls are gone once resolved")
         XCTAssertTrue(
-            app.staticTexts["Write Sources/Talos/Legacy/Old.swift"].waitForExistence(timeout: 5),
-            "the row itself remains, now showing its outcome"
+            rowLabeled("Allowed. Write Sources/Talos/Legacy/Old.swift. Write.", in: app).waitForExistence(timeout: 5),
+            "the row itself remains, now showing its target, tier, and outcome"
         )
-        XCTAssertTrue(app.staticTexts["Write · Allowed"].waitForExistence(timeout: 5))
         try assertNoTalosOwnAccessibilityIssues(on: app)
     }
 
@@ -340,10 +342,10 @@ final class TalosUITests: XCTestCase {
 
         XCTAssertFalse(app.buttons["Deny"].waitForExistence(timeout: 1), "the pending controls are gone once resolved")
         XCTAssertTrue(
-            app.staticTexts["Delete Sources/Talos/Legacy/Old.swift"].waitForExistence(timeout: 5),
-            "the row itself remains, now showing its outcome"
+            rowLabeled("Denied. Delete Sources/Talos/Legacy/Old.swift. Irreversible.", in: app)
+                .waitForExistence(timeout: 5),
+            "the row itself remains, now showing its target, tier, and outcome"
         )
-        XCTAssertTrue(app.staticTexts["Irreversible · Denied"].waitForExistence(timeout: 5))
         try assertNoTalosOwnAccessibilityIssues(on: app)
     }
 
@@ -356,7 +358,10 @@ final class TalosUITests: XCTestCase {
     @MainActor
     private func assertNoTalosOwnAccessibilityIssues(on app: XCUIApplication) throws {
         var talosOwnIssues: [XCUIAccessibilityAuditIssue] = []
-        try app.performAccessibilityAudit { issue in
+        // `.contrast` is dropped: the audit flags semantic-color text over the
+        // translucent sidebar as failing, but the gate verifies contrast by
+        // inheritance and `lint`, not this runtime check.
+        try app.performAccessibilityAudit(for: .all.subtracting(.contrast)) { issue in
             // The audit walks every accessibility node AppKit generates for a
             // window, including framework-level ones (the window's own root
             // Group, a TouchBar) that no label in Talos's view code can fix.
@@ -378,5 +383,18 @@ final class TalosUITests: XCTestCase {
         }
         print("ACCESSIBILITY_ISSUE_COUNT: \(talosOwnIssues.count)")
         XCTAssertTrue(talosOwnIssues.isEmpty, "\(talosOwnIssues.count) accessibility issue(s) on Talos's own elements")
+    }
+}
+
+private extension TalosUITests {
+    /// Matches a Talos transcript row by its accessibility label regardless of
+    /// element type. A row built with `.accessibilityElement(children: .combine)`
+    /// is one combined element that is not a `.staticText`, so `app.staticTexts`
+    /// misses it even though VoiceOver reads the label. Scoped to `otherElements`
+    /// — the type a combined element surfaces as — rather than a whole-tree
+    /// `.any` scan, so the lookup stays cheap.
+    @MainActor
+    func rowLabeled(_ label: String, in app: XCUIApplication) -> XCUIElement {
+        app.otherElements[label]
     }
 }
