@@ -52,12 +52,23 @@ final class SessionComposer {
     /// reads it to resume the current session on a follow-up turn.
     var activeSession: ActiveSession?
 
-    /// Messages the user sent while a turn was running, in the order sent. The
-    /// input is always enabled, so a message sent mid-turn is held here rather
-    /// than dropped or run concurrently, and drained one per turn as each
-    /// completes — the session is refined in sequence, never in parallel.
-    /// Not `private`: the `+RunSession` extension enqueues and drains it.
-    var pendingFollowUps: [String] = []
+    /// A message the user submitted while a turn was running, held only until
+    /// that turn tears down. Per [decision 100] a mid-turn message interrupts
+    /// the running turn and supersedes it; this carries the message and the
+    /// resume token captured at interrupt time (`nil` when the interrupted turn
+    /// had no resumable session yet) across the teardown to the turn that
+    /// delivers it. The latest submission wins — a newer interrupt replaces it.
+    /// Not `private`: the `+RunSession` extension sets and drains it.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Decision-Log#engineering-decisions
+    var pendingSupersede: PendingSupersede?
+
+    /// A superseding message and the session it resumes into, captured when a
+    /// running turn is interrupted so the token survives the interrupted turn's
+    /// teardown, which clears ``ActiveSession/resumeToken``.
+    struct PendingSupersede {
+        let text: String
+        let resumeToken: String?
+    }
 
     let database: Database
     /// Not `private`: the `+RunSession` extension wires and ends stop tracking.

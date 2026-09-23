@@ -20,8 +20,8 @@ public struct SessionConsoleLine: Identifiable, Equatable, Sendable {
 /// pluggable ``OutputRendererRegistry``; a tool call the agent announced — two
 /// different ``AgentEvent`` cases, kept apart here for the same reason they are
 /// kept apart on the stream; or a message the user sent into the session, so
-/// the transcript reads as the whole conversation, "from the first until the
-/// end of the workflow," not only the agent's half of it.
+/// the transcript reads as the whole conversation rather than only the agent's
+/// half of it — the console owes "one input line for talking to the agent."
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Architecture-The-Orchestration-Boundary
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is
 public enum SessionConsoleLineContent: Equatable, Sendable {

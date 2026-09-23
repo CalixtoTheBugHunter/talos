@@ -3,9 +3,10 @@ import XCTest
 /// The Session Console's persistent input — "one input line for talking to the
 /// agent" — checked against the accessibility gate: present whenever a session
 /// is present, keyboard-reachable, VoiceOver-labeled, and always enabled so a
-/// message can be sent at any time (one sent mid-turn is queued, asserted at the
-/// view model in `SessionConsoleViewModelFollowUpTests`). The transcript-seed
-/// launch environment key mounts the real console before a live session exists.
+/// message can be sent at any time (what a message sent mid-turn does — interrupt
+/// and supersede the running turn rather than run concurrently — is asserted at
+/// `SessionFollowUpDecisionTests`). The transcript-seed launch environment key
+/// mounts the real console before a live session exists.
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Accessibility
 final class SessionConsoleFollowUpInputUITests: XCTestCase {

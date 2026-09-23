@@ -84,16 +84,17 @@ extension SessionComposer {
         defer { stopCenter.sessionEnded() }
         let record = await sessionTask.value
         concludeSession(console, with: record)
-        startNextQueuedFollowUp(console: console, deniedNotices: deniedNotices)
+        startPendingSupersede(console: console, deniedNotices: deniedNotices)
         return record
     }
 
     /// Sends `intentText` into the session the console shows — shown in the
-    /// transcript at once, so the user sees their own turn immediately. If no
-    /// turn is running it resumes right away; if one is, it is queued and sent
-    /// when that turn ends, so the session is refined in sequence rather than
-    /// run in parallel. The input is always enabled, which is why a mid-turn
-    /// message is held rather than refused.
+    /// transcript at once, so the user sees their own turn immediately. Per
+    /// [decision 100] the message always reaches the agent: if a turn is
+    /// running it *interrupts* that turn and supersedes it with a new one, and
+    /// if none is running it is sent at once. The token to resume into is
+    /// captured here, before the interrupt tears the running turn down and
+    /// clears it. A fresh start is used when nothing is resumable.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is
     func submitFollowUp(
         intentText: String,
@@ -101,25 +102,36 @@ extension SessionComposer {
         deniedNotices: DeniedActionNoticeCenter
     ) async throws {
         console.appendUserMessage(intentText)
-        guard !console.isRunning else {
-            pendingFollowUps.append(intentText)
-            return
+        let resumeToken = activeSession?.resumeToken
+        let decision = SessionFollowUpDecision.decide(
+            isTurnRunning: console.isRunning, hasResumeToken: resumeToken != nil
+        )
+        let token = decision.resumesSameSession ? resumeToken : nil
+        if decision.interruptsRunningTurn {
+            // The running turn is stopped through the same path `⌘.` uses, which
+            // fails the gate closed on any pending approval and kills the
+            // process; the superseding turn starts once it has torn down, from
+            // `startPendingSupersede`.
+            pendingSupersede = PendingSupersede(text: intentText, resumeToken: token)
+            stopCenter.requestStop()
+        } else {
+            try await resume(with: intentText, resumeToken: token, console: console, deniedNotices: deniedNotices)
         }
-        try await resume(with: intentText, console: console, deniedNotices: deniedNotices)
     }
 
-    /// Resumes the active session with `text` as the follow-up turn, using the
-    /// prior run's own resume token. The resumed turn assembles no context — the
+    /// Sends `text` as the next turn of the session the console shows. With a
+    /// `resumeToken` the same session resumes — assembling no context, since the
     /// agent already holds the prior conversation — so only the user's text
-    /// reaches it, and every mutating tool call still hits the Safeguards gate.
-    /// A no-op when there is nothing resumable, so a queued message never runs
-    /// against a session that cannot continue.
+    /// reaches it; with `nil` a fresh session starts with `text` as its opening
+    /// intent. Every mutating tool call still hits the Safeguards gate. A no-op
+    /// when there is no session to reuse the project and root of.
     private func resume(
         with text: String,
+        resumeToken: String?,
         console: SessionConsoleViewModel,
         deniedNotices: DeniedActionNoticeCenter
     ) async throws {
-        guard let active = activeSession, let resumeToken = active.resumeToken else { return }
+        guard let active = activeSession else { return }
         let intent = Intent(
             content: text,
             source: .userText,
@@ -136,13 +148,20 @@ extension SessionComposer {
         )
     }
 
-    /// Drains one queued message as the just-ended turn's successor, on its own
-    /// task so the completing run returns first. That successor drains the next
-    /// on its own completion, so the queue empties one turn at a time in order.
-    private func startNextQueuedFollowUp(console: SessionConsoleViewModel, deniedNotices: DeniedActionNoticeCenter) {
-        guard !pendingFollowUps.isEmpty, activeSession?.resumeToken != nil else { return }
-        let next = pendingFollowUps.removeFirst()
-        Task { try? await resume(with: next, console: console, deniedNotices: deniedNotices) }
+    /// Starts the superseding turn a running turn was interrupted for, on its
+    /// own task so the interrupted run returns first. It resumes the same
+    /// session with the token captured at interrupt time, or — when none was
+    /// captured, the interrupted turn having had no resumable session yet —
+    /// starts fresh with the message as its opening intent. A no-op when no
+    /// message is pending, which is the ordinary end of a turn nobody interrupted.
+    private func startPendingSupersede(console: SessionConsoleViewModel, deniedNotices: DeniedActionNoticeCenter) {
+        guard let pending = pendingSupersede else { return }
+        pendingSupersede = nil
+        Task {
+            try? await resume(
+                with: pending.text, resumeToken: pending.resumeToken, console: console, deniedNotices: deniedNotices
+            )
+        }
     }
 
     /// A fresh start resets the console before it is shown, so a new or failed
@@ -169,9 +188,11 @@ extension SessionComposer {
     }
 
     /// Tells the console how the run ended, labels any context that had nothing
-    /// to assemble, and refreshes the token a follow-up turn resumes into. A
+    /// to assemble, and refreshes the token a later follow-up resumes into. A
     /// clean turn carries the session's token forward; a stop or launch failure
-    /// carries `nil`, which leaves nothing for a queued message to resume into.
+    /// carries `nil`, so the next idle message starts fresh rather than resuming
+    /// a session that cannot continue. A mid-turn supersede is unaffected: it
+    /// captured its own token at interrupt time, before this cleared it.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback
     private func concludeSession(_ console: SessionConsoleViewModel, with record: SessionRecord) {
         console.noteUnavailableContext(record.unavailableContextParts)
