@@ -83,13 +83,18 @@ final class AppShellUITests: XCTestCase {
 
     /// The Sessions surface — the shell's one hand-built layout, the
     /// sub-function selector — passes Apple's structural accessibility audit,
-    /// not only the inherited placeholder surfaces. It is the default surface,
-    /// so the selector is on screen at launch.
+    /// not only the inherited placeholder surfaces. Selected explicitly from the
+    /// View menu rather than assumed on screen: the sidebar selection persists
+    /// across launches, so a prior test that cycled away from Sessions would
+    /// otherwise leave the selector off screen.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Accessibility#how-the-gate-is-checked
     @MainActor
     func testSessionsSurfacePassesTheAccessibilityAudit() throws {
         let app = XCUIApplication()
         app.launch()
+
+        app.menuBarItems["View"].click()
+        app.menuItems["Sessions"].click()
 
         XCTAssertTrue(app.buttons["Assistant"].waitForExistence(timeout: 5))
         try assertNoTalosOwnAccessibilityIssues(on: app)
