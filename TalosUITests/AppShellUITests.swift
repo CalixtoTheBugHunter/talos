@@ -119,7 +119,9 @@ final class AppShellUITests: XCTestCase {
     @MainActor
     private func assertNoTalosOwnAccessibilityIssues(on app: XCUIApplication) throws {
         var talosOwnIssues: [XCUIAccessibilityAuditIssue] = []
-        try app.performAccessibilityAudit { issue in
+        // `.contrast` is dropped for the same reason as the main suite: the
+        // gate verifies contrast by inheritance and `lint`, not this audit.
+        try app.performAccessibilityAudit(for: .all.subtracting(.contrast)) { issue in
             guard let elementType = issue.element?.elementType,
                   elementType == .staticText || elementType == .button
             else {

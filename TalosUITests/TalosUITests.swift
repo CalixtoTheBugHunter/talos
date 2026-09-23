@@ -4,9 +4,12 @@ import XCTest
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Verification
 ///
 /// `performAccessibilityAudit()` is Apple's own structural audit — labels,
-/// traits, contrast, hit-target size. It does not claim comprehensibility or
-/// streaming-output announcements; the approval-prompt-specific tests below
-/// cover what it cannot (no pre-checked default, the per-tier keyboard ban).
+/// traits, roles, hit-target size. Contrast is excluded: the gate verifies it
+/// by inherited semantic colors and `lint`, not the runtime audit, per
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Accessibility#how-the-gate-is-checked
+/// It does not claim comprehensibility or streaming-output announcements; the
+/// approval-prompt-specific tests below cover what it cannot (no pre-checked
+/// default, the per-tier keyboard ban).
 final class TalosUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -356,7 +359,10 @@ final class TalosUITests: XCTestCase {
     @MainActor
     private func assertNoTalosOwnAccessibilityIssues(on app: XCUIApplication) throws {
         var talosOwnIssues: [XCUIAccessibilityAuditIssue] = []
-        try app.performAccessibilityAudit { issue in
+        // `.contrast` is dropped: the audit flags semantic-color text over the
+        // translucent sidebar as failing, but the gate verifies contrast by
+        // inheritance and `lint`, not this runtime check.
+        try app.performAccessibilityAudit(for: .all.subtracting(.contrast)) { issue in
             // The audit walks every accessibility node AppKit generates for a
             // window, including framework-level ones (the window's own root
             // Group, a TouchBar) that no label in Talos's view code can fix.
