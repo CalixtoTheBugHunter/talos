@@ -110,8 +110,12 @@ final class AppShellUITests: XCTestCase {
 
         app.menuBarItems["Help"].click()
         // The Help menu's search field also indexes the command, so the title
-        // matches more than once; the first match is the menu item itself.
-        app.menuItems["Starting Guide"].firstMatch.click()
+        // matches more than once; the first match is the menu item itself. Wait
+        // for it to exist — the menu has finished opening — before clicking, or
+        // a not-yet-laid-out item is clicked at an invalid point.
+        let startingGuide = app.menuItems["Starting Guide"].firstMatch
+        XCTAssertTrue(startingGuide.waitForExistence(timeout: 5))
+        startingGuide.click()
 
         XCTAssertTrue(
             app.staticTexts["The Starting Guide is not available yet."].waitForExistence(timeout: 5),

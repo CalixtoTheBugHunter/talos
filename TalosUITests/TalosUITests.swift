@@ -390,9 +390,11 @@ private extension TalosUITests {
     /// Matches a Talos transcript row by its accessibility label regardless of
     /// element type. A row built with `.accessibilityElement(children: .combine)`
     /// is one combined element that is not a `.staticText`, so `app.staticTexts`
-    /// misses it even though VoiceOver reads the label.
+    /// misses it even though VoiceOver reads the label. Scoped to `otherElements`
+    /// — the type a combined element surfaces as — rather than a whole-tree
+    /// `.any` scan, so the lookup stays cheap.
     @MainActor
     func rowLabeled(_ label: String, in app: XCUIApplication) -> XCUIElement {
-        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", label)).firstMatch
+        app.otherElements[label]
     }
 }
