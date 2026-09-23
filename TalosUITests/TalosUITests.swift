@@ -349,14 +349,6 @@ final class TalosUITests: XCTestCase {
         try assertNoTalosOwnAccessibilityIssues(on: app)
     }
 
-    /// Matches a Talos transcript row by its accessibility label regardless of
-    /// element type. A row built with `.accessibilityElement(children: .combine)`
-    /// is one combined element that is not a `.staticText`, so `app.staticTexts`
-    /// misses it even though VoiceOver reads the label.
-    private func rowLabeled(_ label: String, in app: XCUIApplication) -> XCUIElement {
-        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", label)).firstMatch
-    }
-
     /// Every issue is accepted here (always `true`), so the audit enumerates
     /// the whole tree instead of stopping at the first rejection.
     /// `talosOwnIssues` is the real count this test asserts against — the CI
@@ -391,5 +383,16 @@ final class TalosUITests: XCTestCase {
         }
         print("ACCESSIBILITY_ISSUE_COUNT: \(talosOwnIssues.count)")
         XCTAssertTrue(talosOwnIssues.isEmpty, "\(talosOwnIssues.count) accessibility issue(s) on Talos's own elements")
+    }
+}
+
+private extension TalosUITests {
+    /// Matches a Talos transcript row by its accessibility label regardless of
+    /// element type. A row built with `.accessibilityElement(children: .combine)`
+    /// is one combined element that is not a `.staticText`, so `app.staticTexts`
+    /// misses it even though VoiceOver reads the label.
+    @MainActor
+    func rowLabeled(_ label: String, in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", label)).firstMatch
     }
 }
