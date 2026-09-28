@@ -16,7 +16,11 @@ struct SQLiteSessionRecordStoreTranscriptTests {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
             .appendingPathComponent("test.sqlite", isDirectory: false)
-        let migrations = [SessionRecordsSchema.migration, SessionTranscriptSchema.migration]
+        let migrations = [
+            SessionRecordsSchema.migration,
+            SessionTranscriptSchema.migration,
+            SessionRecordsSchema.cacheTokenColumnsMigration
+        ]
         return try await Database(url: url, migrations: migrations)
     }
 
@@ -172,7 +176,11 @@ struct SQLiteSessionRecordStoreTranscriptTests {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
             .appendingPathComponent("test.sqlite", isDirectory: false)
-        let migrations = [SessionRecordsSchema.migration, SessionTranscriptSchema.migration]
+        let migrations = [
+            SessionRecordsSchema.migration,
+            SessionTranscriptSchema.migration,
+            SessionRecordsSchema.cacheTokenColumnsMigration
+        ]
         let database = try await Database(url: url, migrations: migrations)
         let store = SQLiteSessionRecordStore(database: database)
         let project = ProjectIdentifier(rawValue: "p1")

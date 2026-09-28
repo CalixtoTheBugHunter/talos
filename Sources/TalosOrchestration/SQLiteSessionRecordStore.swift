@@ -172,12 +172,15 @@ public actor SQLiteSessionRecordStore: SessionRecordWriter {
     ) async throws -> [StoredSessionRecord] {
         let rows = try await database.query(
             """
-            SELECT id, sub_function, agent_name, outcome, started_at, duration,
-                   tool_call_count, approval_count, denial_count, retry_count,
-                   token_overhead_ratio, resume_token
-            FROM session_records
-            WHERE project_id = ? AND started_at >= ? AND started_at <= ?
-            ORDER BY started_at ASC;
+            SELECT r.id, r.sub_function, r.agent_name, r.outcome, r.started_at, r.duration,
+                   r.tool_call_count, r.approval_count, r.denial_count, r.retry_count,
+                   r.token_overhead_ratio, r.resume_token,
+                   t.input_tokens, t.output_tokens, t.model, t.unavailable_reason,
+                   t.agent_version, t.cache_creation_tokens, t.cache_read_tokens
+            FROM session_records r
+            LEFT JOIN session_token_records t ON t.session_id = r.id
+            WHERE r.project_id = ? AND r.started_at >= ? AND r.started_at <= ?
+            ORDER BY r.started_at ASC;
             """,
             bindings: [
                 .text(project.rawValue),
@@ -201,10 +204,14 @@ public actor SQLiteSessionRecordStore: SessionRecordWriter {
 
     /// The `records(project:from:to:)` `SELECT` list, in order — named so a
     /// row's positional `DatabaseValue`s are indexed by name rather than by
-    /// a bare number nobody can trace back to a column.
+    /// a bare number nobody can trace back to a column. The trailing columns
+    /// come from the left-joined `session_token_records`, so all are nullable:
+    /// a session with no token row reads them back as `.null`.
     private enum RecordColumn: Int, CaseIterable {
         case id, subFunction, agentName, outcome, startedAt, duration
         case toolCallCount, approvalCount, denialCount, retryCount, tokenOverheadRatio, resumeToken
+        case inputTokens, outputTokens, model, unavailableReason, agentVersion
+        case cacheCreationTokens, cacheReadTokens
     }
 
     private static func storedRecord(
@@ -243,8 +250,41 @@ public actor SQLiteSessionRecordStore: SessionRecordWriter {
             denialCount: Int(denialCount),
             retryCount: Int(retryCount),
             tokenOverheadRatio: tokenOverheadRatio,
-            resumeToken: Self.optionalText(row[RecordColumn.resumeToken.rawValue])
+            resumeToken: Self.optionalText(row[RecordColumn.resumeToken.rawValue]),
+            tokenReport: Self.tokenReport(from: row)
         )
+    }
+
+    /// Reconstructs the joined `session_token_records` row, mirroring
+    /// `insertTokenReport`: a model with counts is `.measured` (cache axes stay
+    /// `nil` unless the agent named them), a stored reason is `.unavailable`,
+    /// and no token row at all is `nil`. An absent count is never read back as
+    /// a zero.
+    private static func tokenReport(from row: [DatabaseValue]) -> TokenReport? {
+        let model = optionalText(row[RecordColumn.model.rawValue])
+        let input = optionalInt(row[RecordColumn.inputTokens.rawValue])
+        let output = optionalInt(row[RecordColumn.outputTokens.rawValue])
+        if let model, let input, let output {
+            return .measured(
+                TokenCounts(
+                    input: input,
+                    output: output,
+                    cacheCreation: optionalInt(row[RecordColumn.cacheCreationTokens.rawValue]),
+                    cacheRead: optionalInt(row[RecordColumn.cacheReadTokens.rawValue])
+                ),
+                model: model
+            )
+        }
+        guard
+            let reasonRaw = optionalText(row[RecordColumn.unavailableReason.rawValue]),
+            let reason = TokenUsageUnavailableReason(storageValue: reasonRaw)
+        else {
+            return nil
+        }
+        return .unavailable(TokenUsageUnavailable(
+            reason: reason,
+            agentVersion: optionalText(row[RecordColumn.agentVersion.rawValue])
+        ))
     }
 
     /// A nullable `TEXT` column: `.null` reads back as `nil`, never as an
@@ -252,6 +292,13 @@ public actor SQLiteSessionRecordStore: SessionRecordWriter {
     private static func optionalText(_ value: DatabaseValue) -> String? {
         guard case let .text(text) = value else { return nil }
         return text
+    }
+
+    /// A nullable `INTEGER` column: `.null` reads back as `nil`, never as a
+    /// zero standing in for absence.
+    private static func optionalInt(_ value: DatabaseValue) -> Int? {
+        guard case let .int(value) = value else { return nil }
+        return Int(value)
     }
 }
 
@@ -297,6 +344,14 @@ private extension TokenUsageUnavailableReason {
         switch self {
         case .notReported: "notReported"
         case .unrecognizedFormat: "unrecognizedFormat"
+        }
+    }
+
+    init?(storageValue: String) {
+        switch storageValue {
+        case "notReported": self = .notReported
+        case "unrecognizedFormat": self = .unrecognizedFormat
+        default: return nil
         }
     }
 }

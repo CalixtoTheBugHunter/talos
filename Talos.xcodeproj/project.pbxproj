@@ -22,6 +22,7 @@
 		7A10000000000000000A0017 /* SessionComposer+BoardConflict.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B0017 /* SessionComposer+BoardConflict.swift */; };
 		7A10000000000000000A000E /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B000F /* ContentView.swift */; };
 		7A10000000000000000A000F /* TalosAppUITestSeeding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B0010 /* TalosAppUITestSeeding.swift */; };
+		7A10000000000000000A0019 /* TalosAppUITestSeeding+MonitorCost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B0019 /* TalosAppUITestSeeding+MonitorCost.swift */; };
 		7A10000000000000000A0012 /* AppShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B0012 /* AppShellView.swift */; };
 		7A10000000000000000A0013 /* SubFunctionSelector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B0013 /* SubFunctionSelector.swift */; };
 		7A10000000000000000A0014 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10000000000000000B0014 /* SettingsView.swift */; };
@@ -32,6 +33,7 @@
 		7A10000000000000000A0004 /* TalosCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A10000000000000000E0002 /* TalosCore */; };
 		7A20000000000000000A0001 /* TalosUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A20000000000000000B0001 /* TalosUITests.swift */; };
 		7A20000000000000000A0002 /* AppShellUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A20000000000000000B0003 /* AppShellUITests.swift */; };
+		7A20000000000000000A0005 /* MonitorCostUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A20000000000000000B0006 /* MonitorCostUITests.swift */; };
 		7A20000000000000000A0003 /* SessionConsoleContentAreaUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A20000000000000000B0004 /* SessionConsoleContentAreaUITests.swift */; };
 		7A20000000000000000A0004 /* SessionConsoleFollowUpInputUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A20000000000000000B0005 /* SessionConsoleFollowUpInputUITests.swift */; };
 /* End PBXBuildFile section */
@@ -66,6 +68,7 @@
 		7A10000000000000000B0017 /* SessionComposer+BoardConflict.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionComposer+BoardConflict.swift"; sourceTree = "<group>"; };
 		7A10000000000000000B000F /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		7A10000000000000000B0010 /* TalosAppUITestSeeding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalosAppUITestSeeding.swift; sourceTree = "<group>"; };
+		7A10000000000000000B0019 /* TalosAppUITestSeeding+MonitorCost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TalosAppUITestSeeding+MonitorCost.swift"; sourceTree = "<group>"; };
 		7A10000000000000000B0002 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		7A10000000000000000B0003 /* Talos.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Talos.entitlements; sourceTree = "<group>"; };
 		7A10000000000000000B0004 /* Talos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Talos.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -73,6 +76,7 @@
 		7A10000000000000000B0006 /* TalosCoreXcodeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TalosCoreXcodeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7A20000000000000000B0001 /* TalosUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalosUITests.swift; sourceTree = "<group>"; };
 		7A20000000000000000B0003 /* AppShellUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellUITests.swift; sourceTree = "<group>"; };
+		7A20000000000000000B0006 /* MonitorCostUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonitorCostUITests.swift; sourceTree = "<group>"; };
 		7A20000000000000000B0004 /* SessionConsoleContentAreaUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionConsoleContentAreaUITests.swift; sourceTree = "<group>"; };
 		7A20000000000000000B0005 /* SessionConsoleFollowUpInputUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionConsoleFollowUpInputUITests.swift; sourceTree = "<group>"; };
 		7A20000000000000000B0002 /* TalosUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TalosUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -121,6 +125,7 @@
 			children = (
 				7A20000000000000000B0001 /* TalosUITests.swift */,
 				7A20000000000000000B0003 /* AppShellUITests.swift */,
+				7A20000000000000000B0006 /* MonitorCostUITests.swift */,
 				7A20000000000000000B0004 /* SessionConsoleContentAreaUITests.swift */,
 				7A20000000000000000B0005 /* SessionConsoleFollowUpInputUITests.swift */,
 			);
@@ -153,6 +158,7 @@
 				7A10000000000000000B0017 /* SessionComposer+BoardConflict.swift */,
 				7A10000000000000000B000F /* ContentView.swift */,
 				7A10000000000000000B0010 /* TalosAppUITestSeeding.swift */,
+				7A10000000000000000B0019 /* TalosAppUITestSeeding+MonitorCost.swift */,
 				7A10000000000000000B0012 /* AppShellView.swift */,
 				7A10000000000000000B0013 /* SubFunctionSelector.swift */,
 				7A10000000000000000B0014 /* SettingsView.swift */,
@@ -311,6 +317,7 @@
 				7A10000000000000000A0017 /* SessionComposer+BoardConflict.swift in Sources */,
 				7A10000000000000000A000E /* ContentView.swift in Sources */,
 				7A10000000000000000A000F /* TalosAppUITestSeeding.swift in Sources */,
+				7A10000000000000000A0019 /* TalosAppUITestSeeding+MonitorCost.swift in Sources */,
 				7A10000000000000000A0012 /* AppShellView.swift in Sources */,
 				7A10000000000000000A0013 /* SubFunctionSelector.swift in Sources */,
 				7A10000000000000000A0014 /* SettingsView.swift in Sources */,
@@ -332,6 +339,7 @@
 			files = (
 				7A20000000000000000A0001 /* TalosUITests.swift in Sources */,
 				7A20000000000000000A0002 /* AppShellUITests.swift in Sources */,
+				7A20000000000000000A0005 /* MonitorCostUITests.swift in Sources */,
 				7A20000000000000000A0003 /* SessionConsoleContentAreaUITests.swift in Sources */,
 				7A20000000000000000A0004 /* SessionConsoleFollowUpInputUITests.swift in Sources */,
 			);
