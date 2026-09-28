@@ -43,6 +43,21 @@ public enum SessionRecordsSchema {
         );
         """
     )
+
+    /// Adds the two cache-token columns to `session_token_records`. Nullable,
+    /// because a cache count is distinguished only where the agent reports one
+    /// — an absent count is `NULL`, never a stored zero. Append-only: a
+    /// database that already ran the v1 migration gains the columns here rather
+    /// than by a rewrite of the table it created.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#how-cost-is-measured
+    public static let cacheTokenColumnsMigration = Migration(
+        version: SessionTranscriptSchema.migration.version + 1,
+        name: "add cache token columns",
+        sql: """
+        ALTER TABLE session_token_records ADD COLUMN cache_creation_tokens INTEGER;
+        ALTER TABLE session_token_records ADD COLUMN cache_read_tokens INTEGER;
+        """
+    )
 }
 
 /// Persists ``SessionRecord`` to the local SQLite database, and answers the
@@ -120,7 +135,9 @@ public actor SQLiteSessionRecordStore: SessionRecordWriter {
                 .int(Int64(counts.output)),
                 .text(model),
                 .null,
-                .null
+                .null,
+                counts.cacheCreation.map { DatabaseValue.int(Int64($0)) } ?? .null,
+                counts.cacheRead.map { DatabaseValue.int(Int64($0)) } ?? .null
             ]
         case let .unavailable(unavailable):
             [
@@ -130,15 +147,17 @@ public actor SQLiteSessionRecordStore: SessionRecordWriter {
                 .null,
                 .null,
                 .text(unavailable.reason.storageValue),
-                unavailable.agentVersion.map(DatabaseValue.text) ?? .null
+                unavailable.agentVersion.map(DatabaseValue.text) ?? .null,
+                .null,
+                .null
             ]
         }
         try await database.run(
             """
             INSERT INTO session_token_records (
                 project_id, session_id, input_tokens, output_tokens, model,
-                unavailable_reason, agent_version
-            ) VALUES (?, ?, ?, ?, ?, ?, ?);
+                unavailable_reason, agent_version, cache_creation_tokens, cache_read_tokens
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
             """,
             bindings: bindings
         )

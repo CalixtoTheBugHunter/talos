@@ -16,7 +16,7 @@ enum ClaudeCodeEventMapper {
             return .toolCall(AgentToolCall(id: id, name: name, targets: targets))
         case let .permissionDenied(message):
             return .output(AgentOutputChunk(channel: .standardError, text: message))
-        case let .deferred(toolUseID, toolName, targets, arguments, _, _):
+        case let .deferred(toolUseID, toolName, targets, arguments, _, _, _, _):
             let classification = classify(toolName: toolName, arguments: arguments)
             let request = AgentPermissionRequest(
                 id: toolUseID,

@@ -222,14 +222,19 @@ actor ClaudeCodeAdapter: AgentAdapter {
         switch value {
         case let .initialized(sessionID, model, version, hasCapabilities):
             recordSessionStart(sessionID: sessionID, model: model, version: version, hasCapabilities: hasCapabilities)
-        case let .usage(input, output):
-            reporter.recordUsage(input: input, output: output)
+        case let .usage(input, output, cacheCreation, cacheRead):
+            reporter.recordUsage(input: input, output: output, cacheCreation: cacheCreation, cacheRead: cacheRead)
         case .unrecognizedUsage:
             reporter.recordUnrecognizedUsage()
-        case let .deferred(toolUseID, _, _, _, inputTokens, outputTokens):
+        case let .deferred(toolUseID, _, _, _, inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens):
             openRequestIDs.insert(toolUseID)
             if let inputTokens, let outputTokens {
-                reporter.recordUsage(input: inputTokens, output: outputTokens)
+                reporter.recordUsage(
+                    input: inputTokens,
+                    output: outputTokens,
+                    cacheCreation: cacheCreationTokens,
+                    cacheRead: cacheReadTokens
+                )
             }
             emit(value)
             denyDroppedBatchCalls(named: toolUseID)

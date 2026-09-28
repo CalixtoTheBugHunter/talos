@@ -31,6 +31,24 @@ struct TokenReportTests {
         #expect(model == "reported-model-name")
     }
 
+    /// Cache-write and cache-read are their own axes on the counts, distinguished
+    /// where the agent reports them. Absent where it does not — `nil`, never a
+    /// measured zero — and two reports differing only in cache are different
+    /// values, so a cache count is never lost by being folded into input.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#how-cost-is-measured
+    @Test("Counts distinguish cache-write and cache-read, absent as nil not zero")
+    func countsDistinguishCache() {
+        let withCache = TokenCounts(input: 2, output: 4, cacheCreation: 2637, cacheRead: 16509)
+        #expect(withCache.cacheCreation == 2637)
+        #expect(withCache.cacheRead == 16509)
+
+        let noCache = TokenCounts(input: 2, output: 4)
+        #expect(noCache.cacheCreation == nil)
+        #expect(noCache.cacheRead == nil)
+
+        #expect(TokenReport.measured(withCache, model: "m") != .measured(noCache, model: "m"))
+    }
+
     // MARK: - An absence stays an absence (AC4)
 
     /// > A token count Talos cannot parse is absent and named. It is never

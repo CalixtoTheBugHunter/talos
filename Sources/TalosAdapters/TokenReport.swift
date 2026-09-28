@@ -8,10 +8,19 @@ import Foundation
 public struct TokenCounts: Equatable, Hashable, Sendable {
     public let input: Int
     public let output: Int
+    /// Cache-write and cache-read counts, distinguished only where the agent
+    /// reports them: `nil` means the agent named no cache usage, never a
+    /// measured zero. Kept apart from `input`/`output` because a cache read is
+    /// priced far below a fresh input token, so folding them together would
+    /// make the cost estimate derived from these wrong.
+    public let cacheCreation: Int?
+    public let cacheRead: Int?
 
-    public init(input: Int, output: Int) {
+    public init(input: Int, output: Int, cacheCreation: Int? = nil, cacheRead: Int? = nil) {
         self.input = input
         self.output = output
+        self.cacheCreation = cacheCreation
+        self.cacheRead = cacheRead
     }
 }
 

@@ -13,7 +13,11 @@ struct SQLiteSessionRecordStoreTests {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
             .appendingPathComponent("test.sqlite", isDirectory: false)
-        let migrations = [SessionRecordsSchema.migration, SessionTranscriptSchema.migration]
+        let migrations = [
+            SessionRecordsSchema.migration,
+            SessionTranscriptSchema.migration,
+            SessionRecordsSchema.cacheTokenColumnsMigration
+        ]
         return try await Database(url: url, migrations: migrations)
     }
 
@@ -145,5 +149,31 @@ struct SQLiteSessionRecordStoreTests {
             "SELECT input_tokens, unavailable_reason, agent_version FROM session_token_records;"
         )
         #expect(rows == [[.null, .text("notReported"), .text("1.2.3")]])
+    }
+
+    /// Cache-write and cache-read are persisted on their own columns, so the
+    /// distinguished counts survive to the Monitor rather than being dropped at
+    /// storage. A measured report naming no cache stores `NULL`, never a zero.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#how-cost-is-measured
+    @Test("A measured report's cache counts are persisted, absent as NULL not zero")
+    func cacheCountsArePersisted() async throws {
+        let database = try await Self.temporaryDatabase()
+        let store = SQLiteSessionRecordStore(database: database)
+
+        let withCache = SessionOutcome.succeeded(
+            .measured(TokenCounts(input: 2, output: 4, cacheCreation: 2637, cacheRead: 16509), model: "m")
+        )
+        await store.write(Self.makeRecord(id: UUID(), outcome: withCache))
+
+        let noCache = SessionOutcome.succeeded(.measured(TokenCounts(input: 2, output: 4), model: "m"))
+        await store.write(Self.makeRecord(id: UUID(), outcome: noCache))
+
+        let rows = try await database.query(
+            """
+            SELECT cache_creation_tokens, cache_read_tokens FROM session_token_records
+            ORDER BY id ASC;
+            """
+        )
+        #expect(rows == [[.int(2637), .int(16509)], [.null, .null]])
     }
 }

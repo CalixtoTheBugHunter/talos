@@ -4,12 +4,17 @@ import Foundation
 /// ``ClaudeCodeAdapter`` session runs — one per turn, since each is a fresh
 /// headless invocation reporting only its own turn's usage.
 ///
-/// The two numbers are `result`'s own `usage.input_tokens`/`usage.output_tokens`
-/// — never summed from cache-read/cache-write sub-fields, which would be Talos
-/// doing arithmetic the agent didn't report.
+/// Each number is `result`'s own reported field — `usage.input_tokens`,
+/// `usage.output_tokens`, and the two cache counts kept distinct from them.
+/// Cache is never folded into input/output: that would be Talos doing
+/// arithmetic the agent didn't report. A cache count stays `nil` until a turn
+/// reports one, so an agent that names no cache is an absence rather than zero.
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#how-cost-is-measured
 struct ClaudeCodeTokenReporter: Equatable, Sendable {
-    private var counts = TokenCounts(input: 0, output: 0)
+    private var input = 0
+    private var output = 0
+    private var cacheCreation: Int?
+    private var cacheRead: Int?
     private var model: String?
     private var agentVersion: String?
     private var hasMeasuredAnyTurn = false
@@ -22,9 +27,16 @@ struct ClaudeCodeTokenReporter: Equatable, Sendable {
         agentVersion = version
     }
 
-    mutating func recordUsage(input: Int, output: Int) {
+    mutating func recordUsage(input: Int, output: Int, cacheCreation: Int?, cacheRead: Int?) {
         hasMeasuredAnyTurn = true
-        counts = TokenCounts(input: counts.input + input, output: counts.output + output)
+        self.input += input
+        self.output += output
+        if let cacheCreation {
+            self.cacheCreation = (self.cacheCreation ?? 0) + cacheCreation
+        }
+        if let cacheRead {
+            self.cacheRead = (self.cacheRead ?? 0) + cacheRead
+        }
     }
 
     /// A `result` line reported usage in a shape this parse does not
@@ -41,6 +53,7 @@ struct ClaudeCodeTokenReporter: Equatable, Sendable {
         guard hasMeasuredAnyTurn, let model else {
             return .unavailable(TokenUsageUnavailable(reason: .notReported, agentVersion: agentVersion))
         }
+        let counts = TokenCounts(input: input, output: output, cacheCreation: cacheCreation, cacheRead: cacheRead)
         return .measured(counts, model: model)
     }
 }
