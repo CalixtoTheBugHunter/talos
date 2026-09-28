@@ -31,7 +31,7 @@ public struct MonitorCostView: View {
         switch viewModel.state {
         case .empty:
             ContentUnavailableView(
-                "No session costs yet",
+                "No estimated costs yet",
                 systemImage: "chart.bar",
                 description: Text(verbatim: "Estimated costs appear here once this project has run a session.")
             )

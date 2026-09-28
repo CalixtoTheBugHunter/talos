@@ -61,19 +61,18 @@ struct PriceTableTests {
         #expect(prefixed == .estimated(10))
     }
 
-    /// AC4: pricing needs no network. The shipped table is a compiled-in
-    /// constant reachable synchronously and `estimate` is a pure function — this
-    /// test computes an estimate with no `await` and no I/O, which is the whole
-    /// mechanism. The Monitor "works entirely offline … no network call".
+    /// AC4: pricing needs no network. Offline is structural — the shipped table
+    /// is a compiled-in constant and `estimate` is a pure function, reached here
+    /// with no `await` and no I/O, so no network is in the call path. Asserting
+    /// the exact estimate also guards the computation and the derived cache
+    /// rates (write 1.25×, read 0.1× input) against a silent regression.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Technology-and-Distribution#no-telemetry
-    @Test("Pricing is offline: the shipped table is compiled in and estimate is pure")
+    @Test("Pricing is offline and prices a known model to its exact estimate")
     func pricingIsOffline() {
         let counts = TokenCounts(input: 2, output: 4, cacheCreation: 2637, cacheRead: 16509)
         let estimate = PriceTable.shipped.estimate(for: .measured(counts, model: "global.anthropic.claude-opus-5"))
-        guard case .estimated = estimate else {
-            Issue.record("Shipped table should price a known Claude model")
-            return
-        }
+        // 2·15 + 4·75 + 2637·18.75 + 16509·1.5, all ÷ 1_000_000 = 0.07453725 USD.
+        #expect(estimate == .estimated(Decimal(sign: .plus, exponent: -8, significand: 7_453_725)))
     }
 
     /// AC6: the shipped table carries the date its prices were set, so the UI
