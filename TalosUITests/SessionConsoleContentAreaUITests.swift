@@ -49,7 +49,10 @@ final class SessionConsoleContentAreaUITests: XCTestCase {
         let stop = app.buttons["Stop session"]
         XCTAssertTrue(stop.waitForExistence(timeout: 5), "the Stop control shows while the session runs")
 
-        app.staticTexts["Monitor"].click()
+        // Chat History is still a placeholder surface, so its Empty state is
+        // proof the sidebar switched off Sessions; any non-Sessions surface
+        // exercises the always-visible Stop control equally.
+        app.staticTexts["Chat History"].click()
         XCTAssertTrue(
             app.staticTexts["This surface is not available yet."].waitForExistence(timeout: 5),
             "the sidebar actually switched to another surface"

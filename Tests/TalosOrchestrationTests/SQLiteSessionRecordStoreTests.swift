@@ -176,4 +176,70 @@ struct SQLiteSessionRecordStoreTests {
         )
         #expect(rows == [[.int(2637), .int(16509)], [.null, .null]])
     }
+
+    /// The cost estimate is mapped from persisted counts, so `records()` must
+    /// read the joined token row back — model and all four axes — not just the
+    /// session columns. Absent cache axes read back as `nil`, never zero.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#how-cost-is-measured
+    @Test("A measured token report round-trips through records(), cache absent as nil")
+    func measuredTokenReportRoundTrips() async throws {
+        let database = try await Self.temporaryDatabase()
+        let store = SQLiteSessionRecordStore(database: database)
+        let project = ProjectIdentifier(rawValue: "p1")
+        let report = TokenReport.measured(
+            TokenCounts(input: 2, output: 4, cacheCreation: 2637, cacheRead: 16509),
+            model: "global.anthropic.claude-opus-5"
+        )
+        await store.write(Self.makeRecord(project: project, outcome: .succeeded(report)))
+
+        let found = try await store.records(
+            project: project,
+            from: Date(timeIntervalSince1970: 0),
+            to: Date(timeIntervalSince1970: 100_000)
+        )
+
+        #expect(found.first?.tokenReport == report)
+    }
+
+    @Test("An unavailable token report round-trips through records() with its reason")
+    func unavailableTokenReportRoundTrips() async throws {
+        let database = try await Self.temporaryDatabase()
+        let store = SQLiteSessionRecordStore(database: database)
+        let project = ProjectIdentifier(rawValue: "p1")
+        let report = TokenReport.unavailable(
+            TokenUsageUnavailable(reason: .unrecognizedFormat, agentVersion: "2.1.246")
+        )
+        await store.write(Self.makeRecord(
+            project: project,
+            outcome: .failed(reason: "The agent could not be launched.", tokenReport: report)
+        ))
+
+        let found = try await store.records(
+            project: project,
+            from: Date(timeIntervalSince1970: 0),
+            to: Date(timeIntervalSince1970: 100_000)
+        )
+
+        #expect(found.first?.tokenReport == report)
+    }
+
+    @Test("A session with no token row reads back a nil token report, never a zero")
+    func noTokenRowReadsBackAsNil() async throws {
+        let database = try await Self.temporaryDatabase()
+        let store = SQLiteSessionRecordStore(database: database)
+        let project = ProjectIdentifier(rawValue: "p1")
+        await store.write(Self.makeRecord(
+            project: project,
+            outcome: .safeguardsPreCheckDenied(reason: "Production deploys need a human.")
+        ))
+
+        let found = try await store.records(
+            project: project,
+            from: Date(timeIntervalSince1970: 0),
+            to: Date(timeIntervalSince1970: 100_000)
+        )
+
+        #expect(found.count == 1)
+        #expect(found.first?.tokenReport == nil)
+    }
 }

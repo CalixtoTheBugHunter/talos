@@ -1,4 +1,5 @@
 import Foundation
+import TalosAdapters
 import TalosProjectLibrary
 
 /// One session record as read back from storage — the Monitor Screen's read
@@ -24,6 +25,12 @@ public struct StoredSessionRecord: Identifiable, Equatable, Sendable {
     /// adapter reported one at the time — what a resume launches into.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Session-Console#what-it-is
     public let resumeToken: String?
+    /// What the adapter reported for this session's token usage, or `nil` when
+    /// no token row was recorded. The counts and model the Monitor's cost
+    /// estimate is mapped from — an unparsable count stays absent and named,
+    /// never a stored zero.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#how-cost-is-measured
+    public let tokenReport: TokenReport?
 
     public init(
         id: UUID,
@@ -38,7 +45,8 @@ public struct StoredSessionRecord: Identifiable, Equatable, Sendable {
         denialCount: Int,
         retryCount: Int,
         tokenOverheadRatio: Double,
-        resumeToken: String? = nil
+        resumeToken: String? = nil,
+        tokenReport: TokenReport? = nil
     ) {
         self.id = id
         self.project = project
@@ -53,5 +61,6 @@ public struct StoredSessionRecord: Identifiable, Equatable, Sendable {
         self.retryCount = retryCount
         self.tokenOverheadRatio = tokenOverheadRatio
         self.resumeToken = resumeToken
+        self.tokenReport = tokenReport
     }
 }

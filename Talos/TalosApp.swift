@@ -23,6 +23,10 @@ struct TalosApp: App {
     @State private var isGatedDecisionLogPresented = false
     @State private var gatedDecisionLogState: GatedDecisionLogViewModel.State = .loading
     @State private var sessionConsoleViewModel = SessionConsoleViewModel()
+    /// The Monitor's cost surface, mapping token counts against the price table
+    /// shipped with this build. Stays Empty until a project-selection flow
+    /// drives its load — no project is selectable yet.
+    @State private var monitorViewModel = MonitorCostViewModel(priceTable: .shipped)
     @State private var isSessionConsoleTranscriptPresented = false
     /// `nil` until the local database has opened — the one real entry point
     /// the session composition root needs. Absent rather than defaulted on
@@ -45,6 +49,7 @@ struct TalosApp: App {
                 composer: sessionComposer,
                 composerUnavailableReason: databaseOpenErrorMessage,
                 consoleViewModel: sessionConsoleViewModel,
+                monitorViewModel: monitorViewModel,
                 deniedActionNoticeCenter: deniedActionNoticeCenter,
                 navigation: navigation,
                 isSessionConsolePresented: $isSessionConsoleTranscriptPresented
@@ -88,6 +93,7 @@ struct TalosApp: App {
                     navigation: navigation,
                     isPresented: $isSessionConsoleTranscriptPresented
                 )
+                TalosAppUITestSeeding.seedMonitorCost(into: monitorViewModel, navigation: navigation)
             }
             // Persist the window's frame under the user's control: SwiftUI's
             // implicit restoration is unreliable for a single `Window`, so the

@@ -36,12 +36,14 @@ final class AppShellUITests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
 
+        // Chat History is still a placeholder, so its Empty state proves the
+        // switch; Monitor is a live surface now and has its own content instead.
         app.menuBarItems["View"].click()
-        app.menuItems["Monitor"].click()
+        app.menuItems["Chat History"].click()
 
         XCTAssertTrue(
             app.staticTexts["This surface is not available yet."].waitForExistence(timeout: 5),
-            "selecting Monitor shows the Monitor surface"
+            "selecting Chat History shows that surface"
         )
         try assertNoTalosOwnAccessibilityIssues(on: app)
     }
@@ -56,9 +58,11 @@ final class AppShellUITests: XCTestCase {
 
         app.typeKey(.rightArrow, modifierFlags: [.command, .option])
 
+        // The next surface after Sessions is Monitor, a live surface — its own
+        // cost Empty state (not a placeholder) is proof the cycle moved.
         XCTAssertTrue(
-            app.staticTexts["This surface is not available yet."].waitForExistence(timeout: 5),
-            "⌘⌥→ from Sessions moves to the next surface"
+            app.staticTexts["No estimated costs yet"].waitForExistence(timeout: 5),
+            "⌘⌥→ from Sessions moves to the next surface (Monitor)"
         )
     }
 
