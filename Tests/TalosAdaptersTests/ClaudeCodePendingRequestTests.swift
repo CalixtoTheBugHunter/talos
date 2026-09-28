@@ -35,7 +35,10 @@ struct ClaudeCodePendingRequestTests {
         // The request is left unresolved: the session neither ends nor blocks a
         // further call, and the turn's usage is readable.
         let usage = await adapter.tokenUsage()
-        #expect(usage == .measured(TokenCounts(input: 2, output: 89), model: "global.anthropic.claude-opus-5"))
+        #expect(usage == .measured(
+            TokenCounts(input: 2, output: 89, cacheCreation: 19150, cacheRead: 0),
+            model: "global.anthropic.claude-opus-5"
+        ))
 
         // Only a stop ends it — "a pending prompt has no timer."
         await adapter.stop()

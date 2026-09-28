@@ -24,9 +24,13 @@ enum ClaudeCodeStreamValue: Equatable, Sendable {
         targets: [String],
         arguments: [String: String],
         inputTokens: Int?,
-        outputTokens: Int?
+        outputTokens: Int?,
+        cacheCreationTokens: Int?,
+        cacheReadTokens: Int?
     )
-    case usage(input: Int, output: Int)
+    /// `cacheCreation`/`cacheRead` are `nil` when the line named no cache usage
+    /// — distinguished where the agent reports them, absent where it does not.
+    case usage(input: Int, output: Int, cacheCreation: Int?, cacheRead: Int?)
     /// A `result` line's `usage` did not decode as counts — a drift, distinct
     /// from a line that never arrived.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#when-the-log-format-changes
@@ -125,6 +129,8 @@ struct ClaudeCodeStreamDecoder {
         let usage = object["usage"] as? [String: Any]
         let input = usage?["input_tokens"] as? Int
         let output = usage?["output_tokens"] as? Int
+        let cacheCreation = usage?["cache_creation_input_tokens"] as? Int
+        let cacheRead = usage?["cache_read_input_tokens"] as? Int
 
         if let deferred = deferredToolUse(from: object) {
             return .deferred(
@@ -133,12 +139,14 @@ struct ClaudeCodeStreamDecoder {
                 targets: targets(from: deferred.input),
                 arguments: keyedArguments(from: deferred.input),
                 inputTokens: input,
-                outputTokens: output
+                outputTokens: output,
+                cacheCreationTokens: cacheCreation,
+                cacheReadTokens: cacheRead
             )
         }
         guard usage != nil else { return .ignored }
         guard let input, let output else { return .unrecognizedUsage }
-        return .usage(input: input, output: output)
+        return .usage(input: input, output: output, cacheCreation: cacheCreation, cacheRead: cacheRead)
     }
 
     /// The three fields ``decodeResult`` needs out of `deferred_tool_use` — a

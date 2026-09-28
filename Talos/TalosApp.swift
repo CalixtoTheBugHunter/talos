@@ -216,7 +216,8 @@ struct TalosApp: App {
                 migrations: [
                     SessionRecordsSchema.migration,
                     GatedDecisionLogSchema.migration,
-                    SessionTranscriptSchema.migration
+                    SessionTranscriptSchema.migration,
+                    SessionRecordsSchema.cacheTokenColumnsMigration
                 ]
             )
             sessionComposer = SessionComposer(
