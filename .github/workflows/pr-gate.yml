@@ -8,13 +8,17 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
 
+# Workflow-wide default is least privilege; the write scope the gate needs to
+# post its sticky comment is granted per-job below, per § Workflow hardening.
 permissions:
   contents: read
-  pull-requests: write # post/update the sticky PR Gate comment
 
 jobs:
   pr-gate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # post/update the sticky PR Gate comment
     steps:
       # prgate is a node action that reads guardrails.prgate.json from the repo
       # root on disk — it does no checkout of its own, so without this the config
