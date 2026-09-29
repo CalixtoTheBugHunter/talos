@@ -1,0 +1,26 @@
+# PR Gate — deterministically flag PRs that touch project-declared "protected"
+# guardrail files (CI, lint/format/secret configs, Claude skills) for mandatory
+# human review. Protected paths and hard-blocker mode live in guardrails.prgate.json.
+# https://github.com/Fuzzy-Unlogic/prgate
+name: PR Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: write # post/update the sticky PR Gate comment
+
+jobs:
+  pr-gate:
+    runs-on: ubuntu-latest
+    steps:
+      # prgate is a node action that reads guardrails.prgate.json from the repo
+      # root on disk — it does no checkout of its own, so without this the config
+      # is absent and the gate passes vacuously ("not configured, passing").
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: Fuzzy-Unlogic/prgate@fd4330f8ba0a87978afd78ccc90bdab2162fc0ed # v1.1.0-alpha
+        # Defaults used: config-path=guardrails.prgate.json,
+        # approval-label=prgate-approved, github-token=${{ github.token }}.
+        # Pinned to a SHA (not a floating tag) so version-check nudges us to update.
