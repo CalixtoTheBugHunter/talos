@@ -182,6 +182,133 @@ struct SessionRecordMetricsTests {
         // catches a regression that inflates duration by some other amount.
         #expect(record.duration == 1)
     }
+
+    /// AC1: "Session duration recorded accurately, excluding time awaiting
+    /// user approval." The time the session sits at the gate is the user's,
+    /// not the agent's work, so it is subtracted from the recorded duration —
+    /// the same reason the gate wait is already outside the liveness clock
+    /// (decision 81).
+    ///
+    /// The clock only moves when a collaborator advances it, so the timeline
+    /// is exact regardless of how many times the pipeline reads it: launch
+    /// books `work` seconds of real work, then the gate holds the decision for
+    /// `approvalWait` seconds. Wall-clock is `work + approvalWait`; duration
+    /// must be `work` alone.
+    @Test("Duration excludes the time spent awaiting a user approval")
+    func durationExcludesApprovalWait() async {
+        let clock = SteppingClock()
+        let work: TimeInterval = 5
+        let approvalWait: TimeInterval = 20
+        let adapter = ScriptedAgentAdapter(
+            events: [
+                .permissionRequest(AgentPermissionRequest(id: "r1", prompt: "Write a.swift", toolName: "Write")),
+                terminated(.exited(code: 0))
+            ],
+            onLaunch: { clock.advance(by: work) }
+        )
+        let pipeline = SessionPipeline(
+            assembler: makeTestAssembler(),
+            preCheck: FixedSafeguardsPreCheck(.approved),
+            adapter: adapter,
+            gate: ClockAdvancingSafeguardsGate(clock: clock, heldFor: approvalWait),
+            decisionLog: RecordingGatedDecisionLog(),
+            recordWriter: RecordingSessionRecordWriter(),
+            memories: RecordingMemoriesUpdatePort(),
+            now: clock.now
+        )
+
+        let record = await pipeline.run(
+            intent: makeTestIntent(),
+            guideline: makeSessionGuideline(),
+            safeguards: makeTestSafeguards(),
+            connectors: makeTestConnectors(),
+            launch: SessionLaunch(agentName: testAgentName, configuration: TestLaunch.configuration())
+        )
+
+        #expect(record.duration == work)
+    }
+
+    /// The counterpart: a session that never reaches the gate has no approval
+    /// wait to exclude, so its duration is the whole elapsed time. This is the
+    /// control that keeps the test above from passing against a "duration is
+    /// always zero" regression.
+    @Test("A session with no approval records its whole elapsed time as duration")
+    func durationWithNoApprovalIsWholeElapsed() async {
+        let clock = SteppingClock()
+        let work: TimeInterval = 5
+        let adapter = ScriptedAgentAdapter(
+            events: [terminated(.exited(code: 0))],
+            onLaunch: { clock.advance(by: work) }
+        )
+        let pipeline = SessionPipeline(
+            assembler: makeTestAssembler(),
+            preCheck: FixedSafeguardsPreCheck(.approved),
+            adapter: adapter,
+            gate: RecordingSafeguardsGate(),
+            decisionLog: RecordingGatedDecisionLog(),
+            recordWriter: RecordingSessionRecordWriter(),
+            memories: RecordingMemoriesUpdatePort(),
+            now: clock.now
+        )
+
+        let record = await pipeline.run(
+            intent: makeTestIntent(),
+            guideline: makeSessionGuideline(),
+            safeguards: makeTestSafeguards(),
+            connectors: makeTestConnectors(),
+            launch: SessionLaunch(agentName: testAgentName, configuration: TestLaunch.configuration())
+        )
+
+        #expect(record.duration == work)
+    }
+}
+
+/// A clock whose value moves only when a collaborator advances it — never on a
+/// read — so a test can place a known amount of work and a known approval wait
+/// on the timeline without a per-read tick contaminating either figure.
+private final class SteppingClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var current = Date(timeIntervalSince1970: 0)
+
+    func now() -> Date {
+        lock.lock()
+        defer { lock.unlock() }
+        return current
+    }
+
+    func advance(by seconds: TimeInterval) {
+        lock.lock()
+        defer { lock.unlock() }
+        current = current.addingTimeInterval(seconds)
+    }
+}
+
+/// A gate that advances a ``SteppingClock`` by a fixed interval while it holds
+/// the decision — standing in for the real wall-clock time a user takes to
+/// answer a prompt, so the span the pipeline measures around `decide` is a
+/// known quantity.
+private actor ClockAdvancingSafeguardsGate: SafeguardsGate {
+    private let clock: SteppingClock
+    private let held: TimeInterval
+
+    init(clock: SteppingClock, heldFor held: TimeInterval) {
+        self.clock = clock
+        self.held = held
+    }
+
+    func decide(
+        _: AgentPermissionRequest,
+        project _: ProjectIdentifier,
+        subFunction _: SubFunction
+    ) async -> SafeguardsDecision {
+        clock.advance(by: held)
+        return SafeguardsDecision(
+            outcome: .allowed,
+            action: TestDefaults.action,
+            classification: .tier(.write),
+            actor: .user
+        )
+    }
 }
 
 /// A clock that advances by one second on every read, so

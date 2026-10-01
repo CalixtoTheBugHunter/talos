@@ -305,7 +305,11 @@ public struct SessionPipeline<
             agentName: bookkeeping.agentName,
             outcome: outcome,
             startedAt: bookkeeping.startedAt,
-            duration: now().timeIntervalSince(bookkeeping.startedAt),
+            // Wall-clock less the time the session spent awaiting user
+            // approval at the gate: that wait is the user's, not the agent's
+            // work. Clamped at zero so a clock that ran backwards can never
+            // record a negative duration. AC1.
+            duration: max(0, now().timeIntervalSince(bookkeeping.startedAt) - metrics.approvalWait),
             toolCallCount: metrics.toolCallCount,
             approvalCount: metrics.approvalCount,
             denialCount: metrics.denialCount,
