@@ -36,17 +36,25 @@ public struct SessionRunMetrics: Equatable, Sendable {
     public var approvalCount = 0
     public var denialCount = 0
     public var retryCount = 0
+    /// Total time this session sat at the Safeguards gate awaiting a user
+    /// decision, so `duration` can exclude it: that wait is the user's, not
+    /// the agent's work. The gate wait is already outside the liveness clock
+    /// for the same reason — decision 81.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#monitor-screen
+    public var approvalWait: TimeInterval = 0
 
     public init(
         toolCallCount: Int = 0,
         approvalCount: Int = 0,
         denialCount: Int = 0,
-        retryCount: Int = 0
+        retryCount: Int = 0,
+        approvalWait: TimeInterval = 0
     ) {
         self.toolCallCount = toolCallCount
         self.approvalCount = approvalCount
         self.denialCount = denialCount
         self.retryCount = retryCount
+        self.approvalWait = approvalWait
     }
 }
 

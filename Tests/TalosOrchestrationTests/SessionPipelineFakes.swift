@@ -25,6 +25,10 @@ actor ScriptedAgentAdapter: AgentAdapter {
     /// changing across the events the pipeline's `reportTokenUsage` polls it
     /// against.
     private var usageSequence: [TokenReport]
+    /// Runs when `launch` is called, before any event is yielded — a seam for a
+    /// test that needs to move a controllable clock forward by the session's
+    /// "work" time, so a known amount of elapsed time precedes the gate.
+    private let onLaunch: (@Sendable () -> Void)?
     private var openRequests: Set<String> = []
 
     private(set) var launchCount = 0
@@ -38,17 +42,20 @@ actor ScriptedAgentAdapter: AgentAdapter {
         crash: (any Error)? = nil,
         resolveFailure: (any Error)? = nil,
         usage: TokenReport = TestDefaults.usage,
-        usageSequence: [TokenReport] = []
+        usageSequence: [TokenReport] = [],
+        onLaunch: (@Sendable () -> Void)? = nil
     ) {
         self.events = events
         self.crash = crash
         self.resolveFailure = resolveFailure
         self.usage = usage
         self.usageSequence = usageSequence
+        self.onLaunch = onLaunch
     }
 
     func launch(_: AgentLaunchConfiguration) async throws -> AgentEventStream {
         launchCount += 1
+        onLaunch?()
         let (stream, continuation) = AgentEventStream.makeStream()
         for event in events {
             if case let .permissionRequest(request) = event {
