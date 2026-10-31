@@ -15,6 +15,10 @@ public struct MonitorCostView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
+            if let overhead = viewModel.overhead {
+                overheadHeader(overhead)
+                Divider()
+            }
             content
             Divider()
             pricesFooter
@@ -71,9 +75,62 @@ public struct MonitorCostView: View {
             Text(verbatim: row.tokensSummary)
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+            Text(verbatim: row.overheadSummary)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            if let sources = row.overheadSources {
+                Text(verbatim: sources)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            if let flag = row.overheadFlag {
+                flagLabel(flag)
+            }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(Text(verbatim: "\(row.title). \(row.costSummary). \(row.tokensSummary)."))
+        .accessibilityLabel(Text(verbatim: Self.rowAccessibilityLabel(row)))
+    }
+
+    private static func rowAccessibilityLabel(_ row: MonitorCostRow) -> String {
+        spoken([
+            row.title, row.costSummary, row.tokensSummary, row.overheadSummary,
+            row.overheadSources, row.overheadFlag
+        ])
+    }
+
+    /// Each present part as its own sentence, so VoiceOver pauses between them.
+    private static func spoken(_ parts: [String?]) -> String {
+        parts.compactMap(\.self).map { "\($0)." }.joined(separator: " ")
+    }
+
+    /// The pooled overhead, its coverage, and the flag. The flag is a symbol
+    /// and words — never colour alone — and the whole header is one
+    /// accessibility element so VoiceOver reads the coverage with the figure.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Accessibility#never-by-color-alone
+    private func overheadHeader(_ overhead: MonitorOverheadSummary) -> some View {
+        VStack(alignment: .leading) {
+            Text(verbatim: overhead.headline)
+            Text(verbatim: overhead.coverage)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            if let flag = overhead.flag {
+                flagLabel(flag)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
+        .padding()
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(Text(verbatim: Self.spoken([overhead.headline, overhead.coverage, overhead.flag])))
+    }
+
+    private func flagLabel(_ flag: String) -> some View {
+        HStack {
+            Image(systemName: "exclamationmark.triangle")
+                .accessibilityHidden(true)
+            Text(verbatim: flag)
+        }
+        .font(.footnote.bold())
     }
 
     private var pricesFooter: some View {

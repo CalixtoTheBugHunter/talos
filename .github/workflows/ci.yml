@@ -486,11 +486,11 @@ jobs:
         run: tools/spec-guard/spec-guard.sh
 
   # ── perf-budget ─────────────────────────────────────────────────────────
-  # Asserts the one budget in
+  # Asserts the budgets in
   # https://github.com/CalixtoTheBugHunter/talos/wiki/Vision-and-Principles#budgets-that-make-the-above-testable
-  # that is measurable on a hosted runner with zero dependency on runtime app
-  # behavior that does not exist yet (no session, no agent, no Monitor
-  # Screen): app bundle size, < 60 MB.
+  # that are measurable on a hosted runner with zero dependency on runtime app
+  # behavior: app bundle size (< 60 MB), and Talos-added token overhead
+  # (< 5% of session tokens) for a representative session.
   #
   # What this job does NOT claim, stated because a green run is otherwise
   # read as covering more than it does — per
@@ -505,8 +505,11 @@ jobs:
   #     pre-release check per decision 49 — a GitHub-hosted runner is not a
   #     ProMotion display — tracked by
   #     https://github.com/CalixtoTheBugHunter/talos/issues/154.
-  #   - Talos-added token overhead is a runtime, per-session metric measured
-  #     on the Monitor Screen, not a static build property.
+  #   - Talos-added token overhead is asserted here for ONE representative
+  #     session (TokenOverheadBudgetTests). The real per-session and pooled
+  #     figures are measured on the Monitor Screen, so a green run says the
+  #     assembly has not regressed, not that every user's sessions are under 5%.
+  #     Method: https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#how-token-overhead-is-computed
   perf-budget:
     name: perf-budget
     runs-on: macos-26
@@ -580,6 +583,19 @@ jobs:
             printf '  spec: https://github.com/CalixtoTheBugHunter/talos/wiki/Vision-and-Principles#budgets-that-make-the-above-testable\n'
             exit 1
           fi
+
+      # Own scratch path so this debug build never lands in the release
+      # SwiftPM cache restored above. The suite installs nothing, per
+      # https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#the-suite-installs-nothing
+      - name: Assert the token-overhead budget
+        run: |
+          set -euo pipefail
+          swift test --scratch-path "$RUNNER_TEMP/spm-overhead" --filter TokenOverheadBudgetTests
+          {
+            printf '\n| Token overhead | Representative session | < 5%% of session tokens |\n'
+            printf '| --- | --- | --- |\n'
+            printf '| Asserted by | TokenOverheadBudgetTests | passed |\n'
+          } >>"$GITHUB_STEP_SUMMARY"
 
       - name: Save this run's measured bundle size
         if: always()

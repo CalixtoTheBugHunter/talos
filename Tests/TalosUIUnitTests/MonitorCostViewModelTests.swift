@@ -152,4 +152,88 @@ struct MonitorCostViewModelTests {
         }
         return rows
     }
+
+    // MARK: Talos-added token overhead
+
+    private static func overheadRecord(injected: Int?, input: Int, output: Int = 0) -> StoredSessionRecord {
+        StoredSessionRecord(
+            id: UUID(), project: ProjectIdentifier(rawValue: "p1"), subFunction: .automator,
+            agentName: "claude-code", outcome: .succeeded, startedAt: Date(timeIntervalSince1970: 1000),
+            duration: 12, toolCallCount: 0, approvalCount: 0, denialCount: 0, retryCount: 0,
+            tokenOverheadRatio: 0,
+            tokenReport: .measured(TokenCounts(input: input, output: output), model: "test-model"),
+            injectedTokens: injected.map { InjectedTokens(bySource: [.guideline: $0], framing: 0) }
+        )
+    }
+
+    @MainActor
+    private static func readyRows(_ viewModel: MonitorCostViewModel) -> [MonitorCostRow] {
+        guard case let .ready(rows) = viewModel.state else { return [] }
+        return rows
+    }
+
+    @Test("A session's overhead is labeled an estimate, shows its sources, and is not flagged under 5%")
+    @MainActor
+    func overheadRowUnderBudget() {
+        let viewModel = MonitorCostViewModel(priceTable: Self.table)
+        viewModel.present([Self.overheadRecord(injected: 30, input: 1000)])
+
+        let row = Self.readyRows(viewModel).first
+        #expect(row?.overheadSummary == "Estimated Talos-added token overhead: 3.0% (30 of 1000 session tokens)")
+        #expect(row?.overheadSources == "guideline 30 · framing 0")
+        #expect(row?.overheadFlag == nil)
+    }
+
+    @Test("A session at or over 5% is flagged in words")
+    @MainActor
+    func overheadRowOverBudgetIsFlagged() {
+        let viewModel = MonitorCostViewModel(priceTable: Self.table)
+        viewModel.present([Self.overheadRecord(injected: 50, input: 1000)])
+
+        #expect(Self.readyRows(viewModel).first?.overheadFlag == "Over the 5% token-overhead budget")
+    }
+
+    @Test("A session with no injected-token record says why, rather than reading 0%")
+    @MainActor
+    func overheadRowUnavailable() {
+        let viewModel = MonitorCostViewModel(priceTable: Self.table)
+        viewModel.present([Self.overheadRecord(injected: nil, input: 1000)])
+
+        let row = Self.readyRows(viewModel).first
+        #expect(row?.overheadSummary.contains("unavailable") == true)
+        #expect(row?.overheadSources == nil)
+        #expect(row?.overheadFlag == nil)
+    }
+
+    @Test("The aggregate is pooled, carries its coverage, and is flagged over 5%")
+    @MainActor
+    func aggregateCarriesCoverageAndFlag() {
+        let viewModel = MonitorCostViewModel(priceTable: Self.table)
+        viewModel.present([
+            Self.overheadRecord(injected: 100, input: 1000),
+            Self.overheadRecord(injected: nil, input: 1000)
+        ])
+
+        #expect(viewModel.overhead?.headline == "Estimated Talos-added token overhead: 10.0% of session tokens")
+        #expect(viewModel.overhead?.coverage.hasPrefix("Computed from 1 session; 1 excluded") == true)
+        #expect(viewModel.overhead?.flag == "Over the 5% token-overhead budget")
+    }
+
+    @Test("With nothing measurable the aggregate is unavailable, not 0%")
+    @MainActor
+    func aggregateWithNothingMeasurable() {
+        let viewModel = MonitorCostViewModel(priceTable: Self.table)
+        viewModel.present([Self.overheadRecord(injected: nil, input: 1000)])
+
+        #expect(viewModel.overhead?.headline.contains("unavailable") == true)
+        #expect(viewModel.overhead?.flag == nil)
+    }
+
+    @Test("No records means no aggregate to show")
+    @MainActor
+    func noRecordsNoAggregate() {
+        let viewModel = MonitorCostViewModel(priceTable: Self.table)
+        viewModel.present([])
+        #expect(viewModel.overhead == nil)
+    }
 }

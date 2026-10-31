@@ -223,7 +223,8 @@ struct TalosApp: App {
                     SessionRecordsSchema.migration,
                     GatedDecisionLogSchema.migration,
                     SessionTranscriptSchema.migration,
-                    SessionRecordsSchema.cacheTokenColumnsMigration
+                    SessionRecordsSchema.cacheTokenColumnsMigration,
+                    SessionRecordsSchema.overheadSourcesMigration
                 ]
             )
             sessionComposer = SessionComposer(

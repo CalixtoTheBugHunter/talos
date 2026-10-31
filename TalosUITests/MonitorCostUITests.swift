@@ -37,6 +37,21 @@ final class MonitorCostUITests: XCTestCase {
             text(containing: "Estimated cost unavailable — session log format not recognized", in: app).exists,
             "an unparsable token report reports cost unavailable, not a zero"
         )
+
+        // Talos-added token overhead:
+        // https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#how-token-overhead-is-computed
+        XCTAssertTrue(
+            text(containing: "Estimated Talos-added token overhead: ", in: app).exists,
+            "overhead is shown per session and as an aggregate, labeled an estimate"
+        )
+        XCTAssertTrue(
+            text(containing: "Computed from 2 sessions; 1 excluded", in: app).exists,
+            "the aggregate states how many sessions it covers and how many were excluded"
+        )
+        XCTAssertTrue(
+            text(containing: "Over the 5% token-overhead budget", in: app).exists,
+            "exceeding 5% is flagged in words, not by colour"
+        )
     }
 
     @MainActor
