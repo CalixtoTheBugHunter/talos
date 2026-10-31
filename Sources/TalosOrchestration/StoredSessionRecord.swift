@@ -9,19 +9,6 @@ import TalosProjectLibrary
 /// are not persisted), so a query never promises data storage does not keep.
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#monitor-screen
 public struct StoredSessionRecord: Identifiable, Equatable, Sendable {
-    /// This record with its injected-token breakdown attached — the store reads
-    /// that from a separate table, so it joins the two here.
-    func withInjectedTokens(_ injectedTokens: InjectedTokens?) -> Self {
-        Self(
-            id: id, project: project, subFunction: subFunction, agentName: agentName,
-            outcome: outcome, startedAt: startedAt, duration: duration,
-            toolCallCount: toolCallCount, approvalCount: approvalCount,
-            denialCount: denialCount, retryCount: retryCount,
-            tokenOverheadRatio: tokenOverheadRatio, resumeToken: resumeToken,
-            tokenReport: tokenReport, injectedTokens: injectedTokens
-        )
-    }
-
     public let id: UUID
     public let project: ProjectIdentifier
     public let subFunction: SubFunction
@@ -48,7 +35,7 @@ public struct StoredSessionRecord: Identifiable, Equatable, Sendable {
     /// recorded before this was kept — such a session cannot be measured for
     /// overhead and is excluded and counted, never read as zero.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#how-token-overhead-is-computed
-    public let injectedTokens: InjectedTokens?
+    public internal(set) var injectedTokens: InjectedTokens?
 
     public init(
         id: UUID,

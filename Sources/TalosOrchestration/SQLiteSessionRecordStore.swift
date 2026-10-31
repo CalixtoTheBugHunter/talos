@@ -138,12 +138,13 @@ public actor SQLiteSessionRecordStore: SessionRecordWriter {
 
         try await insertTranscript(record.transcript, project: record.project, sessionID: record.id)
 
+        if let tokenReport = record.outcome.tokenReport {
+            try await insertTokenReport(tokenReport, project: record.project, sessionID: record.id)
+        }
+
         if let injectedTokens = record.injectedTokens {
             try await insertOverheadSources(injectedTokens, project: record.project, sessionID: record.id)
         }
-
-        guard let tokenReport = record.outcome.tokenReport else { return }
-        try await insertTokenReport(tokenReport, project: record.project, sessionID: record.id)
     }
 
     private func insertTokenReport(
@@ -215,8 +216,9 @@ public actor SQLiteSessionRecordStore: SessionRecordWriter {
         )
         let injected = try await injectedTokensBySession(project: project, from: start, to: end)
         return try rows.map { row in
-            let record = try Self.storedRecord(from: row, project: project)
-            return record.withInjectedTokens(injected[record.id])
+            var record = try Self.storedRecord(from: row, project: project)
+            record.injectedTokens = injected[record.id]
+            return record
         }
     }
 

@@ -104,14 +104,15 @@ public final class MonitorCostViewModel {
         // rather than as a `$0` a user would read as a free session.
         let cost = record.tokenReport.map(priceTable.estimate)
             ?? .unavailable(.tokensUnavailable(.notReported))
+        let overhead = SessionOverhead(record: record)
         return MonitorCostRow(
             id: record.id,
             title: "\(record.subFunction.rawValue) · \(record.agentName)",
             tokensSummary: Self.tokensSummary(record.tokenReport),
             costSummary: Self.costSummary(cost),
-            overheadSummary: Self.overheadLine(for: SessionOverhead(record: record)),
-            overheadSources: SessionOverhead(record: record).map { Self.sourcesLine($0.injected) },
-            overheadFlag: SessionOverhead(record: record).flatMap { $0.exceedsBudget ? Self.flagCopy : nil }
+            overheadSummary: Self.overheadLine(for: overhead),
+            overheadSources: overhead.map { Self.sourcesLine($0.injected) },
+            overheadFlag: overhead.flatMap { $0.exceedsBudget ? Self.flagCopy : nil }
         )
     }
 
