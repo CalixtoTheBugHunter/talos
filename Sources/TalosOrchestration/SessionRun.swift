@@ -222,14 +222,22 @@ public struct SafeguardsApproved: Sendable {
         retries: inout RetryTracker,
         transcript: [SessionTranscriptEntry]
     ) async throws -> SessionRunOutcome? {
-        let gated = if let blocked = retries.blockedDecision(for: request.id) {
-            blocked
+        let gated: SafeguardsDecision
+        if let blocked = retries.blockedDecision(for: request.id) {
+            // Answered from the retry tracker without consulting the gate, so
+            // the user never waits here — nothing to exclude from duration.
+            gated = blocked
         } else {
-            await collaborators.gate.decide(
+            // The user-approval wait: the one suspension where the session
+            // sits on the user, not the agent. Measured so `finish` can
+            // subtract it from the recorded duration.
+            let waitStart = collaborators.now()
+            gated = await collaborators.gate.decide(
                 request,
                 project: intent.project,
                 subFunction: intent.requestingSubFunction
             )
+            metrics.approvalWait += collaborators.now().timeIntervalSince(waitStart)
         }
         // An allowed board write whose item diverged from what Talos read is
         // abandoned before it runs — decision 42's detect-and-ask across the
