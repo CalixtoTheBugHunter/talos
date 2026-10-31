@@ -16,7 +16,8 @@ struct SQLiteSessionRecordStoreTests {
         let migrations = [
             SessionRecordsSchema.migration,
             SessionTranscriptSchema.migration,
-            SessionRecordsSchema.cacheTokenColumnsMigration
+            SessionRecordsSchema.cacheTokenColumnsMigration,
+            SessionRecordsSchema.overheadSourcesMigration
         ]
         return try await Database(url: url, migrations: migrations)
     }
@@ -241,5 +242,74 @@ struct SQLiteSessionRecordStoreTests {
 
         #expect(found.count == 1)
         #expect(found.first?.tokenReport == nil)
+    }
+
+    /// What Talos injected is kept per source, so a regression is diagnosable.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#how-token-overhead-is-computed
+    @Test("Injected tokens round-trip per source, and a session without them reads back as absent")
+    func injectedTokensRoundTripPerSource() async throws {
+        let database = try await Self.temporaryDatabase()
+        let store = SQLiteSessionRecordStore(database: database)
+        let project = ProjectIdentifier(rawValue: "p1")
+        let injected = InjectedTokens(bySource: [.guideline: 120, .specDrive: 300], framing: 40)
+        let withSources = SessionRecord(
+            id: UUID(), project: project, subFunction: .assistant, agentName: "claude-code",
+            outcome: .succeeded(.measured(TokenCounts(input: 10, output: 5), model: "test-model")),
+            startedAt: Date(timeIntervalSince1970: 1000), duration: 1,
+            toolCallCount: 0, approvalCount: 0, denialCount: 0, retryCount: 0,
+            tokenOverheadRatio: 0, injectedTokens: injected
+        )
+        let legacy = Self.makeRecord(project: project, startedAt: Date(timeIntervalSince1970: 2000))
+
+        await store.write(withSources)
+        await store.write(legacy)
+        let found = try await store.records(
+            project: project, from: Date(timeIntervalSince1970: 0), to: Date(timeIntervalSince1970: 5000)
+        )
+
+        #expect(found.first { $0.id == withSources.id }?.injectedTokens == injected)
+        #expect(found.first { $0.id == legacy.id }?.injectedTokens == nil)
+    }
+
+    @Test("A resumed turn's zero injection is stored as measured, not as missing")
+    func resumedTurnZeroInjectionIsStored() async throws {
+        let database = try await Self.temporaryDatabase()
+        let store = SQLiteSessionRecordStore(database: database)
+        let project = ProjectIdentifier(rawValue: "p1")
+        let resumed = SessionRecord(
+            id: UUID(), project: project, subFunction: .assistant, agentName: "claude-code",
+            outcome: .succeeded(.measured(TokenCounts(input: 10, output: 5), model: "test-model")),
+            startedAt: Date(timeIntervalSince1970: 1000), duration: 1,
+            toolCallCount: 0, approvalCount: 0, denialCount: 0, retryCount: 0,
+            tokenOverheadRatio: 0, injectedTokens: InjectedTokens()
+        )
+
+        await store.write(resumed)
+        let found = try await store.records(
+            project: project, from: Date(timeIntervalSince1970: 0), to: Date(timeIntervalSince1970: 5000)
+        )
+
+        #expect(found.first?.injectedTokens == InjectedTokens())
+    }
+
+    @Test("Deleting a session removes its overhead source rows")
+    func deletingASessionRemovesItsOverheadSources() async throws {
+        let database = try await Self.temporaryDatabase()
+        let store = SQLiteSessionRecordStore(database: database)
+        let record = SessionRecord(
+            id: UUID(), project: ProjectIdentifier(rawValue: "p1"), subFunction: .assistant,
+            agentName: "claude-code",
+            outcome: .succeeded(.measured(TokenCounts(input: 10, output: 5), model: "test-model")),
+            startedAt: Date(timeIntervalSince1970: 1000), duration: 1,
+            toolCallCount: 0, approvalCount: 0, denialCount: 0, retryCount: 0,
+            tokenOverheadRatio: 0, injectedTokens: InjectedTokens(bySource: [.board: 7], framing: 2)
+        )
+
+        await store.write(record)
+        #expect(try await database.rowCount(table: "session_overhead_sources") == 2)
+
+        try await store.delete(record.id)
+
+        #expect(try await database.rowCount(table: "session_overhead_sources") == 0)
     }
 }

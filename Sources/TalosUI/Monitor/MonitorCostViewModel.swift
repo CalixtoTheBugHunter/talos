@@ -18,6 +18,24 @@ public struct MonitorCostRow: Identifiable, Equatable, Sendable {
     public let tokensSummary: String
     /// The cost line, always labeled an estimate and never a bill.
     public let costSummary: String
+    /// This session's Talos-added token overhead, labeled an estimate, or why
+    /// it is unavailable. Never a `0%` standing in for an unmeasured session.
+    public let overheadSummary: String
+    /// What Talos injected, by source, so a regression is diagnosable. `nil`
+    /// when the session was not measurable.
+    public let overheadSources: String?
+    /// Spoken and shown when this session is at or over the 5% budget. Words,
+    /// not colour; the view pairs it with a symbol.
+    public let overheadFlag: String?
+}
+
+/// The Monitor's pooled Talos-added token overhead, with the coverage it was
+/// computed over. Strings are computed here so a test asserts the copy.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#how-token-overhead-is-computed
+public struct MonitorOverheadSummary: Equatable, Sendable {
+    public let headline: String
+    public let coverage: String
+    public let flag: String?
 }
 
 /// The Monitor's cost list: per-session estimated cost mapped from the token
@@ -43,6 +61,9 @@ public final class MonitorCostViewModel {
     /// The surface's current state — Empty until records are presented or a
     /// load completes.
     public private(set) var state: State = .empty
+    /// The pooled overhead across the presented sessions, or `nil` before any
+    /// are presented.
+    public private(set) var overhead: MonitorOverheadSummary?
     private let priceTable: PriceTable
 
     /// Creates the view model over the price table shipped with this build.
@@ -61,6 +82,7 @@ public final class MonitorCostViewModel {
     /// and the UI-test seed reach a deterministic state without awaiting.
     public func present(_ records: [StoredSessionRecord]) {
         let rows = records.map { row(for: $0) }
+        overhead = records.isEmpty ? nil : Self.overheadSummary(for: OverheadAggregate(records: records))
         state = rows.isEmpty ? .empty : .ready(rows)
     }
 
@@ -82,13 +104,65 @@ public final class MonitorCostViewModel {
         // rather than as a `$0` a user would read as a free session.
         let cost = record.tokenReport.map(priceTable.estimate)
             ?? .unavailable(.tokensUnavailable(.notReported))
+        let overhead = SessionOverhead(record: record)
         return MonitorCostRow(
             id: record.id,
             title: "\(record.subFunction.rawValue) · \(record.agentName)",
             tokensSummary: Self.tokensSummary(record.tokenReport),
-            costSummary: Self.costSummary(cost)
+            costSummary: Self.costSummary(cost),
+            overheadSummary: Self.overheadLine(for: overhead),
+            overheadSources: overhead.map { Self.sourcesLine($0.injected) },
+            overheadFlag: overhead.flatMap { $0.exceedsBudget ? Self.flagCopy : nil }
         )
     }
+
+    // MARK: Talos-added token overhead
+
+    /// "Estimated" every time: the numerator is Talos's own count of what it
+    /// injected, while the denominator is the agent's exact count.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#how-token-overhead-is-computed
+    static func overheadLine(for overhead: SessionOverhead?) -> String {
+        guard let overhead else {
+            return "Estimated Talos-added token overhead unavailable — no session token count or injected-token record"
+        }
+        return "Estimated Talos-added token overhead: \(percent(overhead.ratio)) "
+            + "(\(overhead.injected.total) of \(overhead.sessionTokens) session tokens)"
+    }
+
+    static func sourcesLine(_ injected: InjectedTokens) -> String {
+        injected.orderedSources.map { "\($0.label) \($0.tokens)" }.joined(separator: " · ")
+    }
+
+    static func overheadSummary(for aggregate: OverheadAggregate) -> MonitorOverheadSummary {
+        let coverage = "Computed from \(aggregate.measuredCount) \(sessionWord(aggregate.measuredCount)); "
+            + "\(aggregate.excludedCount) excluded (no session token count or injected-token record)."
+        guard let ratio = aggregate.ratio else {
+            return MonitorOverheadSummary(
+                headline: "Estimated Talos-added token overhead unavailable — no measurable sessions",
+                coverage: coverage,
+                flag: nil
+            )
+        }
+        return MonitorOverheadSummary(
+            headline: "Estimated Talos-added token overhead: \(percent(ratio)) of session tokens",
+            coverage: coverage,
+            flag: aggregate.exceedsBudget ? flagCopy : nil
+        )
+    }
+
+    static let flagCopy = "Over the 5% token-overhead budget"
+
+    private static func sessionWord(_ count: Int) -> String {
+        count == 1 ? "session" : "sessions"
+    }
+
+    /// One decimal place, in the POSIX locale so the same figure reads the
+    /// same on every host.
+    private static func percent(_ ratio: Double) -> String {
+        String(format: "%.1f%%", ratio * percentScale)
+    }
+
+    private static let percentScale = 100.0
 
     /// A run with no token row shows its absence named, never a zero.
     static func tokensSummary(_ report: TokenReport?) -> String {
