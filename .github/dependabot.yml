@@ -29,6 +29,12 @@ updates:
       swift-dependencies:
         patterns:
           - "*"
+    # Dependabot's default scope is `deps`, which pr-title-guard rejects; the
+    # title is the squash commit, so give it a scope the guard accepts, mirroring
+    # the area:security label below.
+    # https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#conventional-commits
+    commit-message:
+      prefix: "chore(security)"
     labels:
       - "type:chore"
       - "area:security"
@@ -43,6 +49,12 @@ updates:
       github-actions-dependencies:
         patterns:
           - "*"
+    # Dependabot's default scope is `deps`, which pr-title-guard rejects; the
+    # title is the squash commit, so give it a scope the guard accepts, mirroring
+    # the area:security label below.
+    # https://github.com/CalixtoTheBugHunter/talos/wiki/Engineering-Standards#conventional-commits
+    commit-message:
+      prefix: "chore(security)"
     labels:
       - "type:chore"
       - "area:security"
