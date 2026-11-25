@@ -27,6 +27,7 @@ extension TalosAppUITestSeeding {
     private struct SeededCostSession {
         let subFunction: SubFunction
         let report: TokenReport
+        let injected: InjectedTokens
     }
 
     private static let seededMonitorCostSessions: [SeededCostSession] = [
@@ -38,14 +39,14 @@ extension TalosAppUITestSeeding {
                 cacheRead: seededPricedCacheRead
             ),
             model: "global.anthropic.claude-opus-5"
-        )),
+        ), injected: InjectedTokens(bySource: [.guideline: seededOverBudgetInjected], framing: 0)),
         SeededCostSession(subFunction: .assistant, report: .measured(
             TokenCounts(input: seededUnknownInput, output: seededUnknownOutput),
             model: "experimental-model-x"
-        )),
+        ), injected: InjectedTokens(bySource: [.guideline: seededUnderBudgetInjected], framing: 0)),
         SeededCostSession(subFunction: .advisor, report: .unavailable(
             TokenUsageUnavailable(reason: .unrecognizedFormat, agentVersion: "2.1.246")
-        ))
+        ), injected: InjectedTokens(bySource: [.guideline: seededUnderBudgetInjected], framing: 0))
     ]
 
     private static let seededMonitorCostRecords: [StoredSessionRecord] = {
@@ -64,7 +65,8 @@ extension TalosAppUITestSeeding {
                 denialCount: 0,
                 retryCount: 0,
                 tokenOverheadRatio: seededMonitorCostOverheadRatio,
-                tokenReport: session.report
+                tokenReport: session.report,
+                injectedTokens: session.injected
             )
         }
     }()
@@ -73,6 +75,11 @@ extension TalosAppUITestSeeding {
     private static let seededPricedOutput = 4
     private static let seededPricedCacheWrite = 2637
     private static let seededPricedCacheRead = 16509
+    /// Over 5% of the priced session's 19,152 tokens; under 5% of the unknown
+    /// model's 1,540. The unparsable session has no agent count, so it is
+    /// excluded from the overhead figure whatever its injected share.
+    private static let seededOverBudgetInjected = 1500
+    private static let seededUnderBudgetInjected = 20
     private static let seededUnknownInput = 1200
     private static let seededUnknownOutput = 340
     private static let seededMonitorCostEpoch: TimeInterval = 1_700_000_000

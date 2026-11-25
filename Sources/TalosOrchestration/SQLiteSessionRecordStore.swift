@@ -58,6 +58,27 @@ public enum SessionRecordsSchema {
         ALTER TABLE session_token_records ADD COLUMN cache_read_tokens INTEGER;
         """
     )
+
+    /// Creates `session_overhead_sources`: one row per source of what Talos
+    /// injected into a session, cascading on delete like the token rows. Every
+    /// session that assembled context writes a `framing` row (zero for a
+    /// resumed turn), so "no rows" means "recorded before this existed" and
+    /// never "injected nothing".
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#how-token-overhead-is-computed
+    public static let overheadSourcesMigration = Migration(
+        version: cacheTokenColumnsMigration.version + 1,
+        name: "create session overhead sources",
+        sql: """
+        CREATE TABLE session_overhead_sources (
+            id INTEGER PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            session_id TEXT NOT NULL REFERENCES session_records(id) ON DELETE CASCADE,
+            source TEXT NOT NULL,
+            tokens INTEGER NOT NULL
+        );
+        CREATE INDEX session_overhead_sources_session ON session_overhead_sources(session_id);
+        """
+    )
 }
 
 /// Persists ``SessionRecord`` to the local SQLite database, and answers the
@@ -117,8 +138,13 @@ public actor SQLiteSessionRecordStore: SessionRecordWriter {
 
         try await insertTranscript(record.transcript, project: record.project, sessionID: record.id)
 
-        guard let tokenReport = record.outcome.tokenReport else { return }
-        try await insertTokenReport(tokenReport, project: record.project, sessionID: record.id)
+        if let tokenReport = record.outcome.tokenReport {
+            try await insertTokenReport(tokenReport, project: record.project, sessionID: record.id)
+        }
+
+        if let injectedTokens = record.injectedTokens {
+            try await insertOverheadSources(injectedTokens, project: record.project, sessionID: record.id)
+        }
     }
 
     private func insertTokenReport(
@@ -188,7 +214,12 @@ public actor SQLiteSessionRecordStore: SessionRecordWriter {
                 .double(end.timeIntervalSince1970)
             ]
         )
-        return try rows.map { try Self.storedRecord(from: $0, project: project) }
+        let injected = try await injectedTokensBySession(project: project, from: start, to: end)
+        return try rows.map { row in
+            var record = try Self.storedRecord(from: row, project: project)
+            record.injectedTokens = injected[record.id]
+            return record
+        }
     }
 
     /// "Deleting a session really deletes it and its token records." The

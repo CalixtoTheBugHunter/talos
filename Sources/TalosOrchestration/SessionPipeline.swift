@@ -315,6 +315,7 @@ public struct SessionPipeline<
             denialCount: metrics.denialCount,
             retryCount: metrics.retryCount,
             tokenOverheadRatio: context?.overheadRatio ?? 0,
+            injectedTokens: context?.injectedTokens,
             droppedContextParts: context?.droppedParts ?? [],
             unavailableContextParts: context?.unavailableParts ?? [],
             transcript: transcript,

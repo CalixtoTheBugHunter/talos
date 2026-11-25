@@ -102,6 +102,10 @@ public struct SessionRecord: Identifiable, Equatable, Sendable {
     /// truly added zero tokens.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Vision-and-Principles#budgets-that-make-the-above-testable
     public let tokenOverheadRatio: Double
+    /// What Talos injected, by source — the numerator of the overhead the
+    /// Monitor gates on. `nil` only where stage 3 produced no context.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#how-token-overhead-is-computed
+    public let injectedTokens: InjectedTokens?
     /// Context parts dropped to satisfy the ceiling, and parts that had nothing
     /// to assemble. Both travel with the record because a dropped part is
     /// reported "on the output, in the session, and on the Monitor" — a session
@@ -136,6 +140,7 @@ public struct SessionRecord: Identifiable, Equatable, Sendable {
         denialCount: Int,
         retryCount: Int,
         tokenOverheadRatio: Double,
+        injectedTokens: InjectedTokens? = nil,
         droppedContextParts: [DroppedContextPart] = [],
         unavailableContextParts: [UnavailableContextPart] = [],
         transcript: [SessionTranscriptEntry] = [],
@@ -153,6 +158,7 @@ public struct SessionRecord: Identifiable, Equatable, Sendable {
         self.denialCount = denialCount
         self.retryCount = retryCount
         self.tokenOverheadRatio = tokenOverheadRatio
+        self.injectedTokens = injectedTokens
         self.droppedContextParts = droppedContextParts
         self.unavailableContextParts = unavailableContextParts
         self.transcript = transcript

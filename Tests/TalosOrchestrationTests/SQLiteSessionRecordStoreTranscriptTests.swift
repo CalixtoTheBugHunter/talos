@@ -19,7 +19,8 @@ struct SQLiteSessionRecordStoreTranscriptTests {
         let migrations = [
             SessionRecordsSchema.migration,
             SessionTranscriptSchema.migration,
-            SessionRecordsSchema.cacheTokenColumnsMigration
+            SessionRecordsSchema.cacheTokenColumnsMigration,
+            SessionRecordsSchema.overheadSourcesMigration
         ]
         return try await Database(url: url, migrations: migrations)
     }
@@ -179,7 +180,8 @@ struct SQLiteSessionRecordStoreTranscriptTests {
         let migrations = [
             SessionRecordsSchema.migration,
             SessionTranscriptSchema.migration,
-            SessionRecordsSchema.cacheTokenColumnsMigration
+            SessionRecordsSchema.cacheTokenColumnsMigration,
+            SessionRecordsSchema.overheadSourcesMigration
         ]
         let database = try await Database(url: url, migrations: migrations)
         let store = SQLiteSessionRecordStore(database: database)
