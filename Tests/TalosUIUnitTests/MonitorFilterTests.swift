@@ -4,9 +4,9 @@ import TalosProjectLibrary
 import TalosUI
 import Testing
 
-/// The Monitor is "filterable by project, sub-function, and time range"
-/// (https://github.com/CalixtoTheBugHunter/talos/issues/94); the project is the
-/// shell's selection, so this covers the other two.
+/// The Monitor's sub-function and time-range filters; the project filter is
+/// the shell's selection, so it is not covered here.
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#monitor-screen
 @Suite("Monitor filter")
 struct MonitorFilterTests {
     private static let now = Date(timeIntervalSince1970: 10_000_000)
