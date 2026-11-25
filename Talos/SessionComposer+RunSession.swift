@@ -198,5 +198,6 @@ extension SessionComposer {
         console.noteUnavailableContext(record.unavailableContextParts)
         console.sessionConcluded(record.outcome)
         activeSession?.resumeToken = record.resumeToken
+        onSessionRecorded?()
     }
 }

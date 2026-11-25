@@ -25,6 +25,12 @@ public final class ShellNavigationModel {
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Project-Library
     public var selectedProjectID: String?
 
+    /// The project folder chosen on Sessions or the Monitor — one choice both
+    /// surfaces read. Not persisted: restoring a project is the project
+    /// store's job, not a folder path's.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/App-Shell-and-Navigation#every-surface-placed
+    public var selectedProjectRoot: URL?
+
     private let defaults: UserDefaults
     private static let selectedSurfaceKey = "talos.shell.selectedSurface"
 

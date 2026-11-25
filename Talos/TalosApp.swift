@@ -23,10 +23,13 @@ struct TalosApp: App {
     @State private var isGatedDecisionLogPresented = false
     @State private var gatedDecisionLogState: GatedDecisionLogViewModel.State = .loading
     @State private var sessionConsoleViewModel = SessionConsoleViewModel()
-    /// The Monitor's cost surface, mapping token counts against the price table
-    /// shipped with this build. Stays Empty until a project-selection flow
-    /// drives its load — no project is selectable yet.
+    /// The Monitor Screen, mapping token counts against the price table
+    /// shipped with this build. Loads the selected project's records.
     @State private var monitorViewModel = MonitorCostViewModel(priceTable: .shipped)
+    /// Bumped when the database opens and when a session is recorded — the
+    /// events the Monitor reloads on, in place of a timer.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#nothing-polls
+    @State private var monitorReloadToken = 0
     @State private var isSessionConsoleTranscriptPresented = false
     /// `nil` until the local database has opened — the one real entry point
     /// the session composition root needs. Absent rather than defaulted on
@@ -50,6 +53,8 @@ struct TalosApp: App {
                 composerUnavailableReason: databaseOpenErrorMessage,
                 consoleViewModel: sessionConsoleViewModel,
                 monitorViewModel: monitorViewModel,
+                monitorReloadToken: monitorReloadToken,
+                monitorRecords: monitorRecordsLoader,
                 deniedActionNoticeCenter: deniedActionNoticeCenter,
                 navigation: navigation,
                 isSessionConsolePresented: $isSessionConsoleTranscriptPresented
@@ -93,7 +98,7 @@ struct TalosApp: App {
                     navigation: navigation,
                     isPresented: $isSessionConsoleTranscriptPresented
                 )
-                TalosAppUITestSeeding.seedMonitorCost(into: monitorViewModel, navigation: navigation)
+                TalosAppUITestSeeding.seedMonitorCost(navigation: navigation)
             }
             // Persist the window's frame under the user's control: SwiftUI's
             // implicit restoration is unreliable for a single `Window`, so the
@@ -209,6 +214,19 @@ struct TalosApp: App {
         .disabled(!sessionStopCenter.isSessionRunning)
     }
 
+    /// The Monitor's records for a project folder: the UI-test seed when one is
+    /// set, otherwise the local database — or a failure while it is not open.
+    private var monitorRecordsLoader: @Sendable (URL, DateInterval) async throws -> [StoredSessionRecord] {
+        if let seed = TalosAppUITestSeeding.monitorCostSeedLoader {
+            return seed
+        }
+        let database = sessionComposer?.database
+        return { root, interval in
+            guard let database else { throw MonitorDatabaseUnavailableError() }
+            return try await SessionComposer.monitorRecords(database: database, projectRoot: root, interval: interval)
+        }
+    }
+
     /// Opens the one local SQLite database every session record and gated
     /// decision is written to, applying every migration in the order each
     /// schema's own comment declares, then hands it to a fresh
@@ -227,11 +245,14 @@ struct TalosApp: App {
                     SessionRecordsSchema.overheadSourcesMigration
                 ]
             )
-            sessionComposer = SessionComposer(
+            let composer = SessionComposer(
                 database: database,
                 stopCenter: sessionStopCenter,
                 boardConflicts: boardConflictPromptCenter
             )
+            composer.onSessionRecorded = { monitorReloadToken += 1 }
+            sessionComposer = composer
+            monitorReloadToken += 1
         } catch {
             databaseOpenErrorMessage = "Talos could not open its local database: \(error)"
         }
@@ -322,3 +343,7 @@ private struct WindowFrameAutosave: NSViewRepresentable {
         }
     }
 }
+
+/// The Monitor asked for records before the local database opened, or after it
+/// failed to — shown as the Monitor's Failed state.
+private struct MonitorDatabaseUnavailableError: Error {}

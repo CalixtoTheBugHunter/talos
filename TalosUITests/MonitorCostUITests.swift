@@ -45,12 +45,71 @@ final class MonitorCostUITests: XCTestCase {
             "overhead is shown per session and as an aggregate, labeled an estimate"
         )
         XCTAssertTrue(
-            text(containing: "Computed from 2 sessions; 1 excluded", in: app).exists,
+            text(containing: "Computed from 2 sessions; 4 excluded", in: app).exists,
             "the aggregate states how many sessions it covers and how many were excluded"
         )
         XCTAssertTrue(
             text(containing: "Over the 5% token-overhead budget", in: app).exists,
             "exceeding 5% is flagged in words, not by colour"
+        )
+    }
+
+    /// Duration, outcome, and the success rate with its exclusions are shown for
+    /// every session run, and the chart states what it plots in words.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#how-task-outcome-is-classified
+    @MainActor
+    func testMonitorShowsDurationOutcomeSuccessRateAndChartSummary() {
+        let app = launchWithMonitorCost()
+        XCTAssertTrue(
+            text(containing: "Success rate: 75% (3 of 4 rated sessions exited cleanly)", in: app)
+                .waitForExistence(timeout: 5),
+            "the rate is Succeeded over Succeeded + Failed"
+        )
+        XCTAssertTrue(
+            text(containing: "2 excluded from the rate: 1 denied, 1 stopped.", in: app).exists,
+            "Denied and Stopped are excluded and counted, never silently"
+        )
+        XCTAssertTrue(
+            text(containing: "Duration: 2 min 5 s, excluding time awaiting a decision", in: app).exists,
+            "duration is shown and says it excludes the decision wait"
+        )
+        XCTAssertTrue(
+            text(containing: "Outcome: Denied — recorded as denied, not as an error", in: app).exists,
+            "a denial is recorded as denied, not as an error"
+        )
+        let chartSummary = "Tokens per session: 2 sessions plotted; 4 not plotted (no token count)."
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(NSPredicate(format: "label CONTAINS %@", chartSummary)).firstMatch.exists,
+            "the chart carries its reading as a label, including what it did not plot"
+        )
+    }
+
+    /// Choosing a sub-function narrows the sessions and the rate together —
+    /// reached, opened, and chosen with the keyboard alone, no pointer event.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Interaction-and-Keyboard#no-mouse-only-paths
+    @MainActor
+    func testSubFunctionFilterNarrowsSessionsAndRateByKeyboardAlone() {
+        let app = launchWithMonitorCost(keyboardNavigation: true)
+        let picker = app.popUpButtons["Sub-function"]
+        XCTAssertTrue(picker.waitForExistence(timeout: 5), "the sub-function filter is a labeled control")
+        var tabs = 0
+        while !hasKeyboardFocus(picker), tabs < Self.maximumTabs {
+            app.typeKey(.tab, modifierFlags: [])
+            tabs += 1
+        }
+        XCTAssertTrue(hasKeyboardFocus(picker), "Tab reaches the sub-function filter")
+        app.typeKey(.space, modifierFlags: [])
+        app.typeText("Automator\r")
+
+        XCTAssertTrue(
+            text(containing: "Success rate: 100% (1 of 1 rated session exited cleanly)", in: app)
+                .waitForExistence(timeout: 5),
+            "the rate is recomputed over the filtered sessions"
+        )
+        XCTAssertFalse(
+            text(containing: "experimental-model-x", in: app).exists,
+            "an Assistant session is no longer listed"
         )
     }
 
@@ -61,13 +120,25 @@ final class MonitorCostUITests: XCTestCase {
         try assertNoTalosOwnAccessibilityIssues(on: app)
     }
 
+    /// `keyboardNavigation` turns on the system's "Keyboard navigation" for
+    /// this launch only, so Tab reaches every control as it does for a
+    /// keyboard user.
     @MainActor
-    private func launchWithMonitorCost() -> XCUIApplication {
+    private func launchWithMonitorCost(keyboardNavigation: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["TALOS_UI_TEST_MONITOR_COST"] = "1"
+        if keyboardNavigation {
+            app.launchArguments += ["-AppleKeyboardUIMode", "2"]
+        }
         app.launch()
         return app
     }
+
+    private func hasKeyboardFocus(_ element: XCUIElement) -> Bool {
+        (element.value(forKey: "hasKeyboardFocus") as? Bool) == true
+    }
+
+    private static let maximumTabs = 20
 
     /// SwiftUI text surfaces its string in the element's `value` on this
     /// platform (a combined cost row included, as one static text carrying the

@@ -15,6 +15,7 @@ struct ContentView: View {
     let composerUnavailableReason: String?
     let consoleViewModel: SessionConsoleViewModel
     let deniedActionNoticeCenter: DeniedActionNoticeCenter
+    let navigation: ShellNavigationModel
     @Binding var isSessionConsolePresented: Bool
 
     /// Assistant and Automator are the two user-triggered sub-functions, both
@@ -22,7 +23,6 @@ struct ContentView: View {
     /// enter from the scheduler, so the selector shows them disabled and
     /// selection can only land on the two that start from a user action.
     @State private var selectedSubFunction: SubFunction = .assistant
-    @State private var projectRoot: URL?
     @State private var intentText = ""
     @State private var errorMessage: String?
     @State private var refreshStatus: String?
@@ -122,14 +122,28 @@ struct ContentView: View {
         composer != nil && projectRoot != nil && !isRefreshingBoard
     }
 
+    /// The shell's one selected project, so Sessions and the Monitor are
+    /// about the same folder.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/App-Shell-and-Navigation#every-surface-placed
+    private var projectRoot: URL? {
+        navigation.selectedProjectRoot
+    }
+
     private func chooseProjectFolder() {
+        if let url = Self.chooseProjectFolder() {
+            navigation.selectedProjectRoot = url
+        }
+    }
+
+    /// The folder panel both Sessions and the Monitor open to choose a project.
+    static func chooseProjectFolder() -> URL? {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
         panel.prompt = "Choose"
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        projectRoot = url
+        guard panel.runModal() == .OK else { return nil }
+        return panel.url
     }
 
     /// Runs the refresh in the session console like any other agent session —
