@@ -28,8 +28,13 @@ struct MonitorMetricsReaderTests {
         return SQLiteSessionRecordStore(database: database)
     }
 
-    private static func measured(input: Int, output: Int) -> TokenReport {
-        .measured(TokenCounts(input: input, output: output), model: "test-model")
+    private static func measured(
+        input: Int, output: Int, cacheCreation: Int? = nil, cacheRead: Int? = nil
+    ) -> TokenReport {
+        .measured(
+            TokenCounts(input: input, output: output, cacheCreation: cacheCreation, cacheRead: cacheRead),
+            model: "test-model"
+        )
     }
 
     private static func record(
@@ -60,7 +65,7 @@ struct MonitorMetricsReaderTests {
     func metricsAreTotals() async throws {
         let store = try await Self.store()
         await store.write(Self.record(
-            outcome: .succeeded(Self.measured(input: 100, output: 50)),
+            outcome: .succeeded(Self.measured(input: 100, output: 50, cacheCreation: 7, cacheRead: 11)),
             duration: 10,
             toolCalls: 3
         ))
@@ -81,6 +86,8 @@ struct MonitorMetricsReaderTests {
         #expect(metrics.retryCount == 2)
         #expect(metrics.inputTokens == 300)
         #expect(metrics.outputTokens == 75)
+        #expect(metrics.cacheCreationTokens == 7)
+        #expect(metrics.cacheReadTokens == 11)
     }
 
     /// "`Denied` and `Stopped` are excluded from the rate, and the exclusion is
