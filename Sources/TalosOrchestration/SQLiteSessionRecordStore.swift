@@ -333,6 +333,8 @@ public actor SQLiteSessionRecordStore: SessionRecordWriter {
     }
 }
 
+extension SQLiteSessionRecordStore: SessionRecordReading {}
+
 /// A row this store wrote itself failed to decode back — a schema/code
 /// mismatch, never an expected runtime condition.
 public enum SessionRecordsStoreError: Error, Equatable, Sendable {
