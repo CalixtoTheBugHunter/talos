@@ -88,6 +88,10 @@ public struct MonitorCostView: View {
         }
     }
 
+    /// macOS draws a Picker's title as separate text beside a popup that
+    /// exposes only its value, so the popup is labeled explicitly — otherwise
+    /// VoiceOver hears "All sub-functions" with no hint what it filters.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Accessibility#voiceover
     @ViewBuilder
     private var pickers: some View {
         Picker("Time range", selection: $viewModel.filter.timeRange) {
@@ -96,12 +100,14 @@ public struct MonitorCostView: View {
             }
         }
         .fixedSize()
+        .accessibilityLabel("Time range")
         Picker("Sub-function", selection: $viewModel.filter.subFunction) {
             ForEach(MonitorSubFunctionFilter.allCases) { filter in
                 Text(verbatim: filter.title).tag(filter)
             }
         }
         .fixedSize()
+        .accessibilityLabel("Sub-function")
     }
 
     // MARK: States

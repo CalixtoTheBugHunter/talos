@@ -87,10 +87,12 @@ final class MonitorCostUITests: XCTestCase {
 
     /// Choosing a sub-function narrows the sessions and the rate together —
     /// reached, opened, and chosen with the keyboard alone, no pointer event.
+    /// Needs Full Keyboard Access on, which the `a11y` job turns on: Tab skips
+    /// popups without it, and a launch argument cannot enable it.
     /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Interaction-and-Keyboard#no-mouse-only-paths
     @MainActor
     func testSubFunctionFilterNarrowsSessionsAndRateByKeyboardAlone() {
-        let app = launchWithMonitorCost(keyboardNavigation: true)
+        let app = launchWithMonitorCost()
         let picker = app.popUpButtons["Sub-function"]
         XCTAssertTrue(picker.waitForExistence(timeout: 5), "the sub-function filter is a labeled control")
         var tabs = 0
@@ -120,16 +122,10 @@ final class MonitorCostUITests: XCTestCase {
         try assertNoTalosOwnAccessibilityIssues(on: app)
     }
 
-    /// `keyboardNavigation` turns on the system's "Keyboard navigation" for
-    /// this launch only, so Tab reaches every control as it does for a
-    /// keyboard user.
     @MainActor
-    private func launchWithMonitorCost(keyboardNavigation: Bool = false) -> XCUIApplication {
+    private func launchWithMonitorCost() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["TALOS_UI_TEST_MONITOR_COST"] = "1"
-        if keyboardNavigation {
-            app.launchArguments += ["-AppleKeyboardUIMode", "2"]
-        }
         app.launch()
         return app
     }
