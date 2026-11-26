@@ -17,6 +17,8 @@ struct AppShellView: View {
     let composerUnavailableReason: String?
     let consoleViewModel: SessionConsoleViewModel
     let monitorViewModel: MonitorCostViewModel
+    let monitorReloadToken: Int
+    let monitorRecords: @Sendable (URL, DateInterval) async throws -> [StoredSessionRecord]
     let deniedActionNoticeCenter: DeniedActionNoticeCenter
     @Bindable var navigation: ShellNavigationModel
     @Binding var isSessionConsolePresented: Bool
@@ -102,15 +104,23 @@ struct AppShellView: View {
                     composerUnavailableReason: composerUnavailableReason,
                     consoleViewModel: consoleViewModel,
                     deniedActionNoticeCenter: deniedActionNoticeCenter,
+                    navigation: navigation,
                     isSessionConsolePresented: $isSessionConsolePresented
                 )
             }
         case .monitor:
-            // Per-session estimated cost, mapped from the token counts the
-            // agent reported against the shipped price table. The rest of the
-            // Monitor — duration and success rate — arrives with its own items.
-            // https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#how-cost-is-measured
-            MonitorCostView(viewModel: monitorViewModel)
+            // https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#monitor-screen
+            MonitorCostView(
+                viewModel: monitorViewModel,
+                projectRoot: navigation.selectedProjectRoot,
+                reloadToken: monitorReloadToken,
+                onChooseProject: {
+                    if let url = ContentView.chooseProjectFolder() {
+                        navigation.selectedProjectRoot = url
+                    }
+                },
+                loadRecords: monitorRecords
+            )
         default:
             PlaceholderSurfaceView(surface: navigation.selectedSurface)
         }

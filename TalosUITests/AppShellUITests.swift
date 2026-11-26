@@ -58,10 +58,14 @@ final class AppShellUITests: XCTestCase {
 
         app.typeKey(.rightArrow, modifierFlags: [.command, .option])
 
-        // The next surface after Sessions is Monitor, a live surface — its own
-        // cost Empty state (not a placeholder) is proof the cycle moved.
+        // The next surface after Sessions is Monitor, a live surface. Its
+        // "not a bill" footer shows in every state and nowhere else, so it
+        // proves the cycle moved. Text is in `value` on this platform.
+        let monitorFooter = app.staticTexts.matching(
+            NSPredicate(format: "value CONTAINS 'not a bill' OR label CONTAINS 'not a bill'")
+        ).firstMatch
         XCTAssertTrue(
-            app.staticTexts["No estimated costs yet"].waitForExistence(timeout: 5),
+            monitorFooter.waitForExistence(timeout: 5),
             "⌘⌥→ from Sessions moves to the next surface (Monitor)"
         )
     }

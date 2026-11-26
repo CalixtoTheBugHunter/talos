@@ -665,6 +665,17 @@ jobs:
           restore-keys: |
             a11y-issue-count-
 
+      # Tab reaches buttons and popups only with Full Keyboard Access on, and
+      # a launch argument cannot turn it on: AppKit reads the system setting,
+      # so a keyboard-only test would otherwise only ever see the sidebar and
+      # lists. The runner is ephemeral, so this changes nothing durable.
+      # https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-Accessibility#keyboard
+      - name: Turn on Full Keyboard Access
+        run: |
+          set -euo pipefail
+          defaults write -g AppleKeyboardUIMode -int 2
+          test "$(defaults read -g AppleKeyboardUIMode)" = "2"
+
       - name: Run the accessibility audit
         id: audit
         run: |

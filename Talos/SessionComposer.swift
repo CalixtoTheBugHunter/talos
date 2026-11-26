@@ -78,6 +78,10 @@ final class SessionComposer {
     /// reaches the UI and blocks the session the way the gate does.
     let boardConflicts: BoardConflictPromptCenter
     var adapterRegistry = AgentAdapterRegistry()
+    /// Called once a session's record is written, so the Monitor reloads on
+    /// that event rather than on a timer.
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Foundations-States-and-Feedback#nothing-polls
+    var onSessionRecorded: (() -> Void)?
 
     init(database: Database, stopCenter: SessionStopCenter, boardConflicts: BoardConflictPromptCenter) {
         self.database = database
@@ -249,7 +253,7 @@ final class SessionComposer {
         return declaration
     }
 
-    private static func readProjectManifest(root: URL) throws -> ProjectManifest {
+    nonisolated static func readProjectManifest(root: URL) throws -> ProjectManifest {
         let file = root.appendingPathComponent(".talos/project.yaml", isDirectory: false)
         let contents = try readFile(file)
         return try ProjectManifestParser.parse(contents: contents, file: file.path)
@@ -293,7 +297,7 @@ final class SessionComposer {
         return try GuidelineDocumentParser.parse(contents: contents, subFunction: subFunction, file: file.path)
     }
 
-    private static func readFile(_ url: URL) throws -> String {
+    private nonisolated static func readFile(_ url: URL) throws -> String {
         do {
             return try String(contentsOf: url, encoding: .utf8)
         } catch {

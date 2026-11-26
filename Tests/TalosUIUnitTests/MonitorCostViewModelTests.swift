@@ -54,7 +54,7 @@ struct MonitorCostViewModelTests {
     func noRecordsIsEmpty() {
         let viewModel = MonitorCostViewModel(priceTable: Self.table)
         viewModel.present([])
-        #expect(viewModel.state == .empty)
+        #expect(viewModel.state == .empty(.noSessions))
     }
 
     @Test("A priced session labels its cost an estimate, never a bare figure")
@@ -127,7 +127,7 @@ struct MonitorCostViewModelTests {
     @MainActor
     func failingLoadReachesFailed() async {
         let viewModel = MonitorCostViewModel(priceTable: Self.table)
-        await viewModel.load(from: { throw CancellationError() })
+        await viewModel.load(filter: MonitorFilter(timeRange: .allTime), from: { _ in throw CancellationError() })
         guard case .failed = viewModel.state else {
             Issue.record("Expected a Failed state after a throwing load")
             return
@@ -139,7 +139,7 @@ struct MonitorCostViewModelTests {
     func successfulLoadPresentsRecords() async {
         let viewModel = MonitorCostViewModel(priceTable: Self.table)
         let record = Self.record()
-        await viewModel.load(from: { [record] in [record] })
+        await viewModel.load(filter: MonitorFilter(timeRange: .allTime), from: { [record] _ in [record] })
         let rows = readyRows(viewModel)
         #expect(rows.count == 1)
     }
@@ -235,5 +235,119 @@ struct MonitorCostViewModelTests {
         let viewModel = MonitorCostViewModel(priceTable: Self.table)
         viewModel.present([])
         #expect(viewModel.overhead == nil)
+    }
+}
+
+/// Verifies the Monitor's duration, outcome, and success-rate copy against
+/// https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#how-task-outcome-is-classified
+/// — `Succeeded ÷ (Succeeded + Failed)`, Denied and Stopped excluded and
+/// counted, and `Succeeded` stated as a clean exit.
+@Suite("Monitor outcome and duration")
+struct MonitorOutcomeViewModelTests {
+    private static let table = PriceTable(effectiveDate: Date(timeIntervalSince1970: 0), prices: [:])
+    private static let now = Date(timeIntervalSince1970: 10_000_000)
+
+    private static func record(
+        _ outcome: SessionOutcomeClassification,
+        subFunction: SubFunction = .assistant,
+        duration: TimeInterval = 12,
+        startedAt: Date = now.addingTimeInterval(-60)
+    ) -> StoredSessionRecord {
+        StoredSessionRecord(
+            id: UUID(), project: ProjectIdentifier(rawValue: "p1"), subFunction: subFunction,
+            agentName: "claude-code", outcome: outcome, startedAt: startedAt, duration: duration,
+            toolCallCount: 0, approvalCount: 0, denialCount: 0, retryCount: 0, tokenOverheadRatio: 0
+        )
+    }
+
+    @Test("The rate counts Succeeded over Succeeded + Failed, and states the excluded Denied and Stopped")
+    @MainActor
+    func rateExcludesDeniedAndStoppedAndCountsThem() {
+        let viewModel = MonitorCostViewModel(priceTable: Self.table)
+        viewModel.present([
+            Self.record(.succeeded), Self.record(.succeeded), Self.record(.succeeded),
+            Self.record(.failed), Self.record(.denied), Self.record(.stopped)
+        ])
+        #expect(viewModel.successRate?.headline == "Success rate: 75% (3 of 4 rated sessions exited cleanly)")
+        #expect(viewModel.successRate?.exclusions == "2 excluded from the rate: 1 denied, 1 stopped.")
+        #expect(
+            viewModel.successRate?.caveat == "Succeeded means the agent exited cleanly, not that the task was right."
+        )
+    }
+
+    @Test("Only Denied and Stopped sessions give no rate — unavailable, never 0% or 100%")
+    @MainActor
+    func allExcludedIsUnavailable() {
+        let viewModel = MonitorCostViewModel(priceTable: Self.table)
+        viewModel.present([Self.record(.denied)])
+        #expect(
+            viewModel.successRate?.headline
+                == "Success rate unavailable — no session in this range succeeded or failed"
+        )
+        #expect(viewModel.successRate?.caveat == nil)
+        #expect(viewModel.successRate?.exclusions == "1 excluded from the rate: 1 denied.")
+    }
+
+    @Test("Each outcome reads in the SPEC's terms; a denial is not an error")
+    @MainActor
+    func outcomeCopy() {
+        #expect(MonitorCostViewModel.outcomeSummary(.succeeded) == "Outcome: Succeeded — the agent exited cleanly")
+        #expect(MonitorCostViewModel.outcomeSummary(.failed) == "Outcome: Failed")
+        #expect(MonitorCostViewModel.outcomeSummary(.denied) == "Outcome: Denied — recorded as denied, not as an error")
+        #expect(MonitorCostViewModel.outcomeSummary(.stopped) == "Outcome: Stopped by the user")
+    }
+
+    @Test("Duration states it excludes time awaiting a decision")
+    @MainActor
+    func durationCopy() {
+        #expect(MonitorCostViewModel.durationSummary(125) == "Duration: 2 min 5 s, excluding time awaiting a decision")
+        let suffix = ", excluding time awaiting a decision"
+        #expect(MonitorCostViewModel.durationSummary(3725) == "Duration: 1 h 2 min 5 s" + suffix)
+        #expect(MonitorCostViewModel.durationSummary(0.2) == "Duration: less than 1 s" + suffix)
+    }
+
+    @Test("Each row shows when it started, how long it ran, and how it ended")
+    @MainActor
+    func rowCarriesStartDurationAndOutcome() throws {
+        let utc = try #require(TimeZone(identifier: "UTC"))
+        let viewModel = MonitorCostViewModel(priceTable: Self.table, timeZone: utc)
+        viewModel.present([Self.record(.stopped, duration: 125)])
+        guard case let .ready(rows) = viewModel.state, let row = rows.first else {
+            Issue.record("Expected one Ready row")
+            return
+        }
+        #expect(row.title.hasPrefix("Session 1 · assistant"))
+        #expect(row.startedSummary.hasPrefix("Started "))
+        #expect(row.durationSummary.hasPrefix("Duration: 2 min 5 s"))
+        #expect(row.outcomeSummary == "Outcome: Stopped by the user")
+    }
+
+    @Test("The sub-function filter narrows both the rows and the rate")
+    @MainActor
+    func subFunctionFilterNarrowsRowsAndRate() async {
+        let viewModel = MonitorCostViewModel(priceTable: Self.table)
+        let records = [Self.record(.succeeded, subFunction: .automator), Self.record(.failed, subFunction: .assistant)]
+        await viewModel.load(filter: MonitorFilter(subFunction: .automator), now: Self.now) { _ in records }
+        guard case let .ready(rows) = viewModel.state else {
+            Issue.record("Expected Ready")
+            return
+        }
+        #expect(rows.count == 1)
+        #expect(viewModel.successRate?.headline == "Success rate: 100% (1 of 1 rated session exited cleanly)")
+    }
+
+    @Test("A folder with no .talos/ is Empty with its reason, not Failed")
+    @MainActor
+    func notATalosProjectIsEmpty() async {
+        let viewModel = MonitorCostViewModel(priceTable: Self.table)
+        await viewModel.load(filter: MonitorFilter()) { _ in throw MonitorNotATalosProjectError() }
+        #expect(viewModel.state == .empty(.notATalosProject))
+    }
+
+    @Test("Before any project is chosen the Monitor is Empty, asking for one")
+    @MainActor
+    func startsWithNoProject() {
+        let viewModel = MonitorCostViewModel(priceTable: Self.table)
+        #expect(viewModel.state == .empty(.noProject))
     }
 }

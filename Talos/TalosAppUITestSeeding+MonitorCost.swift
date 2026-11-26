@@ -8,30 +8,43 @@ import TalosUI
 /// reason the file itself was split from `TalosApp`: to keep each type's body
 /// under the line-count limits, not because the helper differs from the others.
 extension TalosAppUITestSeeding {
-    /// Exists only so `TalosUITests` can drive the real, mounted Monitor cost
-    /// list before a project-selection flow exists to load it for real — the
-    /// same reason the seeds beside it exist. Seeds three sessions so the test
-    /// sees every cost line: a priced run, an unknown model (tokens known, cost
-    /// unavailable — never guessed), and an unparsable token report. Forces the
-    /// Monitor surface, since the persisted sidebar selection survives across
+    /// Exists only so `TalosUITests` can drive the real, mounted Monitor
+    /// without a real project or database — the same reason the seeds beside
+    /// it exist. The seeded records go through the same loader and filter as
+    /// live ones. Seeds every cost line (a priced run, an unknown model, an
+    /// unparsable token report) and every outcome. Forces the Monitor surface
+    /// and a project, since the persisted sidebar selection survives across
     /// launches and would otherwise leave the seeded list off screen.
-    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#how-cost-is-measured
-    static func seedMonitorCost(into viewModel: MonitorCostViewModel, navigation: ShellNavigationModel) {
-        guard ProcessInfo.processInfo.environment["TALOS_UI_TEST_MONITOR_COST"] != nil else { return }
-        viewModel.present(seededMonitorCostRecords)
+    /// https://github.com/CalixtoTheBugHunter/talos/wiki/Essential-Tools#monitor-screen
+    static func seedMonitorCost(navigation: ShellNavigationModel) {
+        guard isSeedingMonitorCost else { return }
+        navigation.selectedProjectRoot = URL(fileURLWithPath: "/ui-test-project", isDirectory: true)
         navigation.selectedSurface = .monitor
     }
 
-    /// One seeded Monitor cost session: what ran and the token report the cost
-    /// estimate is mapped from.
+    /// The seeded records loader, or `nil` outside the Monitor UI test.
+    static var monitorCostSeedLoader: (@Sendable (URL, DateInterval) async throws -> [StoredSessionRecord])? {
+        guard isSeedingMonitorCost else { return nil }
+        let records = seededMonitorCostRecords(endingAt: .now)
+        return { _, interval in records.filter { interval.contains($0.startedAt) } }
+    }
+
+    private static var isSeedingMonitorCost: Bool {
+        ProcessInfo.processInfo.environment["TALOS_UI_TEST_MONITOR_COST"] != nil
+    }
+
+    /// One seeded Monitor session: what ran, how it ended, and the token
+    /// report the cost estimate is mapped from.
     private struct SeededCostSession {
         let subFunction: SubFunction
-        let report: TokenReport
-        let injected: InjectedTokens
+        let outcome: SessionOutcomeClassification
+        let duration: TimeInterval
+        let report: TokenReport?
+        let injected: InjectedTokens?
     }
 
     private static let seededMonitorCostSessions: [SeededCostSession] = [
-        SeededCostSession(subFunction: .automator, report: .measured(
+        SeededCostSession(subFunction: .automator, outcome: .succeeded, duration: seededLongDuration, report: .measured(
             TokenCounts(
                 input: seededPricedInput,
                 output: seededPricedOutput,
@@ -40,26 +53,43 @@ extension TalosAppUITestSeeding {
             ),
             model: "global.anthropic.claude-opus-5"
         ), injected: InjectedTokens(bySource: [.guideline: seededOverBudgetInjected], framing: 0)),
-        SeededCostSession(subFunction: .assistant, report: .measured(
-            TokenCounts(input: seededUnknownInput, output: seededUnknownOutput),
-            model: "experimental-model-x"
-        ), injected: InjectedTokens(bySource: [.guideline: seededUnderBudgetInjected], framing: 0)),
-        SeededCostSession(subFunction: .advisor, report: .unavailable(
-            TokenUsageUnavailable(reason: .unrecognizedFormat, agentVersion: "2.1.246")
-        ), injected: InjectedTokens(bySource: [.guideline: seededUnderBudgetInjected], framing: 0))
+        SeededCostSession(
+            subFunction: .assistant, outcome: .succeeded, duration: seededShortDuration, report: .measured(
+                TokenCounts(input: seededUnknownInput, output: seededUnknownOutput),
+                model: "experimental-model-x"
+            ), injected: InjectedTokens(bySource: [.guideline: seededUnderBudgetInjected], framing: 0)
+        ),
+        SeededCostSession(
+            subFunction: .advisor, outcome: .succeeded, duration: seededShortDuration, report: .unavailable(
+                TokenUsageUnavailable(reason: .unrecognizedFormat, agentVersion: "2.1.246")
+            ), injected: InjectedTokens(bySource: [.guideline: seededUnderBudgetInjected], framing: 0)
+        ),
+        // No token record: excluded from overhead, not plotted, never a zero.
+        SeededCostSession(
+            subFunction: .assistant, outcome: .failed, duration: seededShortDuration, report: nil, injected: nil
+        ),
+        SeededCostSession(
+            subFunction: .automator, outcome: .denied, duration: seededShortDuration, report: nil, injected: nil
+        ),
+        SeededCostSession(
+            subFunction: .assistant, outcome: .stopped, duration: seededShortDuration, report: nil, injected: nil
+        )
     ]
 
-    private static let seededMonitorCostRecords: [StoredSessionRecord] = {
-        let base = Date(timeIntervalSince1970: seededMonitorCostEpoch)
+    /// Oldest first, all inside the last hour, so the default "Last 7 days"
+    /// shows every one.
+    private static func seededMonitorCostRecords(endingAt now: Date) -> [StoredSessionRecord] {
+        let count = Double(seededMonitorCostSessions.count)
+        let base = now.addingTimeInterval(-count * seededMonitorCostSpacing)
         return seededMonitorCostSessions.enumerated().map { index, session in
             StoredSessionRecord(
                 id: UUID(),
                 project: ProjectIdentifier(rawValue: "ui-test-project"),
                 subFunction: session.subFunction,
                 agentName: "claude-code",
-                outcome: .succeeded,
+                outcome: session.outcome,
                 startedAt: base.addingTimeInterval(Double(index) * seededMonitorCostSpacing),
-                duration: seededMonitorCostDuration,
+                duration: session.duration,
                 toolCallCount: 0,
                 approvalCount: 0,
                 denialCount: 0,
@@ -69,7 +99,7 @@ extension TalosAppUITestSeeding {
                 injectedTokens: session.injected
             )
         }
-    }()
+    }
 
     private static let seededPricedInput = 2
     private static let seededPricedOutput = 4
@@ -82,8 +112,8 @@ extension TalosAppUITestSeeding {
     private static let seededUnderBudgetInjected = 20
     private static let seededUnknownInput = 1200
     private static let seededUnknownOutput = 340
-    private static let seededMonitorCostEpoch: TimeInterval = 1_700_000_000
     private static let seededMonitorCostSpacing: TimeInterval = 120
-    private static let seededMonitorCostDuration: TimeInterval = 12
+    private static let seededShortDuration: TimeInterval = 12
+    private static let seededLongDuration: TimeInterval = 125
     private static let seededMonitorCostOverheadRatio = 0.03
 }
