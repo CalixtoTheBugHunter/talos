@@ -69,8 +69,8 @@ enum EnvValueParsing {
     /// minimum length and a mix of letters and digits so an ordinary word,
     /// sentence, or hex/UUID-shaped identifier is not flagged.
     private static func isHighEntropyLiteral(_ value: String) -> Bool {
-        guard value.count >= minimumHighEntropyLength, !value.contains(where: \.isWhitespace) else { return false }
-        guard value.contains(where: \.isNumber), value.contains(where: \.isLetter) else { return false }
+        guard value.count >= minimumHighEntropyLength, !value.contains(where: \.isWhitespace),
+              value.contains(where: \.isNumber), value.contains(where: \.isLetter) else { return false }
         return shannonEntropyPerCharacter(value) > highEntropyThreshold
     }
 

@@ -46,11 +46,9 @@ public struct BoardConflictCheck: Sendable {
     /// blocking the write on absent data would stop legitimate work.
     public func evaluate(itemID: String, expected: [BoardItem], actual: [BoardItem]) -> Result {
         guard let expectedState = state(ofItem: itemID, in: expected),
-              let actualState = state(ofItem: itemID, in: actual)
+              let actualState = state(ofItem: itemID, in: actual),
+              expectedState != actualState
         else {
-            return .agree
-        }
-        guard expectedState != actualState else {
             return .agree
         }
         let item = actual.first { $0.id == itemID } ?? expected.first { $0.id == itemID }
@@ -60,8 +58,8 @@ public struct BoardConflictCheck: Sendable {
     }
 
     private func state(ofItem itemID: String, in items: [BoardItem]) -> BoardState? {
-        guard let item = items.first(where: { $0.id == itemID }) else { return nil }
-        guard case let .mapped(state) = manifest.state(forColumn: item.column) else { return nil }
+        guard let item = items.first(where: { $0.id == itemID }),
+              case let .mapped(state) = manifest.state(forColumn: item.column) else { return nil }
         return state
     }
 }

@@ -38,8 +38,7 @@ struct BoardManifestNoProviderLeakTests {
 
         var files: [URL] = []
         for case let url as URL in enumerator {
-            guard url.pathExtension == "swift" else { continue }
-            guard !url.pathComponents.contains("TalosProjectLibrary") else { continue }
+            guard url.pathExtension == "swift", !url.pathComponents.contains("TalosProjectLibrary") else { continue }
             files.append(url)
         }
         return files

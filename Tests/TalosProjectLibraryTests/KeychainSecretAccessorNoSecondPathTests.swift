@@ -34,8 +34,7 @@ struct KeychainSecretAccessorNoSecondPathTests {
 
         var files: [URL] = []
         for case let url as URL in enumerator {
-            guard url.pathExtension == "swift" else { continue }
-            guard url.lastPathComponent != accessorFileName else { continue }
+            guard url.pathExtension == "swift", url.lastPathComponent != accessorFileName else { continue }
             files.append(url)
         }
         return files
