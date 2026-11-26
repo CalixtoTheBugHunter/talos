@@ -197,8 +197,7 @@ struct SessionConsoleToolCallApprovalTests {
 private extension SessionConsoleViewModel {
     var hasPendingApprovalForTesting: Bool {
         lines.contains { line in
-            guard case let .toolCall(call) = line.content else { return false }
-            guard case .pending = call.approval else { return false }
+            guard case let .toolCall(call) = line.content, case .pending = call.approval else { return false }
             return true
         }
     }

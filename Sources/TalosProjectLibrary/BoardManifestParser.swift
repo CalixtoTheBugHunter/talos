@@ -18,8 +18,10 @@ public enum BoardManifestParser {
     /// ``BoardManifestError``. `file` only labels a thrown error — this
     /// function does no filesystem access of its own.
     public static func parse(contents: String, file: String) throws -> BoardManifest? {
-        guard let mapping = try rootMapping(of: contents, file: file) else { return nil }
-        guard let boardMapping = try boardMapping(mapping: mapping, file: file) else { return nil }
+        guard let mapping = try rootMapping(of: contents, file: file), let boardMapping = try boardMapping(
+            mapping: mapping,
+            file: file
+        ) else { return nil }
         return try BoardManifest(
             provider: parseProvider(mapping: boardMapping, file: file),
             columns: parseColumns(mapping: boardMapping, file: file)

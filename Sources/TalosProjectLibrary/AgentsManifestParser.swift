@@ -245,7 +245,7 @@ public enum AgentsManifestParser {
     ) throws -> EnvValue {
         switch EnvValueParsing.classify(key: key, value: value) {
         case let .secretReference(name):
-            return .secret(SecretReference(keychainName: name))
+            .secret(SecretReference(keychainName: name))
         case .emptyKeychainReference:
             throw AgentsManifestError(
                 file: file,
@@ -261,7 +261,7 @@ public enum AgentsManifestParser {
                     "'\(EnvValueParsing.keychainPrefix)<name>' instead of a literal value."
             )
         case let .literal(literal):
-            return .literal(literal)
+            .literal(literal)
         }
     }
 

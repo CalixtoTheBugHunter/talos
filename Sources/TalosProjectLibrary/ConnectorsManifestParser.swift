@@ -191,7 +191,7 @@ public enum ConnectorsManifestParser {
     ) throws -> EnvValue {
         switch EnvValueParsing.classify(key: key, value: value) {
         case let .secretReference(name):
-            return .secret(SecretReference(keychainName: name))
+            .secret(SecretReference(keychainName: name))
         case .emptyKeychainReference:
             throw ConnectorsManifestError(
                 file: file,
@@ -207,7 +207,7 @@ public enum ConnectorsManifestParser {
                     "'\(EnvValueParsing.keychainPrefix)<name>' instead of a literal value."
             )
         case let .literal(literal):
-            return .literal(literal)
+            .literal(literal)
         }
     }
 

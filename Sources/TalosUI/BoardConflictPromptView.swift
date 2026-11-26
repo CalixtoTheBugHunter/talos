@@ -140,9 +140,9 @@ public struct BoardConflictPromptView: View {
 /// system's own chrome, so Liquid Glass and its Reduce Transparency degradation
 /// come for free.
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Design-System#liquid-glass-is-inherited-never-applied
+@MainActor
 public extension View {
     /// Attaches the conflict-prompt sheet described above, bound to `center`.
-    @MainActor
     func boardConflictPromptHost(_ center: BoardConflictPromptCenter) -> some View {
         sheet(item: Binding(
             get: { center.current },
