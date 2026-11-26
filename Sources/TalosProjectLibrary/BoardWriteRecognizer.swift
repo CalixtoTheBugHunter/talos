@@ -55,10 +55,12 @@ public struct BoardWriteRecognizer: Sendable {
         if let method = arguments[keys.method], !keys.updateMethods.contains(method) {
             return nil
         }
-        guard let itemID = firstValue(in: arguments, forAnyKey: keys.itemID), !itemID.isEmpty else {
-            return nil
-        }
-        guard let targetColumn = firstValue(in: arguments, forAnyKey: keys.targetColumn), !targetColumn.isEmpty else {
+        guard let itemID = firstValue(in: arguments, forAnyKey: keys.itemID), !itemID.isEmpty,
+              let targetColumn = firstValue(
+                  in: arguments,
+                  forAnyKey: keys.targetColumn
+              ), !targetColumn.isEmpty
+        else {
             return nil
         }
         return BoardWrite(itemID: itemID, targetColumn: targetColumn)

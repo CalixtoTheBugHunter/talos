@@ -71,8 +71,7 @@ struct NoPTYAllocationTests {
                 }
                 continue
             }
-            guard url.pathExtension == "swift" else { continue }
-            guard url.standardizedFileURL.path != selfPath else { continue }
+            guard url.pathExtension == "swift", url.standardizedFileURL.path != selfPath else { continue }
             files.append(url)
         }
         return files

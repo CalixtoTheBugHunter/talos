@@ -81,8 +81,8 @@ env:
   # re-tagged asset, which a version alone does not.
   SWIFTLINT_VERSION: 0.65.0
   SWIFTLINT_SHA256: d6cb0aa7a2f5f1ef306fc9e37bcb54dc9a26facc8f7784ac0c3dd3eccf5c6ba6
-  SWIFTFORMAT_VERSION: 0.62.1
-  SWIFTFORMAT_SHA256: 7cb1cb1fae04932047c7015441c543848e8e60e1572d808d080e0a1f1661114a
+  SWIFTFORMAT_VERSION: 0.64.7
+  SWIFTFORMAT_SHA256: e82e224325cbd3403fc7b68caf6c917926dc106de3af875fca4b87e3c4634038
   GITLEAKS_VERSION: 8.30.1
   GITLEAKS_SHA256: b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5
 
@@ -108,10 +108,10 @@ jobs:
           xcodebuild -version
           swift --version
 
-      # SwiftFormat 0.62.1 is preinstalled on this image and SwiftLint is not,
+      # SwiftFormat is preinstalled on this image and SwiftLint is not,
       # but both are installed from a pinned archive anyway: a preinstalled
       # version is the image's choice, and `.swiftformat` declares
-      # `--min-version 0.62.1` rather than a maximum, so an image bump would
+      # `--min-version` rather than a maximum, so an image bump would
       # otherwise change what `--lint` asserts without any diff here.
       - name: Cache the pinned linters
         id: linters

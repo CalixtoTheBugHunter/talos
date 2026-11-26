@@ -73,9 +73,8 @@ struct ClaudeCodeStreamDecoder {
     /// JSON, or not a JSON object — the truncated-mid-write case a process
     /// killed while writing produces.
     static func decode(_ line: String) -> ClaudeCodeStreamValue? {
-        guard !line.isEmpty else { return nil }
-        guard let data = line.data(using: .utf8) else { return nil }
-        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        guard !line.isEmpty, let data = line.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
 
         switch object["type"] as? String {
         case "system":
@@ -105,8 +104,8 @@ struct ClaudeCodeStreamDecoder {
     }
 
     private static func decodeAssistant(_ object: [String: Any]) -> ClaudeCodeStreamValue {
-        guard let message = object["message"] as? [String: Any] else { return .ignored }
-        guard let content = message["content"] as? [[String: Any]] else { return .ignored }
+        guard let message = object["message"] as? [String: Any],
+              let content = message["content"] as? [[String: Any]] else { return .ignored }
         for block in content {
             switch block["type"] as? String {
             case "text":
@@ -158,10 +157,9 @@ struct ClaudeCodeStreamDecoder {
     }
 
     private static func deferredToolUse(from object: [String: Any]) -> DeferredToolUse? {
-        guard object["stop_reason"] as? String == "tool_deferred" else { return nil }
-        guard let deferred = object["deferred_tool_use"] as? [String: Any] else { return nil }
-        guard let id = deferred["id"] as? String else { return nil }
-        guard let name = deferred["name"] as? String else { return nil }
+        guard object["stop_reason"] as? String == "tool_deferred",
+              let deferred = object["deferred_tool_use"] as? [String: Any], let id = deferred["id"] as? String,
+              let name = deferred["name"] as? String else { return nil }
         let input = deferred["input"] as? [String: Any] ?? [:]
         return DeferredToolUse(id: id, name: name, input: input)
     }

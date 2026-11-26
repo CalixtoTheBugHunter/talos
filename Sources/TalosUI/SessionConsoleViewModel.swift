@@ -322,8 +322,7 @@ public final class SessionConsoleViewModel: SafeguardsApprovalPrompt {
                 return call.callID == callID
             }
             return false
-        }) else { return false }
-        guard case var .toolCall(call) = lines[index].content else { return false }
+        }), case var .toolCall(call) = lines[index].content else { return false }
         call.approval = approval
         lines[index].content = .toolCall(call)
         return true

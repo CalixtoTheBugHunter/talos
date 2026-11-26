@@ -4,9 +4,9 @@ import SwiftUI
 /// system's own chrome, never a Talos-authored material, so Liquid Glass and
 /// its Reduce Transparency degradation both come for free.
 /// https://github.com/CalixtoTheBugHunter/talos/wiki/Design-System#liquid-glass-is-inherited-never-applied
+@MainActor
 public extension View {
     /// Attaches the sheet described above, bound to `center`.
-    @MainActor
     func approvalPromptHost(_ center: ApprovalPromptCenter) -> some View {
         sheet(item: Binding(
             get: { center.current },
